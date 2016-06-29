@@ -23,9 +23,14 @@
  *
  *   apps/samples/hello-jni/project/src/com/example/hellojni/HelloJni.java
  */
-jstring
-Java_com_example_hellojni_HelloJni_stringFromJNI( JNIEnv* env,
-                                                  jobject thiz )
+jstring Java_com_example_hellojni_HelloJni_stringFromJNI(
+		JNIEnv* env, jobject thiz )
 {
-    return (*env)->NewStringUTF(env, "Hello from JNI !  Compiled with ABI armeabi-v7a");
+    return (*env)->NewStringUTF(env, "stringFromJNI");
+}
+
+jstring Java_com_example_hellojni_HelloJni_stringFromJNI_11(
+		JNIEnv* env, jobject thiz )
+{
+    return (*env)->NewStringUTF(env, "stringFromJNI_11");
 }
