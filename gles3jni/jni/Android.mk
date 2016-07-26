@@ -24,3 +24,14 @@ LOCAL_SRC_FILES := gles3jni.cpp \
 LOCAL_LDLIBS    := -llog -lGLESv3 -lEGL
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE :=mdklog
+LOCAL_SRC_FILES := libmdklog.so
+include $(PREBUILT_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE :=mojing_gles3
+LOCAL_SRC_FILES := libmojing_gles3.so
+include $(PREBUILT_SHARED_LIBRARY)
+

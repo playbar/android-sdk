@@ -22,3 +22,14 @@ LOCAL_SRC_FILES := gl_code.cpp
 LOCAL_LDLIBS    := -llog -lGLESv2
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE :=mdklog
+LOCAL_SRC_FILES := libmdklog.so
+include $(PREBUILT_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE :=mojing_gles3
+LOCAL_SRC_FILES := libmojing_gles3.so
+include $(PREBUILT_SHARED_LIBRARY)
+
