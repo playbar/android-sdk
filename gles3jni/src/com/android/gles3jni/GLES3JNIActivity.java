@@ -23,6 +23,8 @@ import android.view.WindowManager;
 
 import java.io.File;
 
+import com.baofeng.mojing.MojingSDK;
+
 public class GLES3JNIActivity extends Activity {
 
     GLES3JNIView mView;
@@ -31,6 +33,7 @@ public class GLES3JNIActivity extends Activity {
         super.onCreate(icicle);
         mView = new GLES3JNIView(getApplication());
         setContentView(mView);
+        MojingSDK.Init(this, false );
     }
 
     @Override protected void onPause() {

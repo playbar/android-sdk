@@ -45,15 +45,32 @@ class GLES3JNIView extends GLSurfaceView {
 
     private static class Renderer implements GLSurfaceView.Renderer {
         public void onDrawFrame(GL10 gl) {
-            GLES3JNILib.step();
+            //GLES3JNILib.step();
+    			float[] fM  = new float[16];
+    			com.baofeng.mojing.MojingSDK.getLastHeadView(fM);
+            com.baofeng.mojing.MojingSDK3288.RenderFrame(fM);
         }
 
         public void onSurfaceChanged(GL10 gl, int width, int height) {
-            GLES3JNILib.resize(width, height);
+            //GLES3JNILib.resize(width, height);
+			float[] modelView = { -0.5f, 0.0f, 0.0f, // leftCameraPos
+					0.5f, 0.0f, 0.0f, // rightCameraPos
+					0.0f, 0.0f, -1.0f, // lookAt
+					0.0f, 1.0f, 0.0f // upVec
+			};
+			float[] perspective = { 1.5707963268f, 1.0f, 0.1f, 100.0f, // left(fov,
+																		// w/h,
+																		// near,
+																		// far)
+					1.5707963268f, 1.0f, 0.1f, 100.0f // right
+			};
+
+			com.baofeng.mojing.MojingSDK3288.RenderInit(width, height, 0, modelView, perspective);
+
         }
 
         public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-            GLES3JNILib.init();
+            //GLES3JNILib.init();
         }
     }
 }
