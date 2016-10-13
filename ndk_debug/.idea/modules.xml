@@ -3,7 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ndk_dub.iml" filepath="$PROJECT_DIR$/ndk_dub.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ndk_debug.iml" filepath="$PROJECT_DIR$/ndk_debug.iml" />
     </modules>
   </component>
 </project>
