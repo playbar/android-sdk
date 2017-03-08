@@ -20,6 +20,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import com.bar.test.R;
 import com.log.Logger;
 
 public class HelloJni extends AppCompatActivity {
