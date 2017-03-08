@@ -21,4 +21,9 @@
     <string name="menu_refresh">Refresh</string>
     <string name="menu_search">Search</string>
     <string name="menu_share">Share</string>
+        <string name="info">Ensure that Android Beam is enabled by turning it on in
+        the system Settings (select the setting icon above), then place this device up
+        against another Android device that supports Android Beam to send a
+        message.</string>
+    <string name="menu_settings">Android Beam settings</string>
 </resources>

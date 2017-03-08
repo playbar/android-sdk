@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.beam;
+package com.bar.example;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -36,6 +36,8 @@ import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bar.sample.R;
+
 import java.nio.charset.Charset;
 
 
@@ -48,7 +50,7 @@ public class Beam extends Activity implements CreateNdefMessageCallback,
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
+        setContentView(R.layout.bean);
 
         mInfoText = (TextView) findViewById(R.id.textView);
         // Check for available NFC Adapter
