@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--定义GridView的item的布局-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="4dp">
+    <!--item的图片控件-->
+    <ImageView
+        android:id="@+id/ItemIv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"/>
+    <!--item的文字控件-->
+    <TextView
+        android:id="@+id/ItemTv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/ItemIv"
+        android:layout_centerHorizontal="true"/>
+
+</RelativeLayout>
