@@ -1,3 +1,4 @@
 include ':nativeactivity'
 include ':samples'
 include ':mainapp'
+include ':test'
