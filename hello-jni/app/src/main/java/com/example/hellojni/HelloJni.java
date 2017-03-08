@@ -20,6 +20,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import com.log.Logger;
+
 public class HelloJni extends AppCompatActivity {
 
     @Override
@@ -29,6 +31,7 @@ public class HelloJni extends AppCompatActivity {
          * the text is retrieved by calling a native
          * function.
          */
+        Logger.e("HelloJni", "HelloJni");
         setContentView(R.layout.activity_hello_jni);
         TextView tv = (TextView)findViewById(R.id.hello_textview);
         tv.setText( stringFromJNI() );
