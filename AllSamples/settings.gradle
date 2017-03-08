@@ -1,2 +1,3 @@
 include ':nativeactivity'
+include ':AccelerometerPlay'
 

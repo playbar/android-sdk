@@ -41,7 +41,7 @@ import android.view.WindowManager;
  * a very simple particle system comprised of a few iron balls freely moving on
  * an inclined wooden table. The inclination of the virtual table is controlled
  * by the device's accelerometer.
- * 
+ *
  * @see SensorManager
  * @see SensorEvent
  * @see Sensor
@@ -165,7 +165,7 @@ public class AccelerometerPlayActivity extends Activity {
                 final float gy = -sy * m;
 
                 /*
-                 * ·F = mA <=> A = ·F / m We could simplify the code by
+                 * ç¨¦ = mA <=> A = ç¨¦ / m We could simplify the code by
                  * completely eliminating "m" (the mass) from all the equations,
                  * but it would hide the concepts from this sample code.
                  */
@@ -175,12 +175,12 @@ public class AccelerometerPlayActivity extends Activity {
 
                 /*
                  * Time-corrected Verlet integration The position Verlet
-                 * integrator is defined as x(t+Æt) = x(t) + x(t) - x(t-Æt) +
-                 * a(t)Ætö2 However, the above equation doesn't handle variable
-                 * Æt very well, a time-corrected version is needed: x(t+Æt) =
-                 * x(t) + (x(t) - x(t-Æt)) * (Æt/Æt_prev) + a(t)Ætö2 We also add
-                 * a simple friction term (f) to the equation: x(t+Æt) = x(t) +
-                 * (1-f) * (x(t) - x(t-Æt)) * (Æt/Æt_prev) + a(t)Ætö2
+                 * integrator is defined as x(t+è‹©) = x(t) + x(t) - x(t-è‹©) +
+                 * a(t)è‹©? However, the above equation doesn't handle variable
+                 * è‹© very well, a time-corrected version is needed: x(t+è‹©) =
+                 * x(t) + (x(t) - x(t-è‹©)) * (è‹©/è‹©_prev) + a(t)è‹©? We also add
+                 * a simple friction term (f) to the equation: x(t+è‹©) = x(t) +
+                 * (1-f) * (x(t) - x(t-è‹©)) * (è‹©/è‹©_prev) + a(t)è‹©?
                  */
                 final float dTdT = dT * dT;
                 final float x = mPosX + mOneMinusFriction * dTC * (mPosX - mLastPosX) + mAccelX
