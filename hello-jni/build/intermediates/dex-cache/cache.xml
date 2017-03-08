@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items version="2" >
+
+    <item
+        is-multidex="false"
+        jar="S:\sdk\extras\android\m2repository\com\android\support\support-annotations\23.4.0\support-annotations-23.4.0.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="ffbe55fdb2bb456b1485831706a9eac3300bb6b8">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\support-annotations-23.4.0_11ebf1f9c2f23a64de0d777de7de746de5c22096.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\exploded-aar\com.android.support.constraint\constraint-layout\1.0.0-alpha7\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="541a2ad68dc68aa49795821f8280b7624e6a0c9b">
+        <dex dex="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support.constraint-constraint-layout-1.0.0-alpha7_d92aa9273a7c623d155e698a62d8dfa6bb0520d3.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\exploded-aar\com.android.support\animated-vector-drawable\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="de4db3785756bfb0915a9f59a9b3f2fea7407be4">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-animated-vector-drawable-23.4.0_01d4cb2dcf16b00ddb5c17e753c69f6997ca89ac.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="S:\sdk\extras\m2repository\com\android\support\constraint\constraint-layout-solver\1.0.0-alpha7\constraint-layout-solver-1.0.0-alpha7.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="439eeb5ffd54cbd18db0a6aea471e8356f19fc36">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\constraint-layout-solver-1.0.0-alpha7_df66b1362929c8f8ef516c64787e753639193478.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\exploded-aar\com.android.support\appcompat-v7\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="548f06de403a9409f00554b3ee12a9fdea0e236c">
+        <dex dex="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-appcompat-v7-23.4.0_cb0b2a6ee4cdd942d72cf5df063389f2050fd530.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="67bd36ee9340ec7c254108936ad16b24bed160cc">
+        <dex dex="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-support-v4-23.4.0_169e81dad364748c4f22b013cb3763fc49eae22b.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\exploded-aar\com.android.support\animated-vector-drawable\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="de4db3785756bfb0915a9f59a9b3f2fea7407be4">
+        <dex dex="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-animated-vector-drawable-23.4.0_4c23dda15aeed9cfc9e5949d49f83e47b7c7217a.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\exploded-aar\com.android.support\appcompat-v7\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="548f06de403a9409f00554b3ee12a9fdea0e236c">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-appcompat-v7-23.4.0_ed0d951f8aeac4a191f347505e12185f80c6e930.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\exploded-aar\com.android.support.constraint\constraint-layout\1.0.0-alpha7\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="541a2ad68dc68aa49795821f8280b7624e6a0c9b">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support.constraint-constraint-layout-1.0.0-alpha7_f0b59225b1f1df2c05dceeee76884f4c2aaf5c6b.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="67bd36ee9340ec7c254108936ad16b24bed160cc">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-support-v4-23.4.0_479e64e0486e96d0c7e97bcc5c8069efcf7cbb50.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.4.0\jars\libs\internal_impl-23.4.0.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="ea3c07504d2c8f4b13aa17c45c1b68ed9c1c3674">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\internal_impl-23.4.0_f9480b1aff75d80ce812b1cd6e85a25df629e2fc.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\exploded-aar\com.android.support\support-vector-drawable\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="c2c594cace5d83a3227b2b6e658ecbfd586d3ed9">
+        <dex dex="D:\MyWorks\android-ndk\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-support-vector-drawable-23.4.0_7da2467010db91b8d5e902f8cf9db1cd183550e5.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\exploded-aar\com.android.support\support-vector-drawable\23.4.0\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="c2c594cace5d83a3227b2b6e658ecbfd586d3ed9">
+        <dex dex="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\com.android.support-support-vector-drawable-23.4.0_dfb9eafca631361acf68b59a3686c3f62986130e.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\exploded-aar\com.android.support\support-v4\23.4.0\jars\libs\internal_impl-23.4.0.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="23.0.2"
+        sha1="ea3c07504d2c8f4b13aa17c45c1b68ed9c1c3674">
+        <dex dex="D:\MyWorks\github\android-samples\hello-jni\app\build\intermediates\pre-dexed\arm7\debug\internal_impl-23.4.0_44d3277045d72f17ddd653c7824c7e5a6a3c4512.jar" />
+    </item>
+
+</items>
