@@ -5,7 +5,7 @@ android {
     buildToolsVersion = '23.0.2'
 
     defaultConfig {
-        applicationId = 'com.example.android.accelerometerplay'
+        applicationId = 'com.bar.sample'
         minSdkVersion   19
         targetSdkVersion  23
         ndk {

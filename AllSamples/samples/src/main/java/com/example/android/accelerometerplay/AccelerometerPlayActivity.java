@@ -35,6 +35,8 @@ import android.view.Surface;
 import android.view.View;
 import android.view.WindowManager;
 
+import com.bar.sample.R;
+
 /**
  * This is an example of using the accelerometer to integrate the device's
  * acceleration to a position using the Verlet method. This is illustrated with
