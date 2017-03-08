@@ -600,19 +600,26 @@ public abstract class AdapterView<T extends Adapter> extends ViewGroup {
     }
 
     /**
-     * Get the position within the adapter's data set for the view, where view is a an adapter item
-     * or a descendant of an adapter item.
+     * Returns the position within the adapter's data set for the view, where
+     * view is a an adapter item or a descendant of an adapter item.
+     * <p>
+     * <strong>Note:</strong> The result of this method only reflects the
+     * position of the data bound to <var>view</var> during the most recent
+     * layout pass. If the adapter's data set has changed without a subsequent
+     * layout pass, the position returned by this method may not match the
+     * current position of the data within the adapter.
      *
-     * @param view an adapter item, or a descendant of an adapter item. This must be visible in this
-     *        AdapterView at the time of the call.
-     * @return the position within the adapter's data set of the view, or {@link #INVALID_POSITION}
-     *         if the view does not correspond to a list item (or it is not currently visible).
+     * @param view an adapter item, or a descendant of an adapter item. This
+     *             must be visible in this AdapterView at the time of the call.
+     * @return the position within the adapter's data set of the view, or
+     *         {@link #INVALID_POSITION} if the view does not correspond to a
+     *         list item (or it is not currently visible)
      */
     public int getPositionForView(View view) {
         View listItem = view;
         try {
             View v;
-            while (!(v = (View) listItem.getParent()).equals(this)) {
+            while ((v = (View) listItem.getParent()) != null && !v.equals(this)) {
                 listItem = v;
             }
         } catch (ClassCastException e) {
@@ -620,11 +627,13 @@ public abstract class AdapterView<T extends Adapter> extends ViewGroup {
             return INVALID_POSITION;
         }
 
-        // Search the children for the list item
-        final int childCount = getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            if (getChildAt(i).equals(listItem)) {
-                return mFirstPosition + i;
+        if (listItem != null) {
+            // Search the children for the list item
+            final int childCount = getChildCount();
+            for (int i = 0; i < childCount; i++) {
+                if (getChildAt(i).equals(listItem)) {
+                    return mFirstPosition + i;
+                }
             }
         }
 

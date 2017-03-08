@@ -56,7 +56,6 @@ import java.util.Random;
 
 public class CaptivePortalLoginActivity extends Activity {
     private static final String TAG = "CaptivePortalLogin";
-    private static final String DEFAULT_SERVER = "connectivitycheck.gstatic.com";
     private static final int SOCKET_TIMEOUT_MS = 10000;
 
     private enum Result { DISMISSED, UNWANTED, WANTED_AS_IS };
@@ -72,15 +71,14 @@ public class CaptivePortalLoginActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        String server = Settings.Global.getString(getContentResolver(), "captive_portal_server");
-        if (server == null) server = DEFAULT_SERVER;
         mCm = ConnectivityManager.from(this);
+        String url = getIntent().getStringExtra(ConnectivityManager.EXTRA_CAPTIVE_PORTAL_URL);
+        if (url == null) url = mCm.getCaptivePortalServerUrl();
         try {
-            mURL = new URL("http", server, "/generate_204");
+            mURL = new URL(url);
         } catch (MalformedURLException e) {
             // System misconfigured, bail out in a way that at least provides network access.
-            Log.e(TAG, "Invalid captive portal URL, server=" + server);
+            Log.e(TAG, "Invalid captive portal URL, url=" + url);
             done(Result.WANTED_AS_IS);
         }
         mNetwork = getIntent().getParcelableExtra(ConnectivityManager.EXTRA_NETWORK);
@@ -98,7 +96,7 @@ public class CaptivePortalLoginActivity extends Activity {
         // Exit app if Network disappears.
         final NetworkCapabilities networkCapabilities = mCm.getNetworkCapabilities(mNetwork);
         if (networkCapabilities == null) {
-            finish();
+            finishAndRemoveTask();
             return;
         }
         mNetworkCallback = new NetworkCallback() {
@@ -117,6 +115,7 @@ public class CaptivePortalLoginActivity extends Activity {
         myWebView.clearCache(true);
         WebSettings webSettings = myWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         mWebViewClient = new MyWebViewClient();
         myWebView.setWebViewClient(mWebViewClient);
         myWebView.setWebChromeClient(new MyWebChromeClient());
@@ -165,7 +164,7 @@ public class CaptivePortalLoginActivity extends Activity {
                 mCaptivePortal.useNetwork();
                 break;
         }
-        finish();
+        finishAndRemoveTask();
     }
 
     @Override

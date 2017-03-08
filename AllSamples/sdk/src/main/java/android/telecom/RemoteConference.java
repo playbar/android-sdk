@@ -92,6 +92,18 @@ public final class RemoteConference {
                 int connectionCapabilities) {}
 
         /**
+         * Indicates that the call properties of this {@code RemoteConference} have changed.
+         * See {@link #getConnectionProperties()}.
+         *
+         * @param conference The {@code RemoteConference} invoking this method.
+         * @param connectionProperties The new properties of the {@code RemoteConference}.
+         */
+        public void onConnectionPropertiesChanged(
+                RemoteConference conference,
+                int connectionProperties) {}
+
+
+        /**
          * Invoked when the set of {@link RemoteConnection}s which can be added to this conference
          * call have changed.
          *
@@ -133,6 +145,7 @@ public final class RemoteConference {
     private int mState = Connection.STATE_NEW;
     private DisconnectCause mDisconnectCause;
     private int mConnectionCapabilities;
+    private int mConnectionProperties;
     private Bundle mExtras;
 
     /** @hide */
@@ -244,6 +257,24 @@ public final class RemoteConference {
     }
 
     /** @hide */
+    void setConnectionProperties(final int connectionProperties) {
+        if (mConnectionProperties != connectionProperties) {
+            mConnectionProperties = connectionProperties;
+            for (CallbackRecord<Callback> record : mCallbackRecords) {
+                final RemoteConference conference = this;
+                final Callback callback = record.getCallback();
+                record.getHandler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        callback.onConnectionPropertiesChanged(
+                                conference, mConnectionProperties);
+                    }
+                });
+            }
+        }
+    }
+
+    /** @hide */
     void setConferenceableConnections(List<RemoteConnection> conferenceableConnections) {
         mConferenceableConnections.clear();
         mConferenceableConnections.addAll(conferenceableConnections);
@@ -279,15 +310,38 @@ public final class RemoteConference {
     }
 
     /** @hide */
-    void setExtras(final Bundle extras) {
-        mExtras = extras;
+    void putExtras(final Bundle extras) {
+        if (extras == null) {
+            return;
+        }
+        if (mExtras == null) {
+            mExtras = new Bundle();
+        }
+        mExtras.putAll(extras);
+
+        notifyExtrasChanged();
+    }
+
+    /** @hide */
+    void removeExtras(List<String> keys) {
+        if (mExtras == null || keys == null || keys.isEmpty()) {
+            return;
+        }
+        for (String key : keys) {
+            mExtras.remove(key);
+        }
+
+        notifyExtrasChanged();
+    }
+
+    private void notifyExtrasChanged() {
         for (CallbackRecord<Callback> record : mCallbackRecords) {
             final RemoteConference conference = this;
             final Callback callback = record.getCallback();
             record.getHandler().post(new Runnable() {
                 @Override
                 public void run() {
-                    callback.onExtrasChanged(conference, extras);
+                    callback.onExtrasChanged(conference, mExtras);
                 }
             });
         }
@@ -319,6 +373,16 @@ public final class RemoteConference {
      */
     public final int getConnectionCapabilities() {
         return mConnectionCapabilities;
+    }
+
+    /**
+     * Returns the properties of the conference. See {@code PROPERTY_*} constants in class
+     * {@link Connection} for valid values.
+     *
+     * @return A bitmask of the properties of the conference call.
+     */
+    public final int getConnectionProperties() {
+        return mConnectionProperties;
     }
 
     /**

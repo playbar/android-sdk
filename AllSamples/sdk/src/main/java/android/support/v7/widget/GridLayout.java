@@ -83,7 +83,7 @@ import static java.lang.Math.min;
  * <h4>Space</h4>
  *
  * Space between children may be specified either by using instances of the
- * dedicated {@link android.support.v7.widget.Space} view or by setting the
+ * dedicated {@link android.support.v4.widget.Space} view or by setting the
  *
  * {@link ViewGroup.MarginLayoutParams#leftMargin leftMargin},
  * {@link ViewGroup.MarginLayoutParams#topMargin topMargin},
@@ -149,12 +149,12 @@ import static java.lang.Math.min;
  * See {@link GridLayout.LayoutParams} for a full description of the
  * layout parameters used by GridLayout.
  *
- * @attr ref android.R.styleable#GridLayout_orientation
- * @attr ref android.R.styleable#GridLayout_rowCount
- * @attr ref android.R.styleable#GridLayout_columnCount
- * @attr ref android.R.styleable#GridLayout_useDefaultMargins
- * @attr ref android.R.styleable#GridLayout_rowOrderPreserved
- * @attr ref android.R.styleable#GridLayout_columnOrderPreserved
+ * @attr name android:orientation
+ * @attr name android:rowCount
+ * @attr name android:columnCount
+ * @attr name android:useDefaultMargins
+ * @attr name android:rowOrderPreserved
+ * @attr name android:columnOrderPreserved
  */
 public class GridLayout extends ViewGroup {
 
@@ -231,7 +231,7 @@ public class GridLayout extends ViewGroup {
     private static final int DEFAULT_ORIENTATION = HORIZONTAL;
     private static final int DEFAULT_COUNT = UNDEFINED;
     private static final boolean DEFAULT_USE_DEFAULT_MARGINS = false;
-    private static final boolean DEFAULT_ORDER_PRESERVED = true;
+    static final boolean DEFAULT_ORDER_PRESERVED = true;
     private static final int DEFAULT_ALIGNMENT_MODE = ALIGN_MARGINS;
 
     // TypedArray indices
@@ -301,7 +301,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #setOrientation(int)
      *
-     * @attr ref android.R.styleable#GridLayout_orientation
+     * @attr name android:orientation
      */
     public int getOrientation() {
         return mOrientation;
@@ -341,7 +341,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #getOrientation()
      *
-     * @attr ref android.R.styleable#GridLayout_orientation
+     * @attr name android:orientation
      */
     public void setOrientation(int orientation) {
         if (this.mOrientation != orientation) {
@@ -361,7 +361,7 @@ public class GridLayout extends ViewGroup {
      * @see #setRowCount(int)
      * @see LayoutParams#rowSpec
      *
-     * @attr ref android.R.styleable#GridLayout_rowCount
+     * @attr name android:rowCount
      */
     public int getRowCount() {
         return mVerticalAxis.getCount();
@@ -376,7 +376,7 @@ public class GridLayout extends ViewGroup {
      * @see #getRowCount()
      * @see LayoutParams#rowSpec
      *
-     * @attr ref android.R.styleable#GridLayout_rowCount
+     * @attr name android:rowCount
      */
     public void setRowCount(int rowCount) {
         mVerticalAxis.setCount(rowCount);
@@ -394,7 +394,7 @@ public class GridLayout extends ViewGroup {
      * @see #setColumnCount(int)
      * @see LayoutParams#columnSpec
      *
-     * @attr ref android.R.styleable#GridLayout_columnCount
+     * @attr name android:columnCount
      */
     public int getColumnCount() {
         return mHorizontalAxis.getCount();
@@ -409,7 +409,7 @@ public class GridLayout extends ViewGroup {
      * @see #getColumnCount()
      * @see LayoutParams#columnSpec
      *
-     * @attr ref android.R.styleable#GridLayout_columnCount
+     * @attr name android:columnCount
      */
     public void setColumnCount(int columnCount) {
         mHorizontalAxis.setCount(columnCount);
@@ -425,7 +425,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #setUseDefaultMargins(boolean)
      *
-     * @attr ref android.R.styleable#GridLayout_useDefaultMargins
+     * @attr name android:useDefaultMargins
      */
     public boolean getUseDefaultMargins() {
         return mUseDefaultMargins;
@@ -455,7 +455,7 @@ public class GridLayout extends ViewGroup {
      * @see MarginLayoutParams#rightMargin
      * @see MarginLayoutParams#bottomMargin
      *
-     * @attr ref android.R.styleable#GridLayout_useDefaultMargins
+     * @attr name android:useDefaultMargins
      */
     public void setUseDefaultMargins(boolean useDefaultMargins) {
         this.mUseDefaultMargins = useDefaultMargins;
@@ -472,7 +472,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #setAlignmentMode(int)
      *
-     * @attr ref android.R.styleable#GridLayout_alignmentMode
+     * @attr name android:alignmentMode
      */
     public int getAlignmentMode() {
         return mAlignmentMode;
@@ -491,7 +491,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #getAlignmentMode()
      *
-     * @attr ref android.R.styleable#GridLayout_alignmentMode
+     * @attr name android:alignmentMode
      */
     public void setAlignmentMode(int alignmentMode) {
         this.mAlignmentMode = alignmentMode;
@@ -506,7 +506,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #setRowOrderPreserved(boolean)
      *
-     * @attr ref android.R.styleable#GridLayout_rowOrderPreserved
+     * @attr name android:rowOrderPreserved
      */
     public boolean isRowOrderPreserved() {
         return mVerticalAxis.isOrderPreserved();
@@ -526,7 +526,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #isRowOrderPreserved()
      *
-     * @attr ref android.R.styleable#GridLayout_rowOrderPreserved
+     * @attr name android:rowOrderPreserved
      */
     public void setRowOrderPreserved(boolean rowOrderPreserved) {
         mVerticalAxis.setOrderPreserved(rowOrderPreserved);
@@ -542,7 +542,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #setColumnOrderPreserved(boolean)
      *
-     * @attr ref android.R.styleable#GridLayout_columnOrderPreserved
+     * @attr name android:columnOrderPreserved
      */
     public boolean isColumnOrderPreserved() {
         return mHorizontalAxis.isOrderPreserved();
@@ -562,7 +562,7 @@ public class GridLayout extends ViewGroup {
      *
      * @see #isColumnOrderPreserved()
      *
-     * @attr ref android.R.styleable#GridLayout_columnOrderPreserved
+     * @attr name android:columnOrderPreserved
      */
     public void setColumnOrderPreserved(boolean columnOrderPreserved) {
         mHorizontalAxis.setOrderPreserved(columnOrderPreserved);
@@ -635,7 +635,7 @@ public class GridLayout extends ViewGroup {
 
     /** @noinspection UnusedParameters*/
     private int getDefaultMargin(View c, boolean horizontal, boolean leading) {
-        if (c.getClass() == android.support.v7.widget.Space.class) {
+        if (c.getClass() == android.support.v4.widget.Space.class) {
             return 0;
         }
         return mDefaultGap / 2;
@@ -798,7 +798,7 @@ public class GridLayout extends ViewGroup {
         return (LayoutParams) c.getLayoutParams();
     }
 
-    private static void handleInvalidParams(String msg) {
+    static void handleInvalidParams(String msg) {
         throw new IllegalArgumentException(msg + ". ");
     }
 
@@ -846,8 +846,14 @@ public class GridLayout extends ViewGroup {
     }
 
     @Override
-    protected LayoutParams generateLayoutParams(ViewGroup.LayoutParams p) {
-        return new LayoutParams(p);
+    protected LayoutParams generateLayoutParams(ViewGroup.LayoutParams lp) {
+        if (lp instanceof LayoutParams) {
+            return new LayoutParams((LayoutParams) lp);
+        } else if (lp instanceof MarginLayoutParams) {
+            return new LayoutParams((MarginLayoutParams) lp);
+        } else {
+            return new LayoutParams(lp);
+        }
     }
 
     // Draw grid
@@ -1084,9 +1090,9 @@ public class GridLayout extends ViewGroup {
      for the vertical one.
      */
     final class Axis {
-        private static final int NEW = 0;
-        private static final int PENDING = 1;
-        private static final int COMPLETE = 2;
+        static final int NEW = 0;
+        static final int PENDING = 1;
+        static final int COMPLETE = 2;
 
         public final boolean horizontal;
 
@@ -1123,7 +1129,7 @@ public class GridLayout extends ViewGroup {
         private MutableInt parentMin = new MutableInt(0);
         private MutableInt parentMax = new MutableInt(-MAX_SIZE);
 
-        private Axis(boolean horizontal) {
+        Axis(boolean horizontal) {
             this.horizontal = horizontal;
         }
 
@@ -1647,7 +1653,8 @@ public class GridLayout extends ViewGroup {
             boolean validSolution = true;
             // do a binary search to find the max delta that won't conflict with constraints
             while(deltaMin < deltaMax) {
-                final int delta = (deltaMin + deltaMax) / 2;
+                // cast to long to prevent overflow.
+                final int delta = (int)(((long)deltaMin + deltaMax) / 2);
                 invalidateValues();
                 shareOutDelta(delta, totalWeight);
                 validSolution = solve(getArcs(), a, false);
@@ -1858,13 +1865,13 @@ public class GridLayout extends ViewGroup {
      * See {@link GridLayout} for a more complete description of the conventions
      * used by GridLayout in the interpretation of the properties of this class.
      *
-     * @attr ref android.R.styleable#GridLayout_Layout_layout_row
-     * @attr ref android.R.styleable#GridLayout_Layout_layout_rowSpan
-     * @attr ref android.R.styleable#GridLayout_Layout_layout_rowWeight
-     * @attr ref android.R.styleable#GridLayout_Layout_layout_column
-     * @attr ref android.R.styleable#GridLayout_Layout_layout_columnSpan
-     * @attr ref android.R.styleable#GridLayout_Layout_layout_columnWeight
-     * @attr ref android.R.styleable#GridLayout_Layout_layout_gravity
+     * @attr name android:row
+     * @attr name android:rowSpan
+     * @attr name android:rowWeight
+     * @attr name android:column
+     * @attr name android:columnSpan
+     * @attr name android:columnWeight
+     * @attr name android:gravity
      */
     public static class LayoutParams extends MarginLayoutParams {
 
@@ -2053,7 +2060,7 @@ public class GridLayout extends ViewGroup {
          *
          * @param gravity the new gravity value
          *
-         * @attr ref android.R.styleable#GridLayout_Layout_layout_gravity
+         * @attr name android:gravity
          */
         public void setGravity(int gravity) {
             rowSpec = rowSpec.copyWriteAlignment(getAlignment(gravity, false));
@@ -2188,7 +2195,7 @@ public class GridLayout extends ViewGroup {
         public final K[] keys;
         public final V[] values;
 
-        private PackedMap(K[] keys, V[] values) {
+        PackedMap(K[] keys, V[] values) {
             this.index = createIndex(keys);
 
             this.keys = compact(keys, index);
@@ -2248,7 +2255,7 @@ public class GridLayout extends ViewGroup {
         public int after;
         public int flexibility; // we're flexible iff all included specs are flexible
 
-        private Bounds() {
+        Bounds() {
             reset();
         }
 
@@ -2426,7 +2433,7 @@ public class GridLayout extends ViewGroup {
             this.weight = weight;
         }
 
-        private Spec(boolean startDefined, int start, int size, Alignment alignment, float weight) {
+        Spec(boolean startDefined, int start, int size, Alignment alignment, float weight) {
             this(startDefined, new Interval(start, start + size), alignment, weight);
         }
 
@@ -2909,6 +2916,6 @@ public class GridLayout extends ViewGroup {
         return (flexibility & CAN_STRETCH) != 0;
     }
 
-    private static final int INFLEXIBLE = 0;
-    private static final int CAN_STRETCH = 2;
+    static final int INFLEXIBLE = 0;
+    static final int CAN_STRETCH = 2;
 }

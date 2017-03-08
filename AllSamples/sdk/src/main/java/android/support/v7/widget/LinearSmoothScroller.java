@@ -18,6 +18,7 @@ package android.support.v7.widget;
 
 import android.content.Context;
 import android.graphics.PointF;
+import android.support.annotation.Nullable;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
@@ -25,12 +26,16 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
 
 /**
- * {@link RecyclerView.SmoothScroller} implementation which uses
- * {@link android.view.animation.LinearInterpolator} until the target position becames a child of
- * the RecyclerView and then uses
- * {@link android.view.animation.DecelerateInterpolator} to slowly approach to target position.
+ * {@link RecyclerView.SmoothScroller} implementation which uses a {@link LinearInterpolator} until
+ * the target position becomes a child of the RecyclerView and then uses a
+ * {@link DecelerateInterpolator} to slowly approach to target position.
+ * <p>
+ * If the {@link RecyclerView.LayoutManager} you are using does not implement the
+ * {@link RecyclerView.SmoothScroller.ScrollVectorProvider} interface, then you must override the
+ * {@link #computeScrollVectorForPosition(int)} method. All the LayoutManagers bundled with
+ * the support library implement this interface.
  */
-abstract public class LinearSmoothScroller extends RecyclerView.SmoothScroller {
+public class LinearSmoothScroller extends RecyclerView.SmoothScroller {
 
     private static final String TAG = "LinearSmoothScroller";
 
@@ -122,6 +127,7 @@ abstract public class LinearSmoothScroller extends RecyclerView.SmoothScroller {
             stop();
             return;
         }
+        //noinspection PointlessBooleanExpression
         if (DEBUG && mTargetVector != null
                 && ((mTargetVector.x * dx < 0 || mTargetVector.y * dy < 0))) {
             throw new IllegalStateException("Scroll happened in the opposite direction"
@@ -225,9 +231,6 @@ abstract public class LinearSmoothScroller extends RecyclerView.SmoothScroller {
         // find an interim target position
         PointF scrollVector = computeScrollVectorForPosition(getTargetPosition());
         if (scrollVector == null || (scrollVector.x == 0 && scrollVector.y == 0)) {
-            Log.e(TAG, "To support smooth scrolling, you should override \n"
-                    + "LayoutManager#computeScrollVectorForPosition.\n"
-                    + "Falling back to instant scroll");
             final int target = getTargetPosition();
             action.jumpTo(target);
             stop();
@@ -291,13 +294,13 @@ abstract public class LinearSmoothScroller extends RecyclerView.SmoothScroller {
      * @param view           The view which we want to make fully visible
      * @param snapPreference The edge which the view should snap to when entering the visible
      *                       area. One of {@link #SNAP_TO_START}, {@link #SNAP_TO_END} or
-     *                       {@link #SNAP_TO_END}.
+     *                       {@link #SNAP_TO_ANY}.
      * @return The vertical scroll amount necessary to make the view visible with the given
      * snap preference.
      */
     public int calculateDyToMakeVisible(View view, int snapPreference) {
         final RecyclerView.LayoutManager layoutManager = getLayoutManager();
-        if (!layoutManager.canScrollVertically()) {
+        if (layoutManager == null || !layoutManager.canScrollVertically()) {
             return 0;
         }
         final RecyclerView.LayoutParams params = (RecyclerView.LayoutParams)
@@ -322,7 +325,7 @@ abstract public class LinearSmoothScroller extends RecyclerView.SmoothScroller {
      */
     public int calculateDxToMakeVisible(View view, int snapPreference) {
         final RecyclerView.LayoutManager layoutManager = getLayoutManager();
-        if (!layoutManager.canScrollHorizontally()) {
+        if (layoutManager == null || !layoutManager.canScrollHorizontally()) {
             return 0;
         }
         final RecyclerView.LayoutParams params = (RecyclerView.LayoutParams)
@@ -334,5 +337,25 @@ abstract public class LinearSmoothScroller extends RecyclerView.SmoothScroller {
         return calculateDtToFit(left, right, start, end, snapPreference);
     }
 
-    abstract public PointF computeScrollVectorForPosition(int targetPosition);
+    /**
+     * Compute the scroll vector for a given target position.
+     * <p>
+     * This method can return null if the layout manager cannot calculate a scroll vector
+     * for the given position (e.g. it has no current scroll position).
+     *
+     * @param targetPosition the position to which the scroller is scrolling
+     *
+     * @return the scroll vector for a given target position
+     */
+    @Nullable
+    public PointF computeScrollVectorForPosition(int targetPosition) {
+        RecyclerView.LayoutManager layoutManager = getLayoutManager();
+        if (layoutManager instanceof ScrollVectorProvider) {
+            return ((ScrollVectorProvider) layoutManager)
+                    .computeScrollVectorForPosition(targetPosition);
+        }
+        Log.w(TAG, "You should override computeScrollVectorForPosition when the LayoutManager" +
+                " does not implement " + ScrollVectorProvider.class.getCanonicalName());
+        return null;
+    }
 }

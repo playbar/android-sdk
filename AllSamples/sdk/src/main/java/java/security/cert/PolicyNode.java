@@ -1,18 +1,26 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2000, 2003, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security.cert;
@@ -21,64 +29,105 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * The interface to a valid policy tree node for the PKIX certification path
- * validation algorithm.
- * <p>
- * Instances of this class are one of the outputs of the PKIX certification path
- * validation algorithm.
+ * An immutable valid policy tree node as defined by the PKIX certification
+ * path validation algorithm.
+ *
+ * <p>One of the outputs of the PKIX certification path validation
+ * algorithm is a valid policy tree, which includes the policies that
+ * were determined to be valid, how this determination was reached,
+ * and any policy qualifiers encountered. This tree is of depth
+ * <i>n</i>, where <i>n</i> is the length of the certification
+ * path that has been validated.
+ *
+ * <p>Most applications will not need to examine the valid policy tree.
+ * They can achieve their policy processing goals by setting the
+ * policy-related parameters in <code>PKIXParameters</code>. However,
+ * the valid policy tree is available for more sophisticated applications,
+ * especially those that process policy qualifiers.
+ *
+ * <p>{@link PKIXCertPathValidatorResult#getPolicyTree()
+ * PKIXCertPathValidatorResult.getPolicyTree} returns the root node of the
+ * valid policy tree. The tree can be traversed using the
+ * {@link #getChildren getChildren} and {@link #getParent getParent} methods.
+ * Data about a particular node can be retrieved using other methods of
+ * <code>PolicyNode</code>.
+ *
+ * <p><b>Concurrent Access</b>
+ * <p>All <code>PolicyNode</code> objects must be immutable and
+ * thread-safe. Multiple threads may concurrently invoke the methods defined
+ * in this class on a single <code>PolicyNode</code> object (or more than one)
+ * with no ill effects. This stipulation applies to all public fields and
+ * methods of this class and any added or overridden by subclasses.
+ *
+ * @since       1.4
+ * @author      Sean Mullan
  */
 public interface PolicyNode {
 
     /**
-     * Returns the list of children of this node as an {@code Iterator}.
+     * Returns the parent of this node, or <code>null</code> if this is the
+     * root node.
      *
-     * @return the list of children of this node as an {@code Iterator}.
+     * @return the parent of this node, or <code>null</code> if this is the
+     * root node
      */
-    public Iterator<? extends PolicyNode> getChildren();
+    PolicyNode getParent();
 
     /**
-     * Returns the depth of this node in the policy tree.
-     * <p>
-     * the depth is zero based.
+     * Returns an iterator over the children of this node. Any attempts to
+     * modify the children of this node through the
+     * <code>Iterator</code>'s remove method must throw an
+     * <code>UnsupportedOperationException</code>.
      *
-     * @return the depth of this node in the policy tree.
+     * @return an iterator over the children of this node
      */
-    public int getDepth();
+    Iterator<? extends PolicyNode> getChildren();
 
     /**
-     * Returns the expected policies for the next certificate to be valid.
+     * Returns the depth of this node in the valid policy tree.
      *
-     * @return the expected policies.
+     * @return the depth of this node (0 for the root node, 1 for its
+     * children, and so on)
      */
-    public Set<String> getExpectedPolicies();
+    int getDepth();
 
     /**
-     * Returns the parent policy node.
+     * Returns the valid policy represented by this node.
      *
-     * @return the parent policy node.
+     * @return the <code>String</code> OID of the valid policy
+     * represented by this node. For the root node, this method always returns
+     * the special anyPolicy OID: "2.5.29.32.0".
      */
-    public PolicyNode getParent();
+    String getValidPolicy();
 
     /**
-     * Returns the policy qualifiers associated with the policy of this node.
+     * Returns the set of policy qualifiers associated with the
+     * valid policy represented by this node.
      *
-     * @return the policy qualifiers associated with the policy of this node.
+     * @return an immutable <code>Set</code> of
+     * <code>PolicyQualifierInfo</code>s. For the root node, this
+     * is always an empty <code>Set</code>.
      */
-    public Set<? extends PolicyQualifierInfo> getPolicyQualifiers();
+    Set<? extends PolicyQualifierInfo> getPolicyQualifiers();
 
     /**
-     * Returns the valid policy of this node.
+     * Returns the set of expected policies that would satisfy this
+     * node's valid policy in the next certificate to be processed.
      *
-     * @return the valid policy of this node.
+     * @return an immutable <code>Set</code> of expected policy
+     * <code>String</code> OIDs. For the root node, this method
+     * always returns a <code>Set</code> with one element, the
+     * special anyPolicy OID: "2.5.29.32.0".
      */
-    public String getValidPolicy();
+    Set<String> getExpectedPolicies();
 
     /**
-     * Returns whether the certificate policy extension of the most recently
-     * processed certificate is marked as critical.
+     * Returns the criticality indicator of the certificate policy extension
+     * in the most recently processed certificate.
      *
-     * @return {@code true} if the extension is marked as critical, otherwise
-     *         {@code false}.
+     * @return <code>true</code> if extension marked critical,
+     * <code>false</code> otherwise. For the root node, <code>false</code>
+     * is always returned.
      */
-    public boolean isCritical();
+    boolean isCritical();
 }

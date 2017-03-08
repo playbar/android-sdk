@@ -23,14 +23,17 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.ArrayRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.v4.content.SharedPreferencesCompat;
 import android.support.v4.content.res.TypedArrayUtils;
-import android.support.v7.preference.DialogPreference;
+import android.support.v7.preference.internal.AbstractMultiSelectListPreference;
 import android.util.AttributeSet;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * A {@link android.support.v7.preference.Preference} that displays a list of entries as
@@ -40,10 +43,10 @@ import java.util.Set;
  * This set will contain one or more values from the
  * {@link #setEntryValues(CharSequence[])} array.
  *
- * @attr ref android.R.styleable#MultiSelectListPreference_entries
- * @attr ref android.R.styleable#MultiSelectListPreference_entryValues
+ * @attr name android:entries
+ * @attr name android:entryValues
  */
-public class MultiSelectListPreference extends DialogPreference {
+public class MultiSelectListPreference extends AbstractMultiSelectListPreference {
     private CharSequence[] mEntries;
     private CharSequence[] mEntryValues;
     private Set<String> mValues = new HashSet<>();
@@ -53,16 +56,16 @@ public class MultiSelectListPreference extends DialogPreference {
         super(context, attrs, defStyleAttr, defStyleRes);
 
         final TypedArray a = context.obtainStyledAttributes(attrs,
-                R.styleable.MultiSelectListPreference, defStyleAttr,
+                android.support.v7.preference.R.styleable.MultiSelectListPreference, defStyleAttr,
                 defStyleRes);
 
         mEntries = TypedArrayUtils.getTextArray(a,
-                R.styleable.MultiSelectListPreference_entries,
-                R.styleable.MultiSelectListPreference_android_entries);
+                android.support.v7.preference.R.styleable.MultiSelectListPreference_entries,
+                android.support.v7.preference.R.styleable.MultiSelectListPreference_android_entries);
 
         mEntryValues = TypedArrayUtils.getTextArray(a,
-                R.styleable.MultiSelectListPreference_entryValues,
-                R.styleable.MultiSelectListPreference_android_entryValues);
+                android.support.v7.preference.R.styleable.MultiSelectListPreference_entryValues,
+                android.support.v7.preference.R.styleable.MultiSelectListPreference_android_entryValues);
 
         a.recycle();
     }
@@ -72,7 +75,9 @@ public class MultiSelectListPreference extends DialogPreference {
     }
 
     public MultiSelectListPreference(Context context, AttributeSet attrs) {
-        this(context, attrs, R.attr.dialogPreferenceStyle);
+        this(context, attrs, TypedArrayUtils.getAttr(context,
+                android.support.v7.preference.R.attr.dialogPreferenceStyle,
+                android.R.attr.dialogPreferenceStyle));
     }
 
     public MultiSelectListPreference(Context context) {
@@ -94,6 +99,7 @@ public class MultiSelectListPreference extends DialogPreference {
      *
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     protected boolean persistStringSet(Set<String> values) {
         if (shouldPersist()) {
             // Shouldn't store null
@@ -126,6 +132,7 @@ public class MultiSelectListPreference extends DialogPreference {
      *
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     protected Set<String> getPersistedStringSet(Set<String> defaultReturnValue) {
         if (!shouldPersist()) {
             return defaultReturnValue;

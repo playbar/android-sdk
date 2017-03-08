@@ -1,82 +1,93 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Copyright (c) 1996, 2005, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.util.zip;
 
-import java.util.Arrays;
-
 /**
- * The CRC32 class is used to compute a CRC32 checksum from data provided as
- * input value. See also {@link Adler32} which is almost as good, but cheaper.
+ * A class that can be used to compute the CRC-32 of a data stream.
+ *
+ * @see         Checksum
+ * @author      David Connelly
  */
-public class CRC32 implements Checksum {
-
-    private long crc = 0L;
-
-    long tbytes = 0L;
+public
+class CRC32 implements Checksum {
+    private int crc;
 
     /**
-     * Returns the CRC32 checksum for all input received.
-     *
-     * @return The checksum for this instance.
+     * Creates a new CRC32 object.
      */
-    public long getValue() {
-        return crc;
+    public CRC32() {
+    }
+
+
+    /**
+     * Updates the CRC-32 checksum with the specified byte (the low
+     * eight bits of the argument b).
+     *
+     * @param b the byte to update the checksum with
+     */
+    public void update(int b) {
+        crc = update(crc, b);
     }
 
     /**
-     * Resets the CRC32 checksum to it initial state.
+     * Updates the CRC-32 checksum with the specified array of bytes.
+     */
+    public void update(byte[] b, int off, int len) {
+        if (b == null) {
+            throw new NullPointerException();
+        }
+        if (off < 0 || len < 0 || off > b.length - len) {
+            throw new ArrayIndexOutOfBoundsException();
+        }
+        crc = updateBytes(crc, b, off, len);
+    }
+
+    /**
+     * Updates the CRC-32 checksum with the specified array of bytes.
+     *
+     * @param b the array of bytes to update the checksum with
+     */
+    public void update(byte[] b) {
+        crc = updateBytes(crc, b, 0, b.length);
+    }
+
+    /**
+     * Resets CRC-32 to initial value.
      */
     public void reset() {
-        tbytes = crc = 0;
-
+        crc = 0;
     }
 
     /**
-     * Updates this checksum with the byte value provided as integer.
-     *
-     * @param val
-     *            represents the byte to update the checksum.
+     * Returns CRC-32 value.
      */
-    public void update(int val) {
-        crc = updateByteImpl((byte) val, crc);
+    public long getValue() {
+        return (long)crc & 0xffffffffL;
     }
 
-    /**
-     * Updates this checksum with the bytes contained in buffer {@code buf}.
-     *
-     * @param buf
-     *            the buffer holding the data to update the checksum with.
-     */
-    public void update(byte[] buf) {
-        update(buf, 0, buf.length);
-    }
-
-    /**
-     * Update this {@code CRC32} checksum with the contents of {@code buf},
-     * starting from {@code offset} and reading {@code byteCount} bytes of data.
-     */
-    public void update(byte[] buf, int offset, int byteCount) {
-        Arrays.checkOffsetAndCount(buf.length, offset, byteCount);
-        tbytes += byteCount;
-        crc = updateImpl(buf, offset, byteCount, crc);
-    }
-
-    private native long updateImpl(byte[] buf, int offset, int byteCount, long crc1);
-
-    private native long updateByteImpl(byte val, long crc1);
+    private native static int update(int crc, int b);
+    private native static int updateBytes(int crc, byte[] b, int off, int len);
 }

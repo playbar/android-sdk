@@ -169,6 +169,15 @@ public final class DisplayInfo implements Parcelable {
      */
     public Display.Mode[] supportedModes = Display.Mode.EMPTY_ARRAY;
 
+    /** The active color mode. */
+    public int colorMode;
+
+    /** The list of supported color modes */
+    public int[] supportedColorModes = { Display.COLOR_MODE_DEFAULT };
+
+    /** The display's HDR capabilities */
+    public Display.HdrCapabilities hdrCapabilities;
+
     /**
      * The logical display density which is the basis for density-independent
      * pixels.
@@ -279,6 +288,9 @@ public final class DisplayInfo implements Parcelable {
                 && rotation == other.rotation
                 && modeId == other.modeId
                 && defaultModeId == other.defaultModeId
+                && colorMode == other.colorMode
+                && Arrays.equals(supportedColorModes, other.supportedColorModes)
+                && Objects.equal(hdrCapabilities, other.hdrCapabilities)
                 && logicalDensityDpi == other.logicalDensityDpi
                 && physicalXDpi == other.physicalXDpi
                 && physicalYDpi == other.physicalYDpi
@@ -317,6 +329,10 @@ public final class DisplayInfo implements Parcelable {
         modeId = other.modeId;
         defaultModeId = other.defaultModeId;
         supportedModes = Arrays.copyOf(other.supportedModes, other.supportedModes.length);
+        colorMode = other.colorMode;
+        supportedColorModes = Arrays.copyOf(
+                other.supportedColorModes, other.supportedColorModes.length);
+        hdrCapabilities = other.hdrCapabilities;
         logicalDensityDpi = other.logicalDensityDpi;
         physicalXDpi = other.physicalXDpi;
         physicalYDpi = other.physicalYDpi;
@@ -353,6 +369,13 @@ public final class DisplayInfo implements Parcelable {
         for (int i = 0; i < nModes; i++) {
             supportedModes[i] = Display.Mode.CREATOR.createFromParcel(source);
         }
+        colorMode = source.readInt();
+        int nColorModes = source.readInt();
+        supportedColorModes = new int[nColorModes];
+        for (int i = 0; i < nColorModes; i++) {
+            supportedColorModes[i] = source.readInt();
+        }
+        hdrCapabilities = source.readParcelable(null);
         logicalDensityDpi = source.readInt();
         physicalXDpi = source.readFloat();
         physicalYDpi = source.readFloat();
@@ -390,6 +413,12 @@ public final class DisplayInfo implements Parcelable {
         for (int i = 0; i < supportedModes.length; i++) {
             supportedModes[i].writeToParcel(dest, flags);
         }
+        dest.writeInt(colorMode);
+        dest.writeInt(supportedColorModes.length);
+        for (int i = 0; i < supportedColorModes.length; i++) {
+            dest.writeInt(supportedColorModes[i]);
+        }
+        dest.writeParcelable(hdrCapabilities, flags);
         dest.writeInt(logicalDensityDpi);
         dest.writeFloat(physicalXDpi);
         dest.writeFloat(physicalYDpi);
@@ -562,6 +591,12 @@ public final class DisplayInfo implements Parcelable {
         sb.append(defaultModeId);
         sb.append(", modes ");
         sb.append(Arrays.toString(supportedModes));
+        sb.append(", colorMode ");
+        sb.append(colorMode);
+        sb.append(", supportedColorModes ");
+        sb.append(Arrays.toString(supportedColorModes));
+        sb.append(", hdrCapabilities ");
+        sb.append(hdrCapabilities);
         sb.append(", rotation ");
         sb.append(rotation);
         sb.append(", density ");

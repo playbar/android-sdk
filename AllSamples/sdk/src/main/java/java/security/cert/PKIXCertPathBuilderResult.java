@@ -1,81 +1,119 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2000, 2001, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
-
 
 package java.security.cert;
 
 import java.security.PublicKey;
 
 /**
- * The result of the PKIX certification path builder, returned by
- * {@link CertPathBuilder#build(CertPathParameters)}.
+ * This class represents the successful result of the PKIX certification
+ * path builder algorithm. All certification paths that are built and
+ * returned using this algorithm are also validated according to the PKIX
+ * certification path validation algorithm.
+ *
+ * <p>Instances of <code>PKIXCertPathBuilderResult</code> are returned by
+ * the <code>build</code> method of <code>CertPathBuilder</code>
+ * objects implementing the PKIX algorithm.
+ *
+ * <p>All <code>PKIXCertPathBuilderResult</code> objects contain the
+ * certification path constructed by the build algorithm, the
+ * valid policy tree and subject public key resulting from the build
+ * algorithm, and a <code>TrustAnchor</code> describing the certification
+ * authority (CA) that served as a trust anchor for the certification path.
+ * <p>
+ * <b>Concurrent Access</b>
+ * <p>
+ * Unless otherwise specified, the methods defined in this class are not
+ * thread-safe. Multiple threads that need to access a single
+ * object concurrently should synchronize amongst themselves and
+ * provide the necessary locking. Multiple threads each manipulating
+ * separate objects need not synchronize.
+ *
+ * @see CertPathBuilderResult
+ *
+ * @since       1.4
+ * @author      Anne Anderson
  */
 public class PKIXCertPathBuilderResult extends PKIXCertPathValidatorResult
-        implements CertPathBuilderResult {
-    // Built and validated certification path
-    private final CertPath certPath;
+    implements CertPathBuilderResult {
+
+    private CertPath certPath;
 
     /**
-     * Creates a new {@code PKIXCertPathBuilderResult} instance with the
-     * specified validated certification path, the trust anchor of the
-     * certification path, the policy tree and the public key of the subject.
+     * Creates an instance of <code>PKIXCertPathBuilderResult</code>
+     * containing the specified parameters.
      *
-     * @param certPath
-     *            the validated certification path.
-     * @param trustAnchor
-     *            the trust anchor.
-     * @param policyTree
-     *            the policy tree (or {@code null} if not used).
-     * @param subjectPublicKey
-     *            the public key.
-     * @throws NullPointerException
-     *             if the {@code cerPath}, {@code trustAnchor} or {@code
-     *             subjectPolicyKey} is {@code null}.
+     * @param certPath the validated <code>CertPath</code>
+     * @param trustAnchor a <code>TrustAnchor</code> describing the CA that
+     * served as a trust anchor for the certification path
+     * @param policyTree the immutable valid policy tree, or <code>null</code>
+     * if there are no valid policies
+     * @param subjectPublicKey the public key of the subject
+     * @throws NullPointerException if the <code>certPath</code>,
+     * <code>trustAnchor</code> or <code>subjectPublicKey</code> parameters
+     * are <code>null</code>
      */
-    public PKIXCertPathBuilderResult(CertPath certPath, TrustAnchor trustAnchor,
-            PolicyNode policyTree, PublicKey subjectPublicKey) {
+    public PKIXCertPathBuilderResult(CertPath certPath,
+        TrustAnchor trustAnchor, PolicyNode policyTree,
+        PublicKey subjectPublicKey)
+    {
         super(trustAnchor, policyTree, subjectPublicKey);
-        if (certPath == null) {
-            throw new NullPointerException("certPath == null");
-        }
+        if (certPath == null)
+            throw new NullPointerException("certPath must be non-null");
         this.certPath = certPath;
     }
 
     /**
-     * Returns the validated certification path.
+     * Returns the built and validated certification path. The
+     * <code>CertPath</code> object does not include the trust anchor.
+     * Instead, use the {@link #getTrustAnchor() getTrustAnchor()} method to
+     * obtain the <code>TrustAnchor</code> that served as the trust anchor
+     * for the certification path.
      *
-     * @return the validated certification path.
+     * @return the built and validated <code>CertPath</code> (never
+     * <code>null</code>)
      */
     public CertPath getCertPath() {
         return certPath;
     }
 
     /**
-     * Returns a string representation of this {@code PKIXCertPathBuilderResult}
-     * instance.
+     * Return a printable representation of this
+     * <code>PKIXCertPathBuilderResult</code>.
      *
-     * @return a string representation of this {@code PKIXCertPathBuilderResult}
-     *         instance.
+     * @return a <code>String</code> describing the contents of this
+     *         <code>PKIXCertPathBuilderResult</code>
      */
     public String toString() {
-        StringBuilder sb = new StringBuilder(super.toString());
-        sb.append("\n Certification Path: ");
-        sb.append(certPath.toString());
-        sb.append("\n]");
+        StringBuffer sb = new StringBuffer();
+        sb.append("PKIXCertPathBuilderResult: [\n");
+        sb.append("  Certification Path: " + certPath + "\n");
+        sb.append("  Trust Anchor: " + getTrustAnchor().toString() + "\n");
+        sb.append("  Policy Tree: " + String.valueOf(getPolicyTree()) + "\n");
+        sb.append("  Subject Public Key: " + getPublicKey() + "\n");
+        sb.append("]");
         return sb.toString();
     }
 }

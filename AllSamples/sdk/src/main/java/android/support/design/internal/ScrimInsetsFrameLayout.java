@@ -22,6 +22,7 @@ import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.design.R;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.view.WindowInsetsCompat;
@@ -29,14 +30,17 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+
 /**
  * @hide
  */
+@RestrictTo(GROUP_ID)
 public class ScrimInsetsFrameLayout extends FrameLayout {
 
-    private Drawable mInsetForeground;
+    Drawable mInsetForeground;
 
-    private Rect mInsets;
+    Rect mInsets;
 
     private Rect mTempRect = new Rect();
 
@@ -70,7 +74,8 @@ public class ScrimInsetsFrameLayout extends FrameLayout {
                                 insets.getSystemWindowInsetTop(),
                                 insets.getSystemWindowInsetRight(),
                                 insets.getSystemWindowInsetBottom());
-                        setWillNotDraw(mInsets.isEmpty() || mInsetForeground == null);
+                        onInsetsChanged(insets);
+                        setWillNotDraw(!insets.hasSystemWindowInsets() || mInsetForeground == null);
                         ViewCompat.postInvalidateOnAnimation(ScrimInsetsFrameLayout.this);
                         return insets.consumeSystemWindowInsets();
                     }
@@ -125,6 +130,9 @@ public class ScrimInsetsFrameLayout extends FrameLayout {
         if (mInsetForeground != null) {
             mInsetForeground.setCallback(null);
         }
+    }
+
+    protected void onInsetsChanged(WindowInsetsCompat insets) {
     }
 
 }

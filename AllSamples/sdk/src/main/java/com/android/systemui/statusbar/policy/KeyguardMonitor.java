@@ -18,6 +18,8 @@ package com.android.systemui.statusbar.policy;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.os.RemoteException;
+import android.view.WindowManagerGlobal;
 
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
@@ -36,6 +38,7 @@ public final class KeyguardMonitor extends KeyguardUpdateMonitorCallback {
     private int mCurrentUser;
     private boolean mShowing;
     private boolean mSecure;
+    private boolean mOccluded;
     private boolean mCanSkipBouncer;
 
     private boolean mListening;
@@ -79,14 +82,33 @@ public final class KeyguardMonitor extends KeyguardUpdateMonitorCallback {
         return mSecure;
     }
 
+    public boolean isOccluded() {
+        return mOccluded;
+    }
+
     public boolean canSkipBouncer() {
         return mCanSkipBouncer;
     }
 
-    public void notifyKeyguardState(boolean showing, boolean secure) {
-        if (mShowing == showing && mSecure == secure) return;
+    public void unlock() {
+        try {
+            WindowManagerGlobal.getWindowManagerService().dismissKeyguard();
+        } catch (RemoteException e) {
+        }
+    }
+
+    public void lock() {
+        try {
+            WindowManagerGlobal.getWindowManagerService().lockNow(null /* options */);
+        } catch (RemoteException e) {
+        }
+    }
+
+    public void notifyKeyguardState(boolean showing, boolean secure, boolean occluded) {
+        if (mShowing == showing && mSecure == secure && mOccluded == occluded) return;
         mShowing = showing;
         mSecure = secure;
+        mOccluded = occluded;
         notifyKeyguardChanged();
     }
 
@@ -94,6 +116,10 @@ public final class KeyguardMonitor extends KeyguardUpdateMonitorCallback {
     public void onTrustChanged(int userId) {
         updateCanSkipBouncerState();
         notifyKeyguardChanged();
+    }
+
+    public boolean isDeviceInteractive() {
+        return mKeyguardUpdateMonitor.isDeviceInteractive();
     }
 
     private void updateCanSkipBouncerState() {

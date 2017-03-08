@@ -19,13 +19,17 @@ package android.support.v7.app;
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
+import android.support.annotation.IdRes;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.v7.appcompat.R;
 import android.support.v7.view.ActionMode;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Base class for AppCompat themed {@link android.app.Dialog}s.
@@ -46,6 +50,9 @@ public class AppCompatDialog extends Dialog implements AppCompatCallback {
         // To workaround this, we call onCreate(null) in the ctor, and then again as usual in
         // onCreate().
         getDelegate().onCreate(null);
+
+        // Apply AppCompat's DayNight resources if needed
+        getDelegate().applyDayNight();
     }
 
     protected AppCompatDialog(Context context, boolean cancelable,
@@ -84,6 +91,12 @@ public class AppCompatDialog extends Dialog implements AppCompatCallback {
     @Override
     public void setContentView(View view, ViewGroup.LayoutParams params) {
         getDelegate().setContentView(view, params);
+    }
+
+    @Nullable
+    @Override
+    public View findViewById(@IdRes int id) {
+        return getDelegate().findViewById(id);
     }
 
     @Override
@@ -130,6 +143,7 @@ public class AppCompatDialog extends Dialog implements AppCompatCallback {
     /**
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     public void invalidateOptionsMenu() {
         getDelegate().invalidateOptionsMenu();
     }

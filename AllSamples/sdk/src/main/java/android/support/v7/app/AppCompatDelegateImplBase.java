@@ -18,15 +18,18 @@ package android.support.v7.app;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.view.SupportMenuInflater;
-import android.support.v7.internal.view.WindowCallbackWrapper;
-import android.support.v7.internal.view.menu.MenuBuilder;
-import android.support.v7.internal.widget.TintTypedArray;
 import android.support.v7.view.ActionMode;
+import android.support.v7.view.SupportMenuInflater;
+import android.support.v7.view.WindowCallbackWrapper;
+import android.support.v7.view.menu.MenuBuilder;
+import android.support.v7.widget.AppCompatDrawableManager;
+import android.support.v7.widget.TintTypedArray;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -34,6 +37,51 @@ import android.view.View;
 import android.view.Window;
 
 abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
+
+    static final boolean DEBUG = false;
+
+    private static boolean sInstalledExceptionHandler;
+    private static final boolean SHOULD_INSTALL_EXCEPTION_HANDLER = Build.VERSION.SDK_INT < 21;
+
+    static final String EXCEPTION_HANDLER_MESSAGE_SUFFIX= ". If the resource you are"
+            + " trying to use is a vector resource, you may be referencing it in an unsupported"
+            + " way. See AppCompatDelegate.setCompatVectorFromResourcesEnabled() for more info.";
+
+    static {
+        if (SHOULD_INSTALL_EXCEPTION_HANDLER && !sInstalledExceptionHandler) {
+            final Thread.UncaughtExceptionHandler defHandler
+                    = Thread.getDefaultUncaughtExceptionHandler();
+
+            Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(Thread thread, final Throwable thowable) {
+                    if (shouldWrapException(thowable)) {
+                        // Now wrap the throwable, but append some extra information to the message
+                        final Throwable wrapped = new Resources.NotFoundException(
+                                thowable.getMessage() + EXCEPTION_HANDLER_MESSAGE_SUFFIX);
+                        wrapped.initCause(thowable.getCause());
+                        wrapped.setStackTrace(thowable.getStackTrace());
+                        defHandler.uncaughtException(thread, wrapped);
+                    } else {
+                        defHandler.uncaughtException(thread, thowable);
+                    }
+                }
+
+                private boolean shouldWrapException(Throwable throwable) {
+                    if (throwable instanceof Resources.NotFoundException) {
+                        final String message = throwable.getMessage();
+                        return message != null && (message.contains("drawable")
+                                || message.contains("Drawable"));
+                    }
+                    return false;
+                }
+            });
+
+            sInstalledExceptionHandler = true;
+        }
+    }
+
+    private static final int[] sWindowBackgroundStyleable = {android.R.attr.windowBackground};
 
     final Context mContext;
     final Window mWindow;
@@ -57,6 +105,7 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
 
     private CharSequence mTitle;
 
+    private boolean mIsStarted;
     private boolean mIsDestroyed;
 
     AppCompatDelegateImplBase(Context context, Window window, AppCompatCallback callback) {
@@ -72,6 +121,14 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
         mAppCompatWindowCallback = wrapWindowCallback(mOriginalWindowCallback);
         // Now install the new callback
         mWindow.setCallback(mAppCompatWindowCallback);
+
+        final TintTypedArray a = TintTypedArray.obtainStyledAttributes(
+                context, null, sWindowBackgroundStyleable);
+        final Drawable winBg = a.getDrawableIfKnown(0);
+        if (winBg != null) {
+            mWindow.setBackgroundDrawable(winBg);
+        }
+        a.recycle();
     }
 
     abstract void initWindowDecorActionBar();
@@ -103,32 +160,6 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
         return mMenuInflater;
     }
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        TypedArray a = mContext.obtainStyledAttributes(R.styleable.Theme);
-
-        if (!a.hasValue(R.styleable.Theme_windowActionBar)) {
-            a.recycle();
-            throw new IllegalStateException(
-                    "You need to use a Theme.AppCompat theme (or descendant) with this activity.");
-        }
-
-        if (a.getBoolean(R.styleable.Theme_windowNoTitle, false)) {
-            requestWindowFeature(Window.FEATURE_NO_TITLE);
-        } else if (a.getBoolean(R.styleable.Theme_windowActionBar, false)) {
-            // Don't allow an action bar if there is no title.
-            requestWindowFeature(FEATURE_SUPPORT_ACTION_BAR);
-        }
-        if (a.getBoolean(R.styleable.Theme_windowActionBarOverlay, false)) {
-            requestWindowFeature(FEATURE_SUPPORT_ACTION_BAR_OVERLAY);
-        }
-        if (a.getBoolean(R.styleable.Theme_windowActionModeOverlay, false)) {
-            requestWindowFeature(FEATURE_ACTION_MODE_OVERLAY);
-        }
-        mIsFloating = a.getBoolean(R.styleable.Theme_android_windowIsFloating, false);
-        a.recycle();
-    }
-
     // Methods used to create and respond to options menu
     abstract void onPanelClosed(int featureId, Menu menu);
 
@@ -137,6 +168,11 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     abstract boolean dispatchKeyEvent(KeyEvent event);
 
     abstract boolean onKeyShortcut(int keyCode, KeyEvent event);
+
+    @Override
+    public void setLocalNightMode(@NightMode int mode) {
+        // no-op
+    }
 
     @Override
     public final ActionBarDrawerToggle.Delegate getDrawerToggleDelegate() {
@@ -159,6 +195,9 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     }
 
     private class ActionBarDrawableToggleImpl implements ActionBarDrawerToggle.Delegate {
+        ActionBarDrawableToggleImpl() {
+        }
+
         @Override
         public Drawable getThemeUpIndicator() {
             final TintTypedArray a = TintTypedArray.obtainStyledAttributes(
@@ -200,7 +239,17 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     abstract ActionMode startSupportActionModeFromWindow(ActionMode.Callback callback);
 
     @Override
-    public final void onDestroy() {
+    public void onStart() {
+        mIsStarted = true;
+    }
+
+    @Override
+    public void onStop() {
+        mIsStarted = false;
+    }
+
+    @Override
+    public void onDestroy() {
         mIsDestroyed = true;
     }
 
@@ -215,8 +264,18 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
         return false;
     }
 
+    @Override
+    public boolean applyDayNight() {
+        // no-op on v7
+        return false;
+    }
+
     final boolean isDestroyed() {
         return mIsDestroyed;
+    }
+
+    final boolean isStarted() {
+        return mIsStarted;
     }
 
     final Window.Callback getWindowCallback() {
@@ -227,6 +286,11 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
     public final void setTitle(CharSequence title) {
         mTitle = title;
         onTitleChanged(title);
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        // no-op
     }
 
     abstract void onTitleChanged(CharSequence title);
@@ -302,8 +366,9 @@ abstract class AppCompatDelegateImplBase extends AppCompatDelegate {
 
         @Override
         public boolean onMenuOpened(int featureId, Menu menu) {
-            return super.onMenuOpened(featureId, menu)
-                    || AppCompatDelegateImplBase.this.onMenuOpened(featureId, menu);
+            super.onMenuOpened(featureId, menu);
+            AppCompatDelegateImplBase.this.onMenuOpened(featureId, menu);
+            return true;
         }
 
         @Override

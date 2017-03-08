@@ -21,15 +21,19 @@ import android.accessibilityservice.AccessibilityService.IAccessibilityServiceCl
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.IAccessibilityServiceClient;
 import android.accessibilityservice.IAccessibilityServiceConnection;
+import android.annotation.NonNull;
+import android.annotation.TestApi;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Point;
+import android.graphics.Region;
 import android.hardware.display.DisplayManagerGlobal;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.util.Log;
 import android.view.Display;
 import android.view.InputEvent;
@@ -101,6 +105,14 @@ public final class UiAutomation {
     /** Rotation constant: Freeze rotation to 270 degrees . */
     public static final int ROTATION_FREEZE_270 = Surface.ROTATION_270;
 
+    /**
+     * UiAutomation supresses accessibility services by default. This flag specifies that
+     * existing accessibility services should continue to run, and that new ones may start.
+     * This flag is set when obtaining the UiAutomation from
+     * {@link Instrumentation#getUiAutomation(int)}.
+     */
+    public static final int FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES = 0x00000001;
+
     private final Object mLock = new Object();
 
     private final ArrayList<AccessibilityEvent> mEventQueue = new ArrayList<AccessibilityEvent>();
@@ -118,6 +130,10 @@ public final class UiAutomation {
     private long mLastEventTimeMillis;
 
     private boolean mIsConnecting;
+
+    private boolean mIsDestroyed;
+
+    private int mFlags;
 
     /**
      * Listener for observing the {@link AccessibilityEvent} stream.
@@ -178,11 +194,22 @@ public final class UiAutomation {
     }
 
     /**
-     * Connects this UiAutomation to the accessibility introspection APIs.
+     * Connects this UiAutomation to the accessibility introspection APIs with default flags.
      *
      * @hide
      */
     public void connect() {
+        connect(0);
+    }
+
+    /**
+     * Connects this UiAutomation to the accessibility introspection APIs.
+     *
+     * @param flags Any flags to apply to the automation as it gets connected
+     *
+     * @hide
+     */
+    public void connect(int flags) {
         synchronized (mLock) {
             throwIfConnectedLocked();
             if (mIsConnecting) {
@@ -193,7 +220,8 @@ public final class UiAutomation {
 
         try {
             // Calling out without a lock held.
-            mUiAutomationConnection.connect(mClient);
+            mUiAutomationConnection.connect(mClient, flags);
+            mFlags = flags;
         } catch (RemoteException re) {
             throw new RuntimeException("Error while connecting UiAutomation", re);
         }
@@ -220,6 +248,17 @@ public final class UiAutomation {
                 mIsConnecting = false;
             }
         }
+    }
+
+    /**
+     * Get the flags used to connect the service.
+     *
+     * @return The flags used to connect
+     *
+     * @hide
+     */
+    public int getFlags() {
+        return mFlags;
     }
 
     /**
@@ -259,6 +298,17 @@ public final class UiAutomation {
     }
 
     /**
+     * Reports if the object has been destroyed
+     *
+     * @return {code true} if the object has been destroyed.
+     *
+     * @hide
+     */
+    public boolean isDestroyed() {
+        return mIsDestroyed;
+    }
+
+    /**
      * Sets a callback for observing the stream of {@link AccessibilityEvent}s.
      *
      * @param listener The callback.
@@ -267,6 +317,18 @@ public final class UiAutomation {
         synchronized (mLock) {
             mOnAccessibilityEventListener = listener;
         }
+    }
+
+    /**
+     * Destroy this UiAutomation. After calling this method, attempting to use the object will
+     * result in errors.
+     *
+     * @hide
+     */
+    @TestApi
+    public void destroy() {
+        disconnect();
+        mIsDestroyed = true;
     }
 
     /**
@@ -846,6 +908,64 @@ public final class UiAutomation {
     }
 
     /**
+     * Grants a runtime permission to a package for a user.
+     * @param packageName The package to which to grant.
+     * @param permission The permission to grant.
+     * @return Whether granting succeeded.
+     *
+     * @hide
+     */
+    @TestApi
+    public boolean grantRuntimePermission(String packageName, String permission,
+            UserHandle userHandle) {
+        synchronized (mLock) {
+            throwIfNotConnectedLocked();
+        }
+        try {
+            if (DEBUG) {
+                Log.i(LOG_TAG, "Granting runtime permission");
+            }
+            // Calling out without a lock held.
+            mUiAutomationConnection.grantRuntimePermission(packageName,
+                    permission, userHandle.getIdentifier());
+            // TODO: The package manager API should return boolean.
+            return true;
+        } catch (RemoteException re) {
+            Log.e(LOG_TAG, "Error granting runtime permission", re);
+        }
+        return false;
+    }
+
+    /**
+     * Revokes a runtime permission from a package for a user.
+     * @param packageName The package from which to revoke.
+     * @param permission The permission to revoke.
+     * @return Whether revoking succeeded.
+     *
+     * @hide
+     */
+    @TestApi
+    public boolean revokeRuntimePermission(String packageName, String permission,
+            UserHandle userHandle) {
+        synchronized (mLock) {
+            throwIfNotConnectedLocked();
+        }
+        try {
+            if (DEBUG) {
+                Log.i(LOG_TAG, "Revoking runtime permission");
+            }
+            // Calling out without a lock held.
+            mUiAutomationConnection.revokeRuntimePermission(packageName,
+                    permission, userHandle.getIdentifier());
+            // TODO: The package manager API should return boolean.
+            return true;
+        } catch (RemoteException re) {
+            Log.e(LOG_TAG, "Error revoking runtime permission", re);
+        }
+        return false;
+    }
+
+    /**
      * Executes a shell command. This method returs a file descriptor that points
      * to the standard output stream. The command execution is similar to running
      * "adb shell <command>" from a host connected to the device.
@@ -962,6 +1082,22 @@ public final class UiAutomation {
                 @Override
                 public boolean onKeyEvent(KeyEvent event) {
                     return false;
+                }
+
+                @Override
+                public void onMagnificationChanged(@NonNull Region region,
+                        float scale, float centerX, float centerY) {
+                    /* do nothing */
+                }
+
+                @Override
+                public void onSoftKeyboardShowModeChanged(int showMode) {
+                    /* do nothing */
+                }
+
+                @Override
+                public void onPerformGestureResult(int sequence, boolean completedSuccessfully) {
+                    /* do nothing */
                 }
             });
         }

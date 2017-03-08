@@ -1,124 +1,151 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1997, 2004, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security;
 
-import java.io.IOException;
+import java.io.*;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidParameterSpecException;
 
 /**
- * {@code AlgorithmParametersSpi} is the Service Provider Interface (SPI)
- * definition for {@code AlgorithmParameters}.
+ * This class defines the <i>Service Provider Interface</i> (<b>SPI</b>)
+ * for the <code>AlgorithmParameters</code> class, which is used to manage
+ * algorithm parameters.
+ *
+ * <p> All the abstract methods in this class must be implemented by each
+ * cryptographic service provider who wishes to supply parameter management
+ * for a particular algorithm.
+ *
+ * @author Jan Luehe
+ *
  *
  * @see AlgorithmParameters
+ * @see java.security.spec.AlgorithmParameterSpec
+ * @see java.security.spec.DSAParameterSpec
+ *
+ * @since 1.2
  */
+
 public abstract class AlgorithmParametersSpi {
 
     /**
-     * Initializes this {@code AlgorithmParametersSpi} with the specified
-     * {@code AlgorithmParameterSpec}.
+     * Initializes this parameters object using the parameters
+     * specified in <code>paramSpec</code>.
      *
-     * @param paramSpec
-     *            the parameter specification.
-     * @throws InvalidParameterSpecException
-     *             if this {@code AlgorithmParametersSpi} has already been
-     *             initialized or the given {@code paramSpec} is not appropriate
-     *             for initializing this {@code AlgorithmParametersSpi}.
+     * @param paramSpec the parameter specification.
+     *
+     * @exception InvalidParameterSpecException if the given parameter
+     * specification is inappropriate for the initialization of this parameter
+     * object.
      */
     protected abstract void engineInit(AlgorithmParameterSpec paramSpec)
-            throws InvalidParameterSpecException;
+        throws InvalidParameterSpecException;
 
     /**
-     * Initializes this {@code AlgorithmParametersSpi} with the specified
-     * {@code byte[]} using the default decoding format for parameters. The
-     * default encoding format is ASN.1.
+     * Imports the specified parameters and decodes them
+     * according to the primary decoding format for parameters.
+     * The primary decoding format for parameters is ASN.1, if an ASN.1
+     * specification for this type of parameters exists.
      *
-     * @param params
-     *            the encoded parameters.
-     * @throws IOException
-     *             if this {@code AlgorithmParametersSpi} has already been
-     *             initialized, or the parameter could not be encoded.
+     * @param params the encoded parameters.
+     *
+     * @exception IOException on decoding errors
      */
-    protected abstract void engineInit(byte[] params) throws IOException;
+    protected abstract void engineInit(byte[] params)
+        throws IOException;
 
     /**
-     * Initializes this {@code AlgorithmParametersSpi} with the specified
-     * {@code byte[]} using the specified decoding format.
+     * Imports the parameters from <code>params</code> and
+     * decodes them according to the specified decoding format.
+     * If <code>format</code> is null, the
+     * primary decoding format for parameters is used. The primary decoding
+     * format is ASN.1, if an ASN.1 specification for these parameters
+     * exists.
      *
-     * @param params
-     *            the encoded parameters.
-     * @param format
-     *            the name of the decoding format.
-     * @throws IOException
-     *             if this {@code AlgorithmParametersSpi} has already been
-     *             initialized, or the parameter could not be encoded.
+     * @param params the encoded parameters.
+     *
+     * @param format the name of the decoding format.
+     *
+     * @exception IOException on decoding errors
      */
     protected abstract void engineInit(byte[] params, String format)
-            throws IOException;
+        throws IOException;
 
     /**
-     * Returns the {@code AlgorithmParameterSpec} for this {@code
-     * AlgorithmParametersSpi}.
+     * Returns a (transparent) specification of this parameters
+     * object.
+     * <code>paramSpec</code> identifies the specification class in which
+     * the parameters should be returned. It could, for example, be
+     * <code>DSAParameterSpec.class</code>, to indicate that the
+     * parameters should be returned in an instance of the
+     * <code>DSAParameterSpec</code> class.
      *
-     * @param paramSpec
-     *            the type of the parameter specification in which this
-     *            parameters should be converted.
-     * @return the {@code AlgorithmParameterSpec} for this {@code
-     *         AlgorithmParametersSpi}.
-     * @throws InvalidParameterSpecException
-     *             if this {@code AlgorithmParametersSpi} has already been
-     *             initialized, or if this parameters could not be converted to
-     *             the specified class.
+     * @param paramSpec the specification class in which
+     * the parameters should be returned.
+     *
+     * @return the parameter specification.
+     *
+     * @exception InvalidParameterSpecException if the requested parameter
+     * specification is inappropriate for this parameter object.
      */
-    protected abstract <T extends AlgorithmParameterSpec> T engineGetParameterSpec(
-            Class<T> paramSpec) throws InvalidParameterSpecException;
+    protected abstract
+        <T extends AlgorithmParameterSpec>
+        T engineGetParameterSpec(Class<T> paramSpec)
+        throws InvalidParameterSpecException;
 
     /**
-     * Returns the parameters in their default encoding format. The default
-     * encoding format is ASN.1.
+     * Returns the parameters in their primary encoding format.
+     * The primary encoding format for parameters is ASN.1, if an ASN.1
+     * specification for this type of parameters exists.
      *
-     * @return the encoded parameters.
-     * @throws IOException
-     *             if this {@code AlgorithmParametersSpi} has already been
-     *             initialized, or if this parameters could not be encoded.
+     * @return the parameters encoded using their primary encoding format.
+     *
+     * @exception IOException on encoding errors.
      */
     protected abstract byte[] engineGetEncoded() throws IOException;
 
     /**
-     * Returns the parameters in the specified encoding format.
+     * Returns the parameters encoded in the specified format.
+     * If <code>format</code> is null, the
+     * primary encoding format for parameters is used. The primary encoding
+     * format is ASN.1, if an ASN.1 specification for these parameters
+     * exists.
      *
-     * @param format
-     *            the name of the encoding format.
-     * @return the encoded parameters.
-     * @throws IOException
-     *             if this {@code AlgorithmParametersSpi} has already been
-     *             initialized, or if this parameters could not be encoded.
+     * @param format the name of the encoding format.
+     *
+     * @return the parameters encoded using the specified encoding scheme.
+     *
+     * @exception IOException on encoding errors.
      */
     protected abstract byte[] engineGetEncoded(String format)
-            throws IOException;
+        throws IOException;
 
     /**
-     * Returns a string containing a concise, human-readable description of this
-     * {@code AlgorithmParametersSpi}.
+     * Returns a formatted string describing the parameters.
      *
-     * @return a printable representation for this {@code
-     *         AlgorithmParametersSpi}.
+     * @return a formatted string describing the parameters.
      */
     protected abstract String engineToString();
-
 }

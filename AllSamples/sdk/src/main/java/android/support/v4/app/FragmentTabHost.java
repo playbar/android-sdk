@@ -16,13 +16,13 @@
 
 package android.support.v4.app;
 
-import java.util.ArrayList;
-
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +30,8 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TabHost;
 import android.widget.TabWidget;
+
+import java.util.ArrayList;
 
 /**
  * Special TabHost that allows the use of {@link Fragment} objects for
@@ -39,17 +41,18 @@ import android.widget.TabWidget;
  *
  * <p>Here is a simple example of using a FragmentTabHost in an Activity:
  *
- * {@sample development/samples/Support4Demos/src/com/example/android/supportv4/app/FragmentTabs.java
+ * {@sample frameworks/support/samples/Support4Demos/src/com/example/android/supportv4/app/FragmentTabs.java
  *      complete}
  *
  * <p>This can also be used inside of a fragment through fragment nesting:
  *
- * {@sample development/samples/Support4Demos/src/com/example/android/supportv4/app/FragmentTabsFragmentSupport.java
+ * {@sample frameworks/support/samples/Support4Demos/src/com/example/android/supportv4/app/FragmentTabsFragmentSupport.java
  *      complete}
  */
 public class FragmentTabHost extends TabHost
         implements TabHost.OnTabChangeListener {
-    private final ArrayList<TabInfo> mTabs = new ArrayList<TabInfo>();
+    private final ArrayList<TabInfo> mTabs = new ArrayList<>();
+
     private FrameLayout mRealTabContent;
     private Context mContext;
     private FragmentManager mFragmentManager;
@@ -59,12 +62,12 @@ public class FragmentTabHost extends TabHost
     private boolean mAttached;
 
     static final class TabInfo {
-        private final String tag;
-        private final Class<?> clss;
-        private final Bundle args;
-        private Fragment fragment;
+        final @NonNull String tag;
+        final @NonNull Class<?> clss;
+        final @Nullable Bundle args;
+        Fragment fragment;
 
-        TabInfo(String _tag, Class<?> _class, Bundle _args) {
+        TabInfo(@NonNull String _tag, @NonNull Class<?> _class, @Nullable Bundle _args) {
             tag = _tag;
             clss = _class;
             args = _args;
@@ -94,7 +97,7 @@ public class FragmentTabHost extends TabHost
             super(superState);
         }
 
-        private SavedState(Parcel in) {
+        SavedState(Parcel in) {
             super(in);
             curTab = in.readString();
         }
@@ -114,10 +117,12 @@ public class FragmentTabHost extends TabHost
 
         public static final Parcelable.Creator<SavedState> CREATOR
                 = new Parcelable.Creator<SavedState>() {
+            @Override
             public SavedState createFromParcel(Parcel in) {
                 return new SavedState(in);
             }
 
+            @Override
             public SavedState[] newArray(int size) {
                 return new SavedState[size];
             }
@@ -137,7 +142,7 @@ public class FragmentTabHost extends TabHost
     }
 
     private void initFragmentTabHost(Context context, AttributeSet attrs) {
-        TypedArray a = context.obtainStyledAttributes(attrs,
+        final TypedArray a = context.obtainStyledAttributes(attrs,
                 new int[] { android.R.attr.inflatedId }, 0, 0);
         mContainerId = a.getResourceId(0, 0);
         a.recycle();
@@ -152,14 +157,14 @@ public class FragmentTabHost extends TabHost
             LinearLayout ll = new LinearLayout(context);
             ll.setOrientation(LinearLayout.VERTICAL);
             addView(ll, new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.FILL_PARENT,
-                    ViewGroup.LayoutParams.FILL_PARENT));
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT));
 
             TabWidget tw = new TabWidget(context);
             tw.setId(android.R.id.tabs);
             tw.setOrientation(TabWidget.HORIZONTAL);
             ll.addView(tw, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.FILL_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT, 0));
 
             FrameLayout fl = new FrameLayout(context);
@@ -169,7 +174,7 @@ public class FragmentTabHost extends TabHost
             mRealTabContent = fl = new FrameLayout(context);
             mRealTabContent.setId(mContainerId);
             ll.addView(fl, new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.FILL_PARENT, 0, 1));
+                    LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         }
     }
 
@@ -202,7 +207,7 @@ public class FragmentTabHost extends TabHost
         mRealTabContent.setId(containerId);
 
         // We must have an ID to be able to save/restore our state.  If
-        // the owner hasn't set one at this point, we will set it ourself.
+        // the owner hasn't set one at this point, we will set it ourselves.
         if (getId() == View.NO_ID) {
             setId(android.R.id.tabhost);
         }
@@ -223,11 +228,12 @@ public class FragmentTabHost extends TabHost
         mOnTabChangeListener = l;
     }
 
-    public void addTab(TabHost.TabSpec tabSpec, Class<?> clss, Bundle args) {
+    public void addTab(@NonNull TabHost.TabSpec tabSpec, @NonNull Class<?> clss,
+            @Nullable Bundle args) {
         tabSpec.setContent(new DummyTabFactory(mContext));
-        String tag = tabSpec.getTag();
 
-        TabInfo info = new TabInfo(tag, clss, args);
+        final String tag = tabSpec.getTag();
+        final TabInfo info = new TabInfo(tag, clss, args);
 
         if (mAttached) {
             // If we are already attached to the window, then check to make
@@ -235,7 +241,7 @@ public class FragmentTabHost extends TabHost
             // normally happen.
             info.fragment = mFragmentManager.findFragmentByTag(tag);
             if (info.fragment != null && !info.fragment.isDetached()) {
-                FragmentTransaction ft = mFragmentManager.beginTransaction();
+                final FragmentTransaction ft = mFragmentManager.beginTransaction();
                 ft.detach(info.fragment);
                 ft.commit();
             }
@@ -249,16 +255,16 @@ public class FragmentTabHost extends TabHost
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
 
-        String currentTab = getCurrentTabTag();
+        final String currentTag = getCurrentTabTag();
 
         // Go through all tabs and make sure their fragments match
         // the correct state.
         FragmentTransaction ft = null;
-        for (int i=0; i<mTabs.size(); i++) {
-            TabInfo tab = mTabs.get(i);
+        for (int i = 0, count = mTabs.size(); i < count; i++) {
+            final TabInfo tab = mTabs.get(i);
             tab.fragment = mFragmentManager.findFragmentByTag(tab.tag);
             if (tab.fragment != null && !tab.fragment.isDetached()) {
-                if (tab.tag.equals(currentTab)) {
+                if (tab.tag.equals(currentTag)) {
                     // The fragment for this tab is already there and
                     // active, and it is what we really want to have
                     // as the current tab.  Nothing to do.
@@ -277,7 +283,7 @@ public class FragmentTabHost extends TabHost
         // We are now ready to go.  Make sure we are switched to the
         // correct tab.
         mAttached = true;
-        ft = doTabChanged(currentTab, ft);
+        ft = doTabChanged(currentTag, ft);
         if (ft != null) {
             ft.commit();
             mFragmentManager.executePendingTransactions();
@@ -300,7 +306,11 @@ public class FragmentTabHost extends TabHost
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
-        SavedState ss = (SavedState)state;
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+        SavedState ss = (SavedState) state;
         super.onRestoreInstanceState(ss.getSuperState());
         setCurrentTabByTag(ss.curTab);
     }
@@ -308,7 +318,7 @@ public class FragmentTabHost extends TabHost
     @Override
     public void onTabChanged(String tabId) {
         if (mAttached) {
-            FragmentTransaction ft = doTabChanged(tabId, null);
+            final FragmentTransaction ft = doTabChanged(tabId, null);
             if (ft != null) {
                 ft.commit();
             }
@@ -318,26 +328,21 @@ public class FragmentTabHost extends TabHost
         }
     }
 
-    private FragmentTransaction doTabChanged(String tabId, FragmentTransaction ft) {
-        TabInfo newTab = null;
-        for (int i=0; i<mTabs.size(); i++) {
-            TabInfo tab = mTabs.get(i);
-            if (tab.tag.equals(tabId)) {
-                newTab = tab;
-            }
-        }
-        if (newTab == null) {
-            throw new IllegalStateException("No tab known for tag " + tabId);
-        }
+    @Nullable
+    private FragmentTransaction doTabChanged(@Nullable String tag,
+            @Nullable FragmentTransaction ft) {
+        final TabInfo newTab = getTabInfoForTag(tag);
         if (mLastTab != newTab) {
             if (ft == null) {
                 ft = mFragmentManager.beginTransaction();
             }
+
             if (mLastTab != null) {
                 if (mLastTab.fragment != null) {
                     ft.detach(mLastTab.fragment);
                 }
             }
+
             if (newTab != null) {
                 if (newTab.fragment == null) {
                     newTab.fragment = Fragment.instantiate(mContext,
@@ -350,6 +355,18 @@ public class FragmentTabHost extends TabHost
 
             mLastTab = newTab;
         }
+
         return ft;
+    }
+
+    @Nullable
+    private TabInfo getTabInfoForTag(String tabId) {
+        for (int i = 0, count = mTabs.size(); i < count; i++) {
+            final TabInfo tab = mTabs.get(i);
+            if (tab.tag.equals(tabId)) {
+                return tab;
+            }
+        }
+        return null;
     }
 }

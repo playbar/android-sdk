@@ -61,6 +61,7 @@ final class RemoteConnectionService {
                 mPendingConnections.remove(connection);
                 // Unconditionally initialize the connection ...
                 connection.setConnectionCapabilities(parcel.getConnectionCapabilities());
+                connection.setConnectionProperties(parcel.getConnectionProperties());
                 if (parcel.getHandle() != null
                     || parcel.getState() != Connection.STATE_DISCONNECTED) {
                     connection.setAddress(parcel.getHandle(), parcel.getHandlePresentation());
@@ -117,6 +118,12 @@ final class RemoteConnectionService {
         }
 
         @Override
+        public void setPulling(String callId) {
+            findConnectionForAction(callId, "setPulling")
+                    .setState(Connection.STATE_PULLING_CALL);
+        }
+
+        @Override
         public void setDisconnected(String callId, DisconnectCause disconnectCause) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "setDisconnected")
@@ -152,6 +159,17 @@ final class RemoteConnectionService {
             } else {
                 findConferenceForAction(callId, "setConnectionCapabilities")
                         .setConnectionCapabilities(connectionCapabilities);
+            }
+        }
+
+        @Override
+        public void setConnectionProperties(String callId, int connectionProperties) {
+            if (mConnectionById.containsKey(callId)) {
+                findConnectionForAction(callId, "setConnectionProperties")
+                        .setConnectionProperties(connectionProperties);
+            } else {
+                findConferenceForAction(callId, "setConnectionProperties")
+                        .setConnectionProperties(connectionProperties);
             }
         }
 
@@ -196,17 +214,27 @@ final class RemoteConnectionService {
                     conference.addConnection(c);
                 }
             }
-
             if (conference.getConnections().size() == 0) {
                 // A conference was created, but none of its connections are ones that have been
                 // created by, and therefore being tracked by, this remote connection service. It
                 // is of no interest to us.
+                Log.d(this, "addConferenceCall - skipping");
                 return;
             }
 
             conference.setState(parcel.getState());
             conference.setConnectionCapabilities(parcel.getConnectionCapabilities());
+            conference.setConnectionProperties(parcel.getConnectionProperties());
+            conference.putExtras(parcel.getExtras());
             mConferenceById.put(callId, conference);
+
+            // Stash the original connection ID as it exists in the source ConnectionService.
+            // Telecom will use this to avoid adding duplicates later.
+            // See comments on Connection.EXTRA_ORIGINAL_CONNECTION_ID for more information.
+            Bundle newExtras = new Bundle();
+            newExtras.putString(Connection.EXTRA_ORIGINAL_CONNECTION_ID, callId);
+            conference.putExtras(newExtras);
+
             conference.registerCallback(new RemoteConference.Callback() {
                 @Override
                 public void onDestroyed(RemoteConference c) {
@@ -312,22 +340,43 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void addExistingConnection(String callId, ParcelableConnection connection) {
-            // TODO: add contents of this method
-            RemoteConnection remoteConnction = new RemoteConnection(callId,
+        public void addExistingConnection(final String callId, ParcelableConnection connection) {
+            RemoteConnection remoteConnection = new RemoteConnection(callId,
                     mOutgoingConnectionServiceRpc, connection);
-
-            mOurConnectionServiceImpl.addRemoteExistingConnection(remoteConnction);
+            mConnectionById.put(callId, remoteConnection);
+            remoteConnection.registerCallback(new RemoteConnection.Callback() {
+                @Override
+                public void onDestroyed(RemoteConnection connection) {
+                    mConnectionById.remove(callId);
+                    maybeDisconnectAdapter();
+                }
+            });
+            mOurConnectionServiceImpl.addRemoteExistingConnection(remoteConnection);
         }
 
         @Override
-        public void setExtras(String callId, Bundle extras) {
-            if (mConnectionById.containsKey(callId)) {
-                findConnectionForAction(callId, "setExtras")
-                        .setExtras(extras);
+        public void putExtras(String callId, Bundle extras) {
+            if (hasConnection(callId)) {
+                findConnectionForAction(callId, "putExtras").putExtras(extras);
             } else {
-                findConferenceForAction(callId, "setExtras")
-                        .setExtras(extras);
+                findConferenceForAction(callId, "putExtras").putExtras(extras);
+            }
+        }
+
+        @Override
+        public void removeExtras(String callId, List<String> keys) {
+            if (hasConnection(callId)) {
+                findConnectionForAction(callId, "removeExtra").removeExtras(keys);
+            } else {
+                findConferenceForAction(callId, "removeExtra").removeExtras(keys);
+            }
+        }
+
+        @Override
+        public void onConnectionEvent(String callId, String event, Bundle extras) {
+            if (mConnectionById.containsKey(callId)) {
+                findConnectionForAction(callId, "onConnectionEvent").onConnectionEvent(event,
+                        extras);
             }
         }
     };

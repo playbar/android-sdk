@@ -1,200 +1,283 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (c) 1996, 2009, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.util.zip;
 
 import java.io.FilterOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
-import libcore.io.Streams;
+import java.io.InputStream;
+import java.io.IOException;
 
 /**
- * This class provides an implementation of {@code FilterOutputStream} that
- * compresses data using the <i>DEFLATE</i> algorithm. Basically it wraps the
- * {@code Deflater} class and takes care of the buffering.
+ * This class implements an output stream filter for compressing data in
+ * the "deflate" compression format. It is also used as the basis for other
+ * types of compression filters, such as GZIPOutputStream.
  *
- * @see Deflater
+ * @see         Deflater
+ * @author      David Connelly
  */
-public class DeflaterOutputStream extends FilterOutputStream {
-    static final int BUF_SIZE = 512;
+public
+class DeflaterOutputStream extends FilterOutputStream {
+    /**
+     * Compressor for this stream.
+     */
+    protected Deflater def;
 
     /**
-     * The buffer for the data to be written to.
+     * Output buffer for writing compressed data.
      */
     protected byte[] buf;
 
     /**
-     * The deflater used.
+     * Indicates that the stream has been closed.
      */
-    protected Deflater def;
 
-    boolean done = false;
+    private boolean closed = false;
 
     private final boolean syncFlush;
 
     /**
-     * Constructs a new instance with a default-constructed {@link Deflater}.
-     */
-    public DeflaterOutputStream(OutputStream os) {
-        this(os, new Deflater(), BUF_SIZE, false);
-    }
+     * Creates a new output stream with the specified compressor,
+     * buffer size and flush mode.
 
-    /**
-     * Constructs a new instance with the given {@code Deflater}.
-     */
-    public DeflaterOutputStream(OutputStream os, Deflater def) {
-        this(os, def, BUF_SIZE, false);
-    }
-
-    /**
-     * Constructs a new instance with the given {@code Deflater} and buffer size.
-     */
-    public DeflaterOutputStream(OutputStream os, Deflater def, int bufferSize) {
-        this(os, def, bufferSize, false);
-    }
-
-    /**
-     * Constructs a new instance with the given flushing behavior (see {@link #flush}).
+     * @param out the output stream
+     * @param def the compressor ("deflater")
+     * @param size the output buffer size
+     * @param syncFlush
+     *        if {@code true} the {@link #flush()} method of this
+     *        instance flushes the compressor with flush mode
+     *        {@link Deflater#SYNC_FLUSH} before flushing the output
+     *        stream, otherwise only flushes the output stream
+     *
+     * @throws IllegalArgumentException if size is <= 0
+     *
      * @since 1.7
      */
-    public DeflaterOutputStream(OutputStream os, boolean syncFlush) {
-        this(os, new Deflater(), BUF_SIZE, syncFlush);
-    }
-
-    /**
-     * Constructs a new instance with the given {@code Deflater} and
-     * flushing behavior (see {@link #flush}).
-     * @since 1.7
-     */
-    public DeflaterOutputStream(OutputStream os, Deflater def, boolean syncFlush) {
-        this(os, def, BUF_SIZE, syncFlush);
-    }
-
-    /**
-     * Constructs a new instance with the given {@code Deflater}, buffer size, and
-     * flushing behavior (see {@link #flush}).
-     * @since 1.7
-     */
-    public DeflaterOutputStream(OutputStream os, Deflater def, int bufferSize, boolean syncFlush) {
-        super(os);
-        if (os == null) {
-            throw new NullPointerException("os == null");
-        } else if (def == null) {
-            throw new NullPointerException("def == null");
-        }
-        if (bufferSize <= 0) {
-            throw new IllegalArgumentException("bufferSize <= 0: " + bufferSize);
+    public DeflaterOutputStream(OutputStream out,
+                                Deflater def,
+                                int size,
+                                boolean syncFlush) {
+        super(out);
+        if (out == null || def == null) {
+            throw new NullPointerException();
+        } else if (size <= 0) {
+            throw new IllegalArgumentException("buffer size <= 0");
         }
         this.def = def;
+        this.buf = new byte[size];
         this.syncFlush = syncFlush;
-        buf = new byte[bufferSize];
+    }
+
+
+    /**
+     * Creates a new output stream with the specified compressor and
+     * buffer size.
+     *
+     * <p>The new output stream instance is created as if by invoking
+     * the 4-argument constructor DeflaterOutputStream(out, def, size, false).
+     *
+     * @param out the output stream
+     * @param def the compressor ("deflater")
+     * @param size the output buffer size
+     * @exception IllegalArgumentException if size is <= 0
+     */
+    public DeflaterOutputStream(OutputStream out, Deflater def, int size) {
+        this(out, def, size, false);
     }
 
     /**
-     * Compress the data in the input buffer and write it to the underlying
-     * stream.
+     * Creates a new output stream with the specified compressor, flush
+     * mode and a default buffer size.
      *
-     * @throws IOException
-     *             If an error occurs during deflation.
+     * @param out the output stream
+     * @param def the compressor ("deflater")
+     * @param syncFlush
+     *        if {@code true} the {@link #flush()} method of this
+     *        instance flushes the compressor with flush mode
+     *        {@link Deflater#SYNC_FLUSH} before flushing the output
+     *        stream, otherwise only flushes the output stream
+     *
+     * @since 1.7
      */
-    protected void deflate() throws IOException {
-        int byteCount;
-        while ((byteCount = def.deflate(buf)) != 0) {
-            out.write(buf, 0, byteCount);
+    public DeflaterOutputStream(OutputStream out,
+                                Deflater def,
+                                boolean syncFlush) {
+        this(out, def, 512, syncFlush);
+    }
+
+
+    /**
+     * Creates a new output stream with the specified compressor and
+     * a default buffer size.
+     *
+     * <p>The new output stream instance is created as if by invoking
+     * the 3-argument constructor DeflaterOutputStream(out, def, false).
+     *
+     * @param out the output stream
+     * @param def the compressor ("deflater")
+     */
+    public DeflaterOutputStream(OutputStream out, Deflater def) {
+        this(out, def, 512, false);
+    }
+
+    boolean usesDefaultDeflater = false;
+
+
+    /**
+     * Creates a new output stream with a default compressor, a default
+     * buffer size and the specified flush mode.
+     *
+     * @param out the output stream
+     * @param syncFlush
+     *        if {@code true} the {@link #flush()} method of this
+     *        instance flushes the compressor with flush mode
+     *        {@link Deflater#SYNC_FLUSH} before flushing the output
+     *        stream, otherwise only flushes the output stream
+     *
+     * @since 1.7
+     */
+    public DeflaterOutputStream(OutputStream out, boolean syncFlush) {
+        this(out, new Deflater(), 512, syncFlush);
+        usesDefaultDeflater = true;
+    }
+
+    /**
+     * Creates a new output stream with a default compressor and buffer size.
+     *
+     * <p>The new output stream instance is created as if by invoking
+     * the 2-argument constructor DeflaterOutputStream(out, false).
+     *
+     * @param out the output stream
+     */
+    public DeflaterOutputStream(OutputStream out) {
+        this(out, false);
+        usesDefaultDeflater = true;
+    }
+
+    /**
+     * Writes a byte to the compressed output stream. This method will
+     * block until the byte can be written.
+     * @param b the byte to be written
+     * @exception IOException if an I/O error has occurred
+     */
+    public void write(int b) throws IOException {
+        byte[] buf = new byte[1];
+        buf[0] = (byte)(b & 0xff);
+        write(buf, 0, 1);
+    }
+
+    /**
+     * Writes an array of bytes to the compressed output stream. This
+     * method will block until all the bytes are written.
+     * @param b the data to be written
+     * @param off the start offset of the data
+     * @param len the length of the data
+     * @exception IOException if an I/O error has occurred
+     */
+    public void write(byte[] b, int off, int len) throws IOException {
+        if (def.finished()) {
+            throw new IOException("write beyond end of stream");
         }
-    }
-
-    /**
-     * Writes any unwritten compressed data to the underlying stream, the closes
-     * all underlying streams. This stream can no longer be used after close()
-     * has been called.
-     *
-     * @throws IOException
-     *             If an error occurs while closing the data compression
-     *             process.
-     */
-    @Override
-    public void close() throws IOException {
-        // everything closed here should also be closed in ZipOutputStream.close()
-        if (!def.finished()) {
-            finish();
-        }
-        def.end();
-        out.close();
-    }
-
-    /**
-     * Writes any unwritten data to the underlying stream. Does not close the
-     * stream.
-     *
-     * @throws IOException
-     *             If an error occurs.
-     */
-    public void finish() throws IOException {
-        if (done) {
+        if ((off | len | (off + len) | (b.length - (off + len))) < 0) {
+            throw new IndexOutOfBoundsException();
+        } else if (len == 0) {
             return;
         }
-        def.finish();
-        while (!def.finished()) {
-            int byteCount = def.deflate(buf);
-            out.write(buf, 0, byteCount);
+        if (!def.finished()) {
+            def.setInput(b, off, len);
+            while (!def.needsInput()) {
+                deflate();
+            }
         }
-        done = true;
-    }
-
-    @Override public void write(int i) throws IOException {
-        Streams.writeSingleByte(this, i);
     }
 
     /**
-     * Compresses {@code byteCount} bytes of data from {@code buf} starting at
-     * {@code offset} and writes it to the underlying stream.
-     * @throws IOException
-     *             If an error occurs during writing.
+     * Finishes writing compressed data to the output stream without closing
+     * the underlying stream. Use this method when applying multiple filters
+     * in succession to the same output stream.
+     * @exception IOException if an I/O error has occurred
      */
-    @Override public void write(byte[] buffer, int offset, int byteCount) throws IOException {
-        if (done) {
-            throw new IOException("attempt to write after finish");
+    public void finish() throws IOException {
+        if (!def.finished()) {
+            def.finish();
+            while (!def.finished()) {
+                deflate();
+            }
         }
-        Arrays.checkOffsetAndCount(buffer.length, offset, byteCount);
-        if (!def.needsInput()) {
-            throw new IOException();
-        }
-        def.setInput(buffer, offset, byteCount);
-        deflate();
     }
 
     /**
-     * Flushes the underlying stream. This flushes only the bytes that can be
-     * compressed at the highest level.
+     * Writes remaining compressed data to the output stream and closes the
+     * underlying stream.
+     * @exception IOException if an I/O error has occurred
+     */
+    public void close() throws IOException {
+        if (!closed) {
+            finish();
+            if (usesDefaultDeflater)
+                def.end();
+            out.close();
+            closed = true;
+        }
+    }
+
+    /**
+     * Writes next block of compressed data to the output stream.
+     * @throws IOException if an I/O error has occurred
+     */
+    protected void deflate() throws IOException {
+        int len = 0;
+        while ((len = def.deflate(buf, 0, buf.length)) > 0) {
+          out.write(buf, 0, len);
+        }
+    }
+
+    /**
+     * Flushes the compressed output stream.
      *
-     * <p>For deflater output streams constructed with the {@code syncFlush} parameter set to true,
-     * this first flushes all outstanding data so that it may be immediately read by its recipient.
-     * Doing so may degrade compression but improve interactive behavior.
+     * If {@link #DeflaterOutputStream(OutputStream, Deflater, int, boolean)
+     * syncFlush} is {@code true} when this compressed output stream is
+     * constructed, this method first flushes the underlying {@code compressor}
+     * with the flush mode {@link Deflater#SYNC_FLUSH} to force
+     * all pending data to be flushed out to the output stream and then
+     * flushes the output stream. Otherwise this method only flushes the
+     * output stream without flushing the {@code compressor}.
+     *
+     * @throws IOException if an I/O error has occurred
+     *
+     * @since 1.7
      */
-    @Override public void flush() throws IOException {
-        // Though not documented, it's illegal to call deflate with any flush param
-        // other than Z_FINISH after the deflater has finished. See the error checking
-        // at the start of the deflate function in deflate.c.
-        if (syncFlush && !done) {
-            int byteCount;
-            while ((byteCount = def.deflate(buf, 0, buf.length, Deflater.SYNC_FLUSH)) != 0) {
-                out.write(buf, 0, byteCount);
+    public void flush() throws IOException {
+        if (syncFlush && !def.finished()) {
+            int len = 0;
+            while ((len = def.deflate(buf, 0, buf.length, Deflater.SYNC_FLUSH)) > 0)
+            {
+                out.write(buf, 0, len);
+                if (len < buf.length)
+                    break;
             }
         }
         out.flush();

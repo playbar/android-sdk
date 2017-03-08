@@ -1,361 +1,304 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
+
 
 package java.util.logging;
 
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
-
 /**
- * A {@code Handler} object accepts a logging request and exports the desired
- * messages to a target, for example, a file, the console, etc. It can be
- * disabled by setting its logging level to {@code Level.OFF}.
+ * A <tt>Handler</tt> object takes log messages from a <tt>Logger</tt> and
+ * exports them.  It might for example, write them to a console
+ * or write them to a file, or send them to a network logging service,
+ * or forward them to an OS log, or whatever.
+ * <p>
+ * A <tt>Handler</tt> can be disabled by doing a <tt>setLevel(Level.OFF)</tt>
+ * and can  be re-enabled by doing a <tt>setLevel</tt> with an appropriate level.
+ * <p>
+ * <tt>Handler</tt> classes typically use <tt>LogManager</tt> properties to set
+ * default values for the <tt>Handler</tt>'s <tt>Filter</tt>, <tt>Formatter</tt>,
+ * and <tt>Level</tt>.  See the specific documentation for each concrete
+ * <tt>Handler</tt> class.
+ *
+ *
+ * @since 1.4
  */
+
 public abstract class Handler {
-
-    private static final Level DEFAULT_LEVEL = Level.ALL;
-
-    // the error manager to report errors during logging
-    private ErrorManager errorMan;
-
-    // the character encoding used by this handler
+    private static final int offValue = Level.OFF.intValue();
+    private LogManager manager = LogManager.getLogManager();
+    private Filter filter;
+    private Formatter formatter;
+    private Level logLevel = Level.ALL;
+    private ErrorManager errorManager = new ErrorManager();
     private String encoding;
 
-    // the logging level
-    private Level level;
-
-    // the formatter used to export messages
-    private Formatter formatter;
-
-    // the filter used to filter undesired messages
-    private Filter filter;
-
-    // class name, used for property reading
-    private String prefix;
+    // Package private support for security checking.  When sealed
+    // is true, we access check updates to the class.
+    boolean sealed = true;
 
     /**
-     * Constructs a {@code Handler} object with a default error manager instance
-     * {@code ErrorManager}, the default encoding, and the default logging
-     * level {@code Level.ALL}. It has no filter and no formatter.
+     * Default constructor.  The resulting <tt>Handler</tt> has a log
+     * level of <tt>Level.ALL</tt>, no <tt>Formatter</tt>, and no
+     * <tt>Filter</tt>.  A default <tt>ErrorManager</tt> instance is installed
+     * as the <tt>ErrorManager</tt>.
      */
     protected Handler() {
-        this.errorMan = new ErrorManager();
-        this.level = DEFAULT_LEVEL;
-        this.encoding = null;
-        this.filter = null;
-        this.formatter = null;
-        this.prefix = this.getClass().getName();
-    }
-
-    // get a instance from given class name, using Class.forName()
-    private Object getDefaultInstance(String className) {
-        Object result = null;
-        if (className == null) {
-            return result;
-        }
-        try {
-            result = Class.forName(className).newInstance();
-        } catch (Exception e) {
-            // ignore
-        }
-        return result;
-    }
-
-    // get a instance from given class name, using context classloader
-    private Object getCustomizeInstance(final String className) throws Exception {
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        if (loader == null) {
-            loader = ClassLoader.getSystemClassLoader();
-        }
-        Class<?> c = loader.loadClass(className);
-        return c.newInstance();
-    }
-
-    // print error message in some format
-    void printInvalidPropMessage(String key, String value, Exception e) {
-        String msg = "Invalid property value for " + prefix + ":" + key + "/" + value;
-        errorMan.error(msg, e, ErrorManager.GENERIC_FAILURE);
     }
 
     /**
-     * init the common properties, including filter, level, formatter, and
-     * encoding
-     */
-    void initProperties(String defaultLevel, String defaultFilter,
-            String defaultFormatter, String defaultEncoding) {
-        LogManager manager = LogManager.getLogManager();
-
-        // set filter
-        final String filterName = manager.getProperty(prefix + ".filter");
-        if (filterName != null) {
-            try {
-                filter = (Filter) getCustomizeInstance(filterName);
-            } catch (Exception e1) {
-                printInvalidPropMessage("filter", filterName, e1);
-                filter = (Filter) getDefaultInstance(defaultFilter);
-            }
-        } else {
-            filter = (Filter) getDefaultInstance(defaultFilter);
-        }
-
-        // set level
-        String levelName = manager.getProperty(prefix + ".level");
-        if (levelName != null) {
-            try {
-                level = Level.parse(levelName);
-            } catch (Exception e) {
-                printInvalidPropMessage("level", levelName, e);
-                level = Level.parse(defaultLevel);
-            }
-        } else {
-            level = Level.parse(defaultLevel);
-        }
-
-        // set formatter
-        final String formatterName = manager.getProperty(prefix + ".formatter");
-        if (formatterName != null) {
-            try {
-                formatter = (Formatter) getCustomizeInstance(formatterName);
-            } catch (Exception e) {
-                printInvalidPropMessage("formatter", formatterName, e);
-                formatter = (Formatter) getDefaultInstance(defaultFormatter);
-            }
-        } else {
-            formatter = (Formatter) getDefaultInstance(defaultFormatter);
-        }
-
-        // set encoding
-        final String encodingName = manager.getProperty(prefix + ".encoding");
-        try {
-            internalSetEncoding(encodingName);
-        } catch (UnsupportedEncodingException e) {
-            printInvalidPropMessage("encoding", encodingName, e);
-        }
-    }
-
-    /**
-     * Closes this handler. A flush operation will be performed and all the
-     * associated resources will be freed. Client applications should not use
-     * this handler after closing it.
-     */
-    public abstract void close();
-
-    /**
-     * Flushes any buffered output.
-     */
-    public abstract void flush();
-
-    /**
-     * Accepts a logging request and sends it to the the target.
+     * Publish a <tt>LogRecord</tt>.
+     * <p>
+     * The logging request was made initially to a <tt>Logger</tt> object,
+     * which initialized the <tt>LogRecord</tt> and forwarded it here.
+     * <p>
+     * The <tt>Handler</tt>  is responsible for formatting the message, when and
+     * if necessary.  The formatting should include localization.
      *
-     * @param record
-     *            the log record to be logged; {@code null} records are ignored.
+     * @param  record  description of the log event. A null record is
+     *                 silently ignored and is not published
      */
     public abstract void publish(LogRecord record);
 
     /**
-     * Gets the character encoding used by this handler, {@code null} for
-     * default encoding.
-     *
-     * @return the character encoding used by this handler.
+     * Flush any buffered output.
      */
-    public String getEncoding() {
-        return this.encoding;
+    public abstract void flush();
+
+    /**
+     * Close the <tt>Handler</tt> and free all associated resources.
+     * <p>
+     * The close method will perform a <tt>flush</tt> and then close the
+     * <tt>Handler</tt>.   After close has been called this <tt>Handler</tt>
+     * should no longer be used.  Method calls may either be silently
+     * ignored or may throw runtime exceptions.
+     *
+     * @exception  SecurityException  if a security manager exists and if
+     *             the caller does not have <tt>LoggingPermission("control")</tt>.
+     */
+    public abstract void close() throws SecurityException;
+
+    /**
+     * Set a <tt>Formatter</tt>.  This <tt>Formatter</tt> will be used
+     * to format <tt>LogRecords</tt> for this <tt>Handler</tt>.
+     * <p>
+     * Some <tt>Handlers</tt> may not use <tt>Formatters</tt>, in
+     * which case the <tt>Formatter</tt> will be remembered, but not used.
+     * <p>
+     * @param newFormatter the <tt>Formatter</tt> to use (may not be null)
+     * @exception  SecurityException  if a security manager exists and if
+     *             the caller does not have <tt>LoggingPermission("control")</tt>.
+     */
+    public void setFormatter(Formatter newFormatter) throws SecurityException {
+        checkPermission();
+        // Check for a null pointer:
+        newFormatter.getClass();
+        formatter = newFormatter;
     }
 
     /**
-     * Gets the error manager used by this handler to report errors during
-     * logging.
-     *
-     * @return the error manager used by this handler.
-     */
-    public ErrorManager getErrorManager() {
-        LogManager.getLogManager().checkAccess();
-        return this.errorMan;
-    }
-
-    /**
-     * Gets the filter used by this handler.
-     *
-     * @return the filter used by this handler (possibly {@code null}).
-     */
-    public Filter getFilter() {
-        return this.filter;
-    }
-
-    /**
-     * Gets the formatter used by this handler to format the logging messages.
-     *
-     * @return the formatter used by this handler (possibly {@code null}).
+     * Return the <tt>Formatter</tt> for this <tt>Handler</tt>.
+     * @return the <tt>Formatter</tt> (may be null).
      */
     public Formatter getFormatter() {
-        return this.formatter;
+        return formatter;
     }
 
     /**
-     * Gets the logging level of this handler, records with levels lower than
-     * this value will be dropped.
+     * Set the character encoding used by this <tt>Handler</tt>.
+     * <p>
+     * The encoding should be set before any <tt>LogRecords</tt> are written
+     * to the <tt>Handler</tt>.
      *
-     * @return the logging level of this handler.
+     * @param encoding  The name of a supported character encoding.
+     *        May be null, to indicate the default platform encoding.
+     * @exception  SecurityException  if a security manager exists and if
+     *             the caller does not have <tt>LoggingPermission("control")</tt>.
+     * @exception  UnsupportedEncodingException if the named encoding is
+     *          not supported.
      */
-    public Level getLevel() {
-        return this.level;
-    }
-
-    /**
-     * Determines whether the supplied log record needs to be logged. The
-     * logging levels will be checked as well as the filter.
-     *
-     * @param record
-     *            the log record to be checked.
-     * @return {@code true} if the supplied log record needs to be logged,
-     *         otherwise {@code false}.
-     */
-    public boolean isLoggable(LogRecord record) {
-        if (record == null) {
-            throw new NullPointerException("record == null");
-        }
-        if (this.level.intValue() == Level.OFF.intValue()) {
-            return false;
-        } else if (record.getLevel().intValue() >= this.level.intValue()) {
-            return this.filter == null || this.filter.isLoggable(record);
-        }
-        return false;
-    }
-
-    /**
-     * Reports an error to the error manager associated with this handler,
-     * {@code ErrorManager} is used for that purpose. No security checks are
-     * done, therefore this is compatible with environments where the caller
-     * is non-privileged.
-     *
-     * @param msg
-     *            the error message, may be {@code null}.
-     * @param ex
-     *            the associated exception, may be {@code null}.
-     * @param code
-     *            an {@code ErrorManager} error code.
-     */
-    protected void reportError(String msg, Exception ex, int code) {
-        this.errorMan.error(msg, ex, code);
-    }
-
-    /**
-     * Sets the character encoding used by this handler. A {@code null} value
-     * indicates the use of the default encoding. This internal method does
-     * not check security.
-     *
-     * @param newEncoding
-     *            the character encoding to set.
-     * @throws UnsupportedEncodingException
-     *             if the specified encoding is not supported by the runtime.
-     */
-    void internalSetEncoding(String newEncoding) throws UnsupportedEncodingException {
-        // accepts "null" because it indicates using default encoding
-        if (newEncoding == null) {
-            this.encoding = null;
-        } else {
-            if (Charset.isSupported(newEncoding)) {
-                this.encoding = newEncoding;
-            } else {
-                throw new UnsupportedEncodingException(newEncoding);
+    public void setEncoding(String encoding)
+                        throws SecurityException, java.io.UnsupportedEncodingException {
+        checkPermission();
+        if (encoding != null) {
+            try {
+                if(!java.nio.charset.Charset.isSupported(encoding)) {
+                    throw new UnsupportedEncodingException(encoding);
+                }
+            } catch (java.nio.charset.IllegalCharsetNameException e) {
+                throw new UnsupportedEncodingException(encoding);
             }
         }
+        this.encoding = encoding;
     }
 
     /**
-     * Sets the character encoding used by this handler, {@code null} indicates
-     * a default encoding.
+     * Return the character encoding for this <tt>Handler</tt>.
      *
-     * @throws UnsupportedEncodingException if {@code charsetName} is not supported.
+     * @return  The encoding name.  May be null, which indicates the
+     *          default encoding should be used.
      */
-    public void setEncoding(String charsetName) throws UnsupportedEncodingException {
-        LogManager.getLogManager().checkAccess();
-        internalSetEncoding(charsetName);
+    public String getEncoding() {
+        return encoding;
     }
 
     /**
-     * Sets the error manager for this handler.
+     * Set a <tt>Filter</tt> to control output on this <tt>Handler</tt>.
+     * <P>
+     * For each call of <tt>publish</tt> the <tt>Handler</tt> will call
+     * this <tt>Filter</tt> (if it is non-null) to check if the
+     * <tt>LogRecord</tt> should be published or discarded.
      *
-     * @param newErrorManager
-     *            the error manager to set.
-     * @throws NullPointerException
-     *             if {@code em} is {@code null}.
+     * @param   newFilter  a <tt>Filter</tt> object (may be null)
+     * @exception  SecurityException  if a security manager exists and if
+     *             the caller does not have <tt>LoggingPermission("control")</tt>.
      */
-    public void setErrorManager(ErrorManager newErrorManager) {
-        LogManager.getLogManager().checkAccess();
-        if (newErrorManager == null) {
-            throw new NullPointerException("newErrorManager == null");
+    public void setFilter(Filter newFilter) throws SecurityException {
+        checkPermission();
+        filter = newFilter;
+    }
+
+    /**
+     * Get the current <tt>Filter</tt> for this <tt>Handler</tt>.
+     *
+     * @return  a <tt>Filter</tt> object (may be null)
+     */
+    public Filter getFilter() {
+        return filter;
+    }
+
+    /**
+     * Define an ErrorManager for this Handler.
+     * <p>
+     * The ErrorManager's "error" method will be invoked if any
+     * errors occur while using this Handler.
+     *
+     * @param em  the new ErrorManager
+     * @exception  SecurityException  if a security manager exists and if
+     *             the caller does not have <tt>LoggingPermission("control")</tt>.
+     */
+    public void setErrorManager(ErrorManager em) {
+        checkPermission();
+        if (em == null) {
+           throw new NullPointerException();
         }
-        this.errorMan = newErrorManager;
+        errorManager = em;
     }
 
     /**
-     * Sets the filter to be used by this handler.
+     * Retrieves the ErrorManager for this Handler.
      *
-     * @param newFilter
-     *            the filter to set, may be {@code null}.
+     * @exception  SecurityException  if a security manager exists and if
+     *             the caller does not have <tt>LoggingPermission("control")</tt>.
      */
-    public void setFilter(Filter newFilter) {
-        LogManager.getLogManager().checkAccess();
-        this.filter = newFilter;
+    public ErrorManager getErrorManager() {
+        checkPermission();
+        return errorManager;
     }
 
-    /**
-     * Sets the formatter to be used by this handler. This internal method does
-     * not check security.
+   /**
+     * Protected convenience method to report an error to this Handler's
+     * ErrorManager.  Note that this method retrieves and uses the ErrorManager
+     * without doing a security check.  It can therefore be used in
+     * environments where the caller may be non-privileged.
      *
-     * @param newFormatter
-     *            the formatter to set.
+     * @param msg    a descriptive string (may be null)
+     * @param ex     an exception (may be null)
+     * @param code   an error code defined in ErrorManager
      */
-    void internalSetFormatter(Formatter newFormatter) {
-        if (newFormatter == null) {
-            throw new NullPointerException("newFormatter == null");
+    protected void reportError(String msg, Exception ex, int code) {
+        try {
+            errorManager.error(msg, ex, code);
+        } catch (Exception ex2) {
+            System.err.println("Handler.reportError caught:");
+            ex2.printStackTrace();
         }
-        this.formatter = newFormatter;
     }
 
     /**
-     * Sets the formatter to be used by this handler.
+     * Set the log level specifying which message levels will be
+     * logged by this <tt>Handler</tt>.  Message levels lower than this
+     * value will be discarded.
+     * <p>
+     * The intention is to allow developers to turn on voluminous
+     * logging, but to limit the messages that are sent to certain
+     * <tt>Handlers</tt>.
      *
-     * @param newFormatter
-     *            the formatter to set.
-     * @throws NullPointerException
-     *             if {@code newFormatter} is {@code null}.
+     * @param newLevel   the new value for the log level
+     * @exception  SecurityException  if a security manager exists and if
+     *             the caller does not have <tt>LoggingPermission("control")</tt>.
      */
-    public void setFormatter(Formatter newFormatter) {
-        LogManager.getLogManager().checkAccess();
-        internalSetFormatter(newFormatter);
-    }
-
-    /**
-     * Sets the logging level of the messages logged by this handler, levels
-     * lower than this value will be dropped.
-     *
-     * @param newLevel
-     *            the logging level to set.
-     * @throws NullPointerException
-     *             if {@code newLevel} is {@code null}.
-     */
-    public void setLevel(Level newLevel) {
+    public synchronized void setLevel(Level newLevel) throws SecurityException {
         if (newLevel == null) {
-            throw new NullPointerException("newLevel == null");
+            throw new NullPointerException();
         }
-        LogManager.getLogManager().checkAccess();
-        this.level = newLevel;
+        checkPermission();
+        logLevel = newLevel;
+    }
+
+    /**
+     * Get the log level specifying which messages will be
+     * logged by this <tt>Handler</tt>.  Message levels lower
+     * than this level will be discarded.
+     * @return  the level of messages being logged.
+     */
+    public synchronized Level getLevel() {
+        return logLevel;
+    }
+
+    /**
+     * Check if this <tt>Handler</tt> would actually log a given <tt>LogRecord</tt>.
+     * <p>
+     * This method checks if the <tt>LogRecord</tt> has an appropriate
+     * <tt>Level</tt> and  whether it satisfies any <tt>Filter</tt>.  It also
+     * may make other <tt>Handler</tt> specific checks that might prevent a
+     * handler from logging the <tt>LogRecord</tt>. It will return false if
+     * the <tt>LogRecord</tt> is null.
+     * <p>
+     * @param record  a <tt>LogRecord</tt>
+     * @return true if the <tt>LogRecord</tt> would be logged.
+     *
+     */
+    public boolean isLoggable(LogRecord record) {
+        int levelValue = getLevel().intValue();
+        if (record.getLevel().intValue() < levelValue || levelValue == offValue) {
+            return false;
+        }
+        Filter filter = getFilter();
+        if (filter == null) {
+            return true;
+        }
+        return filter.isLoggable(record);
+    }
+
+    // Package-private support method for security checks.
+    // If "sealed" is true, we check that the caller has
+    // appropriate security privileges to update Handler
+    // state and if not throw a SecurityException.
+    void checkPermission() throws SecurityException {
+        if (sealed) {
+            manager.checkPermission();
+        }
     }
 }

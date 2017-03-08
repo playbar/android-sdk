@@ -30,6 +30,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.AtomicFile;
 import android.util.AttributeSet;
+import android.util.IntArray;
 import android.util.Log;
 import android.util.Slog;
 import android.util.SparseArray;
@@ -54,6 +55,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -213,7 +215,7 @@ public abstract class RegisteredServicesCache<V> {
         @Override
         public void onReceive(Context context, Intent intent) {
             // External apps can't coexist with multi-user, so scan owner
-            handlePackageEvent(intent, UserHandle.USER_OWNER);
+            handlePackageEvent(intent, UserHandle.USER_SYSTEM);
         }
     };
 
@@ -294,14 +296,16 @@ public abstract class RegisteredServicesCache<V> {
      */
     public static class ServiceInfo<V> {
         public final V type;
+        public final ComponentInfo componentInfo;
         public final ComponentName componentName;
         public final int uid;
 
         /** @hide */
-        public ServiceInfo(V type, ComponentName componentName, int uid) {
+        public ServiceInfo(V type, ComponentInfo componentInfo, ComponentName componentName) {
             this.type = type;
+            this.componentInfo = componentInfo;
             this.componentName = componentName;
-            this.uid = uid;
+            this.uid = (componentInfo != null) ? componentInfo.applicationInfo.uid : -1;
         }
 
         @Override
@@ -342,6 +346,47 @@ public abstract class RegisteredServicesCache<V> {
         }
     }
 
+    public void updateServices(int userId) {
+        if (DEBUG) {
+            Slog.d(TAG, "updateServices u" + userId);
+        }
+        List<ServiceInfo<V>> allServices;
+        synchronized (mServicesLock) {
+            final UserServices<V> user = findOrCreateUserLocked(userId);
+            // If services haven't been initialized yet - no updates required
+            if (user.services == null) {
+                return;
+            }
+            allServices = new ArrayList<>(user.services.values());
+        }
+        IntArray updatedUids = null;
+        for (ServiceInfo<V> service : allServices) {
+            int versionCode = service.componentInfo.applicationInfo.versionCode;
+            String pkg = service.componentInfo.packageName;
+            ApplicationInfo newAppInfo = null;
+            try {
+                newAppInfo = mContext.getPackageManager().getApplicationInfoAsUser(pkg, 0, userId);
+            } catch (NameNotFoundException e) {
+                // Package uninstalled - treat as null app info
+            }
+            // If package updated or removed
+            if ((newAppInfo == null) || (newAppInfo.versionCode != versionCode)) {
+                if (DEBUG) {
+                    Slog.d(TAG, "Package " + pkg + " uid=" + service.uid
+                            + " updated. New appInfo: " + newAppInfo);
+                }
+                if (updatedUids == null) {
+                    updatedUids = new IntArray();
+                }
+                updatedUids.add(service.uid);
+            }
+        }
+        if (updatedUids != null && updatedUids.size() > 0) {
+            int[] updatedUidsArray = updatedUids.toArray();
+            generateServicesMap(updatedUidsArray, userId);
+        }
+    }
+
     @VisibleForTesting
     protected boolean inSystemImage(int callerUid) {
         String[] packages = mContext.getPackageManager().getPackagesForUid(callerUid);
@@ -362,8 +407,10 @@ public abstract class RegisteredServicesCache<V> {
     @VisibleForTesting
     protected List<ResolveInfo> queryIntentServices(int userId) {
         final PackageManager pm = mContext.getPackageManager();
-        return pm.queryIntentServicesAsUser(
-                new Intent(mInterfaceName), PackageManager.GET_META_DATA, userId);
+        return pm.queryIntentServicesAsUser(new Intent(mInterfaceName),
+                PackageManager.GET_META_DATA | PackageManager.MATCH_DIRECT_BOOT_AWARE
+                        | PackageManager.MATCH_DIRECT_BOOT_UNAWARE,
+                userId);
     }
 
     /**
@@ -375,10 +422,11 @@ public abstract class RegisteredServicesCache<V> {
      */
     private void generateServicesMap(int[] changedUids, int userId) {
         if (DEBUG) {
-            Slog.d(TAG, "generateServicesMap() for " + userId + ", changed UIDs = " + changedUids);
+            Slog.d(TAG, "generateServicesMap() for " + userId + ", changed UIDs = "
+                    + Arrays.toString(changedUids));
         }
 
-        final ArrayList<ServiceInfo<V>> serviceInfos = new ArrayList<ServiceInfo<V>>();
+        final ArrayList<ServiceInfo<V>> serviceInfos = new ArrayList<>();
         final List<ResolveInfo> resolveInfos = queryIntentServices(userId);
         for (ResolveInfo resolveInfo : resolveInfos) {
             try {
@@ -563,9 +611,7 @@ public abstract class RegisteredServicesCache<V> {
                 return null;
             }
             final android.content.pm.ServiceInfo serviceInfo = service.serviceInfo;
-            final ApplicationInfo applicationInfo = serviceInfo.applicationInfo;
-            final int uid = applicationInfo.uid;
-            return new ServiceInfo<V>(v, componentName, uid);
+            return new ServiceInfo<V>(v, serviceInfo, componentName);
         } catch (NameNotFoundException e) {
             throw new XmlPullParserException(
                     "Unable to load resources for pacakge " + si.packageName);

@@ -25,6 +25,8 @@ import com.android.internal.policy.IKeyguardService;
 import com.android.internal.policy.IKeyguardStateCallback;
 import com.android.internal.widget.LockPatternUtils;
 
+import java.io.PrintWriter;
+
 /**
  * Maintains a cached copy of Keyguard's state.
  * @hide
@@ -41,14 +43,19 @@ public class KeyguardStateMonitor extends IKeyguardStateCallback.Stub {
     private volatile boolean mIsShowing = true;
     private volatile boolean mSimSecure = true;
     private volatile boolean mInputRestricted = true;
+    private volatile boolean mTrusted = false;
+    private volatile boolean mHasLockscreenWallpaper = false;
 
     private int mCurrentUserId;
 
     private final LockPatternUtils mLockPatternUtils;
+    private final OnShowingStateChangedCallback mOnShowingStateChangedCallback;
 
-    public KeyguardStateMonitor(Context context, IKeyguardService service) {
+    public KeyguardStateMonitor(Context context, IKeyguardService service,
+            OnShowingStateChangedCallback showingStateChangedCallback) {
         mLockPatternUtils = new LockPatternUtils(context);
         mCurrentUserId = ActivityManager.getCurrentUser();
+        mOnShowingStateChangedCallback = showingStateChangedCallback;
         try {
             service.addStateMonitorCallback(this);
         } catch (RemoteException e) {
@@ -60,17 +67,26 @@ public class KeyguardStateMonitor extends IKeyguardStateCallback.Stub {
         return mIsShowing;
     }
 
-    public boolean isSecure() {
-        return mLockPatternUtils.isSecure(getCurrentUser()) || mSimSecure;
+    public boolean isSecure(int userId) {
+        return mLockPatternUtils.isSecure(userId) || mSimSecure;
     }
 
     public boolean isInputRestricted() {
         return mInputRestricted;
     }
 
+    public boolean isTrusted() {
+        return mTrusted;
+    }
+
+    public boolean hasLockscreenWallpaper() {
+        return mHasLockscreenWallpaper;
+    }
+
     @Override // Binder interface
     public void onShowingStateChanged(boolean showing) {
         mIsShowing = showing;
+        mOnShowingStateChangedCallback.onShowingStateChanged(showing);
     }
 
     @Override // Binder interface
@@ -89,5 +105,29 @@ public class KeyguardStateMonitor extends IKeyguardStateCallback.Stub {
     @Override // Binder interface
     public void onInputRestrictedStateChanged(boolean inputRestricted) {
         mInputRestricted = inputRestricted;
+    }
+
+    @Override // Binder interface
+    public void onTrustedChanged(boolean trusted) {
+        mTrusted = trusted;
+    }
+
+    @Override // Binder interface
+    public void onHasLockscreenWallpaperChanged(boolean hasLockscreenWallpaper) {
+        mHasLockscreenWallpaper = hasLockscreenWallpaper;
+    }
+
+    public void dump(String prefix, PrintWriter pw) {
+        pw.println(prefix + TAG);
+        prefix += "  ";
+        pw.println(prefix + "mIsShowing=" + mIsShowing);
+        pw.println(prefix + "mSimSecure=" + mSimSecure);
+        pw.println(prefix + "mInputRestricted=" + mInputRestricted);
+        pw.println(prefix + "mTrusted=" + mTrusted);
+        pw.println(prefix + "mCurrentUserId=" + mCurrentUserId);
+    }
+
+    public interface OnShowingStateChangedCallback {
+        void onShowingStateChanged(boolean showing);
     }
 }

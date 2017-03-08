@@ -16,44 +16,57 @@ package android.graphics.drawable;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.content.pm.ActivityInfo.Config;
 import android.content.res.ColorStateList;
+import android.content.res.ComplexColor;
+import android.content.res.GradientColor;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.TypedArray;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Insets;
-import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.PathMeasure;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
-import android.graphics.PorterDuff.Mode;
+import android.graphics.Shader;
 import android.util.ArrayMap;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.FloatProperty;
+import android.util.IntProperty;
 import android.util.LayoutDirection;
 import android.util.Log;
-import android.util.MathUtils;
 import android.util.PathParser;
+import android.util.Property;
 import android.util.Xml;
 
 import com.android.internal.R;
+import com.android.internal.util.VirtualRefBasePtr;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Stack;
 
+import dalvik.system.VMRuntime;
+
 /**
- * This lets you create a drawable based on an XML vector graphic. It can be
- * defined in an XML file with the <code>&lt;vector></code> element.
+ * This lets you create a drawable based on an XML vector graphic.
+ * <p/>
+ * <strong>Note:</strong> To optimize for the re-drawing performance, one bitmap cache is created
+ * for each VectorDrawable. Therefore, referring to the same VectorDrawable means sharing the same
+ * bitmap cache. If these references don't agree upon on the same size, the bitmap will be recreated
+ * and redrawn every time size is changed. In other words, if a VectorDrawable is used for
+ * different sizes, it is more efficient to create multiple VectorDrawables, one for each size.
+ * <p/>
+ * VectorDrawable can be defined in an XML file with the <code>&lt;vector></code> element.
  * <p/>
  * The vector drawable has the following elements:
  * <p/>
@@ -63,27 +76,36 @@ import java.util.Stack;
  * <dl>
  * <dt><code>android:name</code></dt>
  * <dd>Defines the name of this vector drawable.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:width</code></dt>
  * <dd>Used to define the intrinsic width of the drawable.
  * This support all the dimension units, normally specified with dp.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:height</code></dt>
  * <dd>Used to define the intrinsic height the drawable.
  * This support all the dimension units, normally specified with dp.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:viewportWidth</code></dt>
  * <dd>Used to define the width of the viewport space. Viewport is basically
  * the virtual canvas where the paths are drawn on.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:viewportHeight</code></dt>
  * <dd>Used to define the height of the viewport space. Viewport is basically
  * the virtual canvas where the paths are drawn on.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:tint</code></dt>
  * <dd>The color to apply to the drawable as a tint. By default, no tint is applied.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:tintMode</code></dt>
  * <dd>The Porter-Duff blending mode for the tint color. The default value is src_in.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:autoMirrored</code></dt>
  * <dd>Indicates if the drawable needs to be mirrored when its layout direction is
  * RTL (right-to-left).</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:alpha</code></dt>
  * <dd>The opacity of this drawable.</dd>
+ * <dd>Animatable : Yes.</dd>
  * </dl></dd>
  * </dl>
  *
@@ -95,24 +117,32 @@ import java.util.Stack;
  * <dl>
  * <dt><code>android:name</code></dt>
  * <dd>Defines the name of the group.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:rotation</code></dt>
  * <dd>The degrees of rotation of the group.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:pivotX</code></dt>
  * <dd>The X coordinate of the pivot for the scale and rotation of the group.
  * This is defined in the viewport space.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:pivotY</code></dt>
  * <dd>The Y coordinate of the pivot for the scale and rotation of the group.
  * This is defined in the viewport space.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:scaleX</code></dt>
  * <dd>The amount of scale on the X Coordinate.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:scaleY</code></dt>
  * <dd>The amount of scale on the Y coordinate.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:translateX</code></dt>
  * <dd>The amount of translation on the X coordinate.
  * This is defined in the viewport space.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:translateY</code></dt>
  * <dd>The amount of translation on the Y coordinate.
  * This is defined in the viewport space.</dd>
+ * <dd>Animatable : Yes.</dd>
  * </dl></dd>
  * </dl>
  *
@@ -122,33 +152,60 @@ import java.util.Stack;
  * <dl>
  * <dt><code>android:name</code></dt>
  * <dd>Defines the name of the path.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:pathData</code></dt>
  * <dd>Defines path data using exactly same format as "d" attribute
  * in the SVG's path data. This is defined in the viewport space.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:fillColor</code></dt>
- * <dd>Defines the color to fill the path (none if not present).</dd>
+ * <dd>Specifies the color used to fill the path. May be a color or, for SDK 24+, a color state list
+ * or a gradient color (See {@link android.R.styleable#GradientColor}
+ * and {@link android.R.styleable#GradientColorItem}).
+ * If this property is animated, any value set by the animation will override the original value.
+ * No path fill is drawn if this property is not specified.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:strokeColor</code></dt>
- * <dd>Defines the color to draw the path outline (none if not present).</dd>
+ * <dd>Specifies the color used to draw the path outline. May be a color or, for SDK 24+, a color
+ * state list or a gradient color (See {@link android.R.styleable#GradientColor}
+ * and {@link android.R.styleable#GradientColorItem}).
+ * If this property is animated, any value set by the animation will override the original value.
+ * No path outline is drawn if this property is not specified.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:strokeWidth</code></dt>
  * <dd>The width a path stroke.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:strokeAlpha</code></dt>
  * <dd>The opacity of a path stroke.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:fillAlpha</code></dt>
  * <dd>The opacity to fill the path with.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:trimPathStart</code></dt>
  * <dd>The fraction of the path to trim from the start, in the range from 0 to 1.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:trimPathEnd</code></dt>
  * <dd>The fraction of the path to trim from the end, in the range from 0 to 1.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:trimPathOffset</code></dt>
  * <dd>Shift trim region (allows showed region to include the start and end), in the range
  * from 0 to 1.</dd>
+ * <dd>Animatable : Yes.</dd>
  * <dt><code>android:strokeLineCap</code></dt>
  * <dd>Sets the linecap for a stroked path: butt, round, square.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:strokeLineJoin</code></dt>
  * <dd>Sets the lineJoin for a stroked path: miter,round,bevel.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:strokeMiterLimit</code></dt>
  * <dd>Sets the Miter limit for a stroked path.</dd>
+ * <dd>Animatable : No.</dd>
+ * <dt><code>android:fillType</code></dt>
+ * <dd>Sets the fillType for a path. The types can be either "evenOdd" or "nonZero". They behave the
+ * same as SVG's "fill-rule" properties. For more details, see
+ * <a href="https://www.w3.org/TR/SVG/painting.html#FillRuleProperty">FillRuleProperty</a></dd>
+ * <dd>Animatable : No.</dd>
  * </dl></dd>
+ *
  * </dl>
  *
  * <dl>
@@ -158,9 +215,11 @@ import java.util.Stack;
  * <dl>
  * <dt><code>android:name</code></dt>
  * <dd>Defines the name of the clip path.</dd>
+ * <dd>Animatable : No.</dd>
  * <dt><code>android:pathData</code></dt>
  * <dd>Defines clip path using the same format as "d" attribute
  * in the SVG's path data.</dd>
+ * <dd>Animatable : Yes.</dd>
  * </dl></dd>
  * </dl>
  * <li>Here is a simple VectorDrawable in this vectordrawable.xml file.
@@ -181,7 +240,26 @@ import java.util.Stack;
  *             android:pathData=&quot;M300,70 l 0,-70 70,70 0,0 -70,70z&quot; /&gt;
  *     &lt;/group&gt;
  * &lt;/vector&gt;
- * </pre></li>
+ * </pre>
+ * </li>
+ * <li>And here is an example of linear gradient color, which is supported in SDK 24+.
+ * See more details in {@link android.R.styleable#GradientColor} and
+ * {@link android.R.styleable#GradientColorItem}.
+ * <pre>
+ * &lt;gradient xmlns:android="http://schemas.android.com/apk/res/android"
+ *     android:angle="90"
+ *     android:startColor="?android:attr/colorPrimary"
+ *     android:endColor="?android:attr/colorControlActivated"
+ *     android:centerColor="#f00"
+ *     android:startX="0"
+ *     android:startY="0"
+ *     android:endX="100"
+ *     android:endY="100"
+ *     android:type="linear"&gt;
+ * &lt;/gradient&gt;
+ * </pre>
+ * </li>
+ *
  */
 
 public class VectorDrawable extends Drawable {
@@ -192,21 +270,6 @@ public class VectorDrawable extends Drawable {
     private static final String SHAPE_PATH = "path";
     private static final String SHAPE_VECTOR = "vector";
 
-    private static final int LINECAP_BUTT = 0;
-    private static final int LINECAP_ROUND = 1;
-    private static final int LINECAP_SQUARE = 2;
-
-    private static final int LINEJOIN_MITER = 0;
-    private static final int LINEJOIN_ROUND = 1;
-    private static final int LINEJOIN_BEVEL = 2;
-
-    // Cap the bitmap size, such that it won't hurt the performance too much
-    // and it won't crash due to a very large scale.
-    // The drawable will look blurry above this size.
-    private static final int MAX_CACHED_BITMAP_SIZE = 2048;
-
-    private static final boolean DBG_VECTOR_DRAWABLE = false;
-
     private VectorDrawableState mVectorState;
 
     private PorterDuffColorFilter mTintFilter;
@@ -214,33 +277,50 @@ public class VectorDrawable extends Drawable {
 
     private boolean mMutated;
 
-    // AnimatedVectorDrawable needs to turn off the cache all the time, otherwise,
-    // caching the bitmap by default is allowed.
-    private boolean mAllowCaching = true;
+    /** The density of the display on which this drawable will be rendered. */
+    private int mTargetDensity;
 
     // Given the virtual display setup, the dpi can be different than the inflation's dpi.
     // Therefore, we need to scale the values we got from the getDimension*().
     private int mDpiScaledWidth = 0;
     private int mDpiScaledHeight = 0;
-    private Insets mDpiScaleInsets = Insets.NONE;
+    private Insets mDpiScaledInsets = Insets.NONE;
+
+    /** Whether DPI-scaled width, height, and insets need to be updated. */
+    private boolean mDpiScaledDirty = true;
 
     // Temp variable, only for saving "new" operation at the draw() time.
-    private final float[] mTmpFloats = new float[9];
-    private final Matrix mTmpMatrix = new Matrix();
     private final Rect mTmpBounds = new Rect();
 
     public VectorDrawable() {
-        this(null, null);
+        this(new VectorDrawableState(null), null);
     }
 
+    /**
+     * The one constructor to rule them all. This is called by all public
+     * constructors to set the state and initialize local properties.
+     */
     private VectorDrawable(@NonNull VectorDrawableState state, @Nullable Resources res) {
-        if (state == null) {
-            mVectorState = new VectorDrawableState();
-        } else {
-            mVectorState = state;
-            mTintFilter = updateTintFilter(mTintFilter, state.mTint, state.mTintMode);
+        mVectorState = state;
+        updateLocalState(res);
+    }
+
+    /**
+     * Initializes local dynamic properties from state. This should be called
+     * after significant state changes, e.g. from the One True Constructor and
+     * after inflating or applying a theme.
+     *
+     * @param res resources of the context in which the drawable will be
+     *            displayed, or {@code null} to use the constant state defaults
+     */
+    private void updateLocalState(Resources res) {
+        final int density = Drawable.resolveDensity(res, mVectorState.mDensity);
+        if (mTargetDensity != density) {
+            mTargetDensity = density;
+            mDpiScaledDirty = true;
         }
-        updateDimensionInfo(res, false);
+
+        mTintFilter = updateTintFilter(mTintFilter, mVectorState.mTint, mVectorState.mTintMode);
     }
 
     @Override
@@ -261,7 +341,7 @@ public class VectorDrawable extends Drawable {
     }
 
     Object getTargetByName(String name) {
-        return mVectorState.mVPathRenderer.mVGTargetsMap.get(name);
+        return mVectorState.mVGTargetsMap.get(name);
     }
 
     @Override
@@ -282,61 +362,47 @@ public class VectorDrawable extends Drawable {
 
         // Color filters always override tint filters.
         final ColorFilter colorFilter = (mColorFilter == null ? mTintFilter : mColorFilter);
-
-        // The imageView can scale the canvas in different ways, in order to
-        // avoid blurry scaling, we have to draw into a bitmap with exact pixel
-        // size first. This bitmap size is determined by the bounds and the
-        // canvas scale.
-        canvas.getMatrix(mTmpMatrix);
-        mTmpMatrix.getValues(mTmpFloats);
-        float canvasScaleX = Math.abs(mTmpFloats[Matrix.MSCALE_X]);
-        float canvasScaleY = Math.abs(mTmpFloats[Matrix.MSCALE_Y]);
-        int scaledWidth = (int) (mTmpBounds.width() * canvasScaleX);
-        int scaledHeight = (int) (mTmpBounds.height() * canvasScaleY);
-        scaledWidth = Math.min(MAX_CACHED_BITMAP_SIZE, scaledWidth);
-        scaledHeight = Math.min(MAX_CACHED_BITMAP_SIZE, scaledHeight);
-
-        if (scaledWidth <= 0 || scaledHeight <= 0) {
+        final long colorFilterNativeInstance = colorFilter == null ? 0 :
+                colorFilter.native_instance;
+        boolean canReuseCache = mVectorState.canReuseCache();
+        int pixelCount = nDraw(mVectorState.getNativeRenderer(), canvas.getNativeCanvasWrapper(),
+                colorFilterNativeInstance, mTmpBounds, needMirroring(),
+                canReuseCache);
+        if (pixelCount == 0) {
+            // Invalid canvas matrix or drawable bounds. This would not affect existing bitmap
+            // cache, if any.
             return;
         }
 
-        final int saveCount = canvas.save();
-        canvas.translate(mTmpBounds.left, mTmpBounds.top);
-
-        // Handle RTL mirroring.
-        final boolean needMirroring = needMirroring();
-        if (needMirroring) {
-            canvas.translate(mTmpBounds.width(), 0);
-            canvas.scale(-1.0f, 1.0f);
-        }
-
-        // At this point, canvas has been translated to the right position.
-        // And we use this bound for the destination rect for the drawBitmap, so
-        // we offset to (0, 0);
-        mTmpBounds.offsetTo(0, 0);
-
-        mVectorState.createCachedBitmapIfNeeded(scaledWidth, scaledHeight);
-        if (!mAllowCaching) {
-            mVectorState.updateCachedBitmap(scaledWidth, scaledHeight);
+        int deltaInBytes;
+        // Track different bitmap cache based whether the canvas is hw accelerated. By doing so,
+        // we don't over count bitmap cache allocation: if the input canvas is always of the same
+        // type, only one bitmap cache is allocated.
+        if (canvas.isHardwareAccelerated()) {
+            // Each pixel takes 4 bytes.
+            deltaInBytes = (pixelCount - mVectorState.mLastHWCachePixelCount) * 4;
+            mVectorState.mLastHWCachePixelCount = pixelCount;
         } else {
-            if (!mVectorState.canReuseCache()) {
-                mVectorState.updateCachedBitmap(scaledWidth, scaledHeight);
-                mVectorState.updateCacheStates();
-            }
+            // Each pixel takes 4 bytes.
+            deltaInBytes = (pixelCount - mVectorState.mLastSWCachePixelCount) * 4;
+            mVectorState.mLastSWCachePixelCount = pixelCount;
         }
-        mVectorState.drawCachedBitmapWithRootAlpha(canvas, colorFilter, mTmpBounds);
-        canvas.restoreToCount(saveCount);
+        if (deltaInBytes > 0) {
+            VMRuntime.getRuntime().registerNativeAllocation(deltaInBytes);
+        } else if (deltaInBytes < 0) {
+            VMRuntime.getRuntime().registerNativeFree(-deltaInBytes);
+        }
     }
+
 
     @Override
     public int getAlpha() {
-        return mVectorState.mVPathRenderer.getRootAlpha();
+        return (int) (mVectorState.getAlpha() * 255);
     }
 
     @Override
     public void setAlpha(int alpha) {
-        if (mVectorState.mVPathRenderer.getRootAlpha() != alpha) {
-            mVectorState.mVPathRenderer.setRootAlpha(alpha);
+        if (mVectorState.setAlpha(alpha / 255f)) {
             invalidateSelf();
         }
     }
@@ -374,88 +440,93 @@ public class VectorDrawable extends Drawable {
 
     @Override
     public boolean isStateful() {
-        return super.isStateful() || (mVectorState != null && mVectorState.mTint != null
-                && mVectorState.mTint.isStateful());
+        return super.isStateful() || (mVectorState != null && mVectorState.isStateful());
     }
 
     @Override
     protected boolean onStateChange(int[] stateSet) {
+        boolean changed = false;
+
+        // When the VD is stateful, we need to mutate the drawable such that we don't share the
+        // cache bitmap with others. Such that the state change only affect this new cached bitmap.
+        if (isStateful()) {
+            mutate();
+        }
         final VectorDrawableState state = mVectorState;
+        if (state.onStateChange(stateSet)) {
+            changed = true;
+            state.mCacheDirty = true;
+        }
         if (state.mTint != null && state.mTintMode != null) {
             mTintFilter = updateTintFilter(mTintFilter, state.mTint, state.mTintMode);
-            invalidateSelf();
-            return true;
+            changed = true;
         }
-        return false;
+
+        return changed;
     }
 
     @Override
     public int getOpacity() {
-        return PixelFormat.TRANSLUCENT;
+        // We can't tell whether the drawable is fully opaque unless we examine all the pixels,
+        // but we could tell it is transparent if the root alpha is 0.
+        return getAlpha() == 0 ? PixelFormat.TRANSPARENT : PixelFormat.TRANSLUCENT;
     }
 
     @Override
     public int getIntrinsicWidth() {
+        if (mDpiScaledDirty) {
+            computeVectorSize();
+        }
         return mDpiScaledWidth;
     }
 
     @Override
     public int getIntrinsicHeight() {
+        if (mDpiScaledDirty) {
+            computeVectorSize();
+        }
         return mDpiScaledHeight;
     }
 
     /** @hide */
     @Override
     public Insets getOpticalInsets() {
-        return mDpiScaleInsets;
+        if (mDpiScaledDirty) {
+            computeVectorSize();
+        }
+        return mDpiScaledInsets;
     }
 
     /*
-     * Update the VectorDrawable dimension since the res can be in different Dpi now.
-     * Basically, when a new instance is created or getDimension() is called, we should update
-     * the current VectorDrawable's dimension information.
-     * Only after updateStateFromTypedArray() is called, we should called this and update the
-     * constant state's dpi info, i.e. updateConstantStateDensity == true.
+     * Update local dimensions to adjust for a target density that may differ
+     * from the source density against which the constant state was loaded.
      */
-    void updateDimensionInfo(@Nullable Resources res, boolean updateConstantStateDensity) {
-        if (res != null) {
-            final int densityDpi = res.getDisplayMetrics().densityDpi;
-            final int targetDensity = densityDpi == 0 ? DisplayMetrics.DENSITY_DEFAULT : densityDpi;
+    void computeVectorSize() {
+        final Insets opticalInsets = mVectorState.mOpticalInsets;
 
-            if (updateConstantStateDensity) {
-                mVectorState.mVPathRenderer.mTargetDensity = targetDensity;
-            } else {
-                final int constantStateDensity = mVectorState.mVPathRenderer.mTargetDensity;
-                if (targetDensity != constantStateDensity && constantStateDensity != 0) {
-                    mDpiScaledWidth = Bitmap.scaleFromDensity(
-                            (int) mVectorState.mVPathRenderer.mBaseWidth, constantStateDensity,
-                            targetDensity);
-                    mDpiScaledHeight = Bitmap.scaleFromDensity(
-                            (int) mVectorState.mVPathRenderer.mBaseHeight,constantStateDensity,
-                            targetDensity);
-                    final int left = Bitmap.scaleFromDensity(
-                            mVectorState.mVPathRenderer.mOpticalInsets.left, constantStateDensity,
-                            targetDensity);
-                    final int right = Bitmap.scaleFromDensity(
-                            mVectorState.mVPathRenderer.mOpticalInsets.right, constantStateDensity,
-                            targetDensity);
-                    final int top = Bitmap.scaleFromDensity(
-                            mVectorState.mVPathRenderer.mOpticalInsets.top, constantStateDensity,
-                            targetDensity);
-                    final int bottom = Bitmap.scaleFromDensity(
-                            mVectorState.mVPathRenderer.mOpticalInsets.bottom, constantStateDensity,
-                            targetDensity);
-                    mDpiScaleInsets = Insets.of(left, top, right, bottom);
-                    return;
-                }
-            }
+        final int sourceDensity = mVectorState.mDensity;
+        final int targetDensity = mTargetDensity;
+        if (targetDensity != sourceDensity) {
+            mDpiScaledWidth = Drawable.scaleFromDensity(
+                    (int) mVectorState.mBaseWidth, sourceDensity, targetDensity, true);
+            mDpiScaledHeight = Drawable.scaleFromDensity(
+                    (int) mVectorState.mBaseHeight,sourceDensity, targetDensity, true);
+            final int left = Drawable.scaleFromDensity(
+                    opticalInsets.left, sourceDensity, targetDensity, false);
+            final int right = Drawable.scaleFromDensity(
+                    opticalInsets.right, sourceDensity, targetDensity, false);
+            final int top = Drawable.scaleFromDensity(
+                    opticalInsets.top, sourceDensity, targetDensity, false);
+            final int bottom = Drawable.scaleFromDensity(
+                    opticalInsets.bottom, sourceDensity, targetDensity, false);
+            mDpiScaledInsets = Insets.of(left, top, right, bottom);
+        } else {
+            mDpiScaledWidth = (int) mVectorState.mBaseWidth;
+            mDpiScaledHeight = (int) mVectorState.mBaseHeight;
+            mDpiScaledInsets = opticalInsets;
         }
-        // For all the other cases, like either res is null, constant state is not initialized or
-        // target density is the same as the constant state, we will just use the constant state
-        // dimensions.
-        mDpiScaledWidth = (int) mVectorState.mVPathRenderer.mBaseWidth;
-        mDpiScaledHeight = (int) mVectorState.mVPathRenderer.mBaseHeight;
-        mDpiScaleInsets = mVectorState.mVPathRenderer.mOpticalInsets;
+
+        mDpiScaledDirty = false;
     }
 
     @Override
@@ -472,18 +543,24 @@ public class VectorDrawable extends Drawable {
             return;
         }
 
+        final boolean changedDensity = mVectorState.setDensity(
+                Drawable.resolveDensity(t.getResources(), 0));
+        mDpiScaledDirty |= changedDensity;
+
         if (state.mThemeAttrs != null) {
             final TypedArray a = t.resolveAttributes(
                     state.mThemeAttrs, R.styleable.VectorDrawable);
             try {
                 state.mCacheDirty = true;
                 updateStateFromTypedArray(a);
-                updateDimensionInfo(t.getResources(), true /* update constant state */);
             } catch (XmlPullParserException e) {
                 throw new RuntimeException(e);
             } finally {
                 a.recycle();
             }
+
+            // May have changed size.
+            mDpiScaledDirty = true;
         }
 
         // Apply theme to contained color state list.
@@ -491,13 +568,12 @@ public class VectorDrawable extends Drawable {
             state.mTint = state.mTint.obtainForTheme(t);
         }
 
-        final VPathRenderer path = state.mVPathRenderer;
-        if (path != null && path.canApplyTheme()) {
-            path.applyTheme(t);
+        if (mVectorState != null && mVectorState.canApplyTheme()) {
+            mVectorState.applyTheme(t);
         }
 
-        // Update local state.
-        mTintFilter = updateTintFilter(mTintFilter, state.mTint, state.mTintMode);
+        // Update local properties.
+        updateLocalState(t.getResources());
     }
 
     /**
@@ -507,17 +583,17 @@ public class VectorDrawable extends Drawable {
      * @hide
      */
     public float getPixelSize() {
-        if (mVectorState == null || mVectorState.mVPathRenderer == null ||
-                mVectorState.mVPathRenderer.mBaseWidth == 0 ||
-                mVectorState.mVPathRenderer.mBaseHeight == 0 ||
-                mVectorState.mVPathRenderer.mViewportHeight == 0 ||
-                mVectorState.mVPathRenderer.mViewportWidth == 0) {
+        if (mVectorState == null ||
+                mVectorState.mBaseWidth == 0 ||
+                mVectorState.mBaseHeight == 0 ||
+                mVectorState.mViewportHeight == 0 ||
+                mVectorState.mViewportWidth == 0) {
             return 1; // fall back to 1:1 pixel mapping.
         }
-        float intrinsicWidth = mVectorState.mVPathRenderer.mBaseWidth;
-        float intrinsicHeight = mVectorState.mVPathRenderer.mBaseHeight;
-        float viewportWidth = mVectorState.mVPathRenderer.mViewportWidth;
-        float viewportHeight = mVectorState.mVPathRenderer.mViewportHeight;
+        float intrinsicWidth = mVectorState.mBaseWidth;
+        float intrinsicHeight = mVectorState.mBaseHeight;
+        float viewportWidth = mVectorState.mViewportWidth;
+        float viewportHeight = mVectorState.mViewportHeight;
         float scaleX = viewportWidth / intrinsicWidth;
         float scaleY = viewportHeight / intrinsicHeight;
         return Math.min(scaleX, scaleY);
@@ -549,34 +625,46 @@ public class VectorDrawable extends Drawable {
         return null;
     }
 
-    private static int applyAlpha(int color, float alpha) {
-        int alphaBytes = Color.alpha(color);
-        color &= 0x00FFFFFF;
-        color |= ((int) (alphaBytes * alpha)) << 24;
-        return color;
-    }
-
     @Override
-    public void inflate(Resources res, XmlPullParser parser, AttributeSet attrs, Theme theme)
+    public void inflate(@NonNull Resources r, @NonNull XmlPullParser parser,
+            @NonNull AttributeSet attrs, @Nullable Theme theme)
             throws XmlPullParserException, IOException {
+        if (mVectorState.mRootGroup != null || mVectorState.mNativeTree != null) {
+            // This VD has been used to display other VD resource content, clean up.
+            if (mVectorState.mRootGroup != null) {
+                // Subtract the native allocation for all the nodes.
+                VMRuntime.getRuntime().registerNativeFree(mVectorState.mRootGroup.getNativeSize());
+                // Remove child nodes' reference to tree
+                mVectorState.mRootGroup.setTree(null);
+            }
+            mVectorState.mRootGroup = new VGroup();
+            if (mVectorState.mNativeTree != null) {
+                // Subtract the native allocation for the tree wrapper, which contains root node
+                // as well as rendering related data.
+                VMRuntime.getRuntime().registerNativeFree(mVectorState.NATIVE_ALLOCATION_SIZE);
+                mVectorState.mNativeTree.release();
+            }
+            mVectorState.createNativeTree(mVectorState.mRootGroup);
+        }
         final VectorDrawableState state = mVectorState;
-        final VPathRenderer pathRenderer = new VPathRenderer();
-        state.mVPathRenderer = pathRenderer;
+        state.setDensity(Drawable.resolveDensity(r, 0));
 
-        final TypedArray a = obtainAttributes(res, theme, attrs, R.styleable.VectorDrawable);
+        final TypedArray a = obtainAttributes(r, theme, attrs, R.styleable.VectorDrawable);
         updateStateFromTypedArray(a);
         a.recycle();
 
-        state.mCacheDirty = true;
-        inflateInternal(res, parser, attrs, theme);
+        mDpiScaledDirty = true;
 
-        mTintFilter = updateTintFilter(mTintFilter, state.mTint, state.mTintMode);
-        updateDimensionInfo(res, true /* update constant state */);
+        state.mCacheDirty = true;
+        inflateChildElements(r, parser, attrs, theme);
+
+        state.onTreeConstructionFinished();
+        // Update local properties.
+        updateLocalState(r);
     }
 
     private void updateStateFromTypedArray(TypedArray a) throws XmlPullParserException {
         final VectorDrawableState state = mVectorState;
-        final VPathRenderer pathRenderer = state.mVPathRenderer;
 
         // Account for any configuration changes.
         state.mChangingConfigurations |= a.getChangingConfigurations();
@@ -597,66 +685,70 @@ public class VectorDrawable extends Drawable {
         state.mAutoMirrored = a.getBoolean(
                 R.styleable.VectorDrawable_autoMirrored, state.mAutoMirrored);
 
-        pathRenderer.mViewportWidth = a.getFloat(
-                R.styleable.VectorDrawable_viewportWidth, pathRenderer.mViewportWidth);
-        pathRenderer.mViewportHeight = a.getFloat(
-                R.styleable.VectorDrawable_viewportHeight, pathRenderer.mViewportHeight);
+        float viewportWidth = a.getFloat(
+                R.styleable.VectorDrawable_viewportWidth, state.mViewportWidth);
+        float viewportHeight = a.getFloat(
+                R.styleable.VectorDrawable_viewportHeight, state.mViewportHeight);
+        state.setViewportSize(viewportWidth, viewportHeight);
 
-        if (pathRenderer.mViewportWidth <= 0) {
+        if (state.mViewportWidth <= 0) {
             throw new XmlPullParserException(a.getPositionDescription() +
                     "<vector> tag requires viewportWidth > 0");
-        } else if (pathRenderer.mViewportHeight <= 0) {
+        } else if (state.mViewportHeight <= 0) {
             throw new XmlPullParserException(a.getPositionDescription() +
                     "<vector> tag requires viewportHeight > 0");
         }
 
-        pathRenderer.mBaseWidth = a.getDimension(
-                R.styleable.VectorDrawable_width, pathRenderer.mBaseWidth);
-        pathRenderer.mBaseHeight = a.getDimension(
-                R.styleable.VectorDrawable_height, pathRenderer.mBaseHeight);
+        state.mBaseWidth = a.getDimension(
+                R.styleable.VectorDrawable_width, state.mBaseWidth);
+        state.mBaseHeight = a.getDimension(
+                R.styleable.VectorDrawable_height, state.mBaseHeight);
 
-        if (pathRenderer.mBaseWidth <= 0) {
+        if (state.mBaseWidth <= 0) {
             throw new XmlPullParserException(a.getPositionDescription() +
                     "<vector> tag requires width > 0");
-        } else if (pathRenderer.mBaseHeight <= 0) {
+        } else if (state.mBaseHeight <= 0) {
             throw new XmlPullParserException(a.getPositionDescription() +
                     "<vector> tag requires height > 0");
         }
 
-        final int insetLeft = a.getDimensionPixelSize(
-                R.styleable.VectorDrawable_opticalInsetLeft, pathRenderer.mOpticalInsets.left);
-        final int insetTop = a.getDimensionPixelSize(
-                R.styleable.VectorDrawable_opticalInsetTop, pathRenderer.mOpticalInsets.top);
-        final int insetRight = a.getDimensionPixelSize(
-                R.styleable.VectorDrawable_opticalInsetRight, pathRenderer.mOpticalInsets.right);
-        final int insetBottom = a.getDimensionPixelSize(
-                R.styleable.VectorDrawable_opticalInsetBottom, pathRenderer.mOpticalInsets.bottom);
-        pathRenderer.mOpticalInsets = Insets.of(insetLeft, insetTop, insetRight, insetBottom);
+        final int insetLeft = a.getDimensionPixelOffset(
+                R.styleable.VectorDrawable_opticalInsetLeft, state.mOpticalInsets.left);
+        final int insetTop = a.getDimensionPixelOffset(
+                R.styleable.VectorDrawable_opticalInsetTop, state.mOpticalInsets.top);
+        final int insetRight = a.getDimensionPixelOffset(
+                R.styleable.VectorDrawable_opticalInsetRight, state.mOpticalInsets.right);
+        final int insetBottom = a.getDimensionPixelOffset(
+                R.styleable.VectorDrawable_opticalInsetBottom, state.mOpticalInsets.bottom);
+        state.mOpticalInsets = Insets.of(insetLeft, insetTop, insetRight, insetBottom);
 
-        final float alphaInFloat = a.getFloat(R.styleable.VectorDrawable_alpha,
-                pathRenderer.getAlpha());
-        pathRenderer.setAlpha(alphaInFloat);
+        final float alphaInFloat = a.getFloat(
+                R.styleable.VectorDrawable_alpha, state.getAlpha());
+        state.setAlpha(alphaInFloat);
 
         final String name = a.getString(R.styleable.VectorDrawable_name);
         if (name != null) {
-            pathRenderer.mRootName = name;
-            pathRenderer.mVGTargetsMap.put(name, pathRenderer);
+            state.mRootName = name;
+            state.mVGTargetsMap.put(name, state);
         }
     }
 
-    private void inflateInternal(Resources res, XmlPullParser parser, AttributeSet attrs,
+    private void inflateChildElements(Resources res, XmlPullParser parser, AttributeSet attrs,
             Theme theme) throws XmlPullParserException, IOException {
         final VectorDrawableState state = mVectorState;
-        final VPathRenderer pathRenderer = state.mVPathRenderer;
         boolean noPathTag = true;
 
         // Use a stack to help to build the group tree.
         // The top of the stack is always the current group.
         final Stack<VGroup> groupStack = new Stack<VGroup>();
-        groupStack.push(pathRenderer.mRootGroup);
+        groupStack.push(state.mRootGroup);
 
         int eventType = parser.getEventType();
-        while (eventType != XmlPullParser.END_DOCUMENT) {
+        final int innerDepth = parser.getDepth() + 1;
+
+        // Parse everything until the end of the vector element.
+        while (eventType != XmlPullParser.END_DOCUMENT
+                && (parser.getDepth() >= innerDepth || eventType != XmlPullParser.END_TAG)) {
             if (eventType == XmlPullParser.START_TAG) {
                 final String tagName = parser.getName();
                 final VGroup currentGroup = groupStack.peek();
@@ -664,27 +756,27 @@ public class VectorDrawable extends Drawable {
                 if (SHAPE_PATH.equals(tagName)) {
                     final VFullPath path = new VFullPath();
                     path.inflate(res, attrs, theme);
-                    currentGroup.mChildren.add(path);
+                    currentGroup.addChild(path);
                     if (path.getPathName() != null) {
-                        pathRenderer.mVGTargetsMap.put(path.getPathName(), path);
+                        state.mVGTargetsMap.put(path.getPathName(), path);
                     }
                     noPathTag = false;
                     state.mChangingConfigurations |= path.mChangingConfigurations;
                 } else if (SHAPE_CLIP_PATH.equals(tagName)) {
                     final VClipPath path = new VClipPath();
                     path.inflate(res, attrs, theme);
-                    currentGroup.mChildren.add(path);
+                    currentGroup.addChild(path);
                     if (path.getPathName() != null) {
-                        pathRenderer.mVGTargetsMap.put(path.getPathName(), path);
+                        state.mVGTargetsMap.put(path.getPathName(), path);
                     }
                     state.mChangingConfigurations |= path.mChangingConfigurations;
                 } else if (SHAPE_GROUP.equals(tagName)) {
                     VGroup newChildGroup = new VGroup();
                     newChildGroup.inflate(res, attrs, theme);
-                    currentGroup.mChildren.add(newChildGroup);
+                    currentGroup.addChild(newChildGroup);
                     groupStack.push(newChildGroup);
                     if (newChildGroup.getGroupName() != null) {
-                        pathRenderer.mVGTargetsMap.put(newChildGroup.getGroupName(),
+                        state.mVGTargetsMap.put(newChildGroup.getGroupName(),
                                 newChildGroup);
                     }
                     state.mChangingConfigurations |= newChildGroup.mChangingConfigurations;
@@ -696,11 +788,6 @@ public class VectorDrawable extends Drawable {
                 }
             }
             eventType = parser.next();
-        }
-
-        // Print the tree out for debug.
-        if (DBG_VECTOR_DRAWABLE) {
-            printGroupTree(pathRenderer.mRootGroup, 0);
         }
 
         if (noPathTag) {
@@ -715,31 +802,13 @@ public class VectorDrawable extends Drawable {
         }
     }
 
-    private void printGroupTree(VGroup currentGroup, int level) {
-        String indent = "";
-        for (int i = 0; i < level; i++) {
-            indent += "    ";
-        }
-        // Print the current node
-        Log.v(LOGTAG, indent + "current group is :" + currentGroup.getGroupName()
-                + " rotation is " + currentGroup.mRotate);
-        Log.v(LOGTAG, indent + "matrix is :" + currentGroup.getLocalMatrix().toString());
-        // Then print all the children groups
-        for (int i = 0; i < currentGroup.mChildren.size(); i++) {
-            Object child = currentGroup.mChildren.get(i);
-            if (child instanceof VGroup) {
-                printGroupTree((VGroup) child, level + 1);
-            }
-        }
-    }
-
     @Override
-    public int getChangingConfigurations() {
+    public @Config int getChangingConfigurations() {
         return super.getChangingConfigurations() | mVectorState.getChangingConfigurations();
     }
 
     void setAllowCaching(boolean allowCaching) {
-        mAllowCaching = allowCaching;
+        nSetAllowCaching(mVectorState.getNativeRenderer(), allowCaching);
     }
 
     private boolean needMirroring() {
@@ -759,91 +828,127 @@ public class VectorDrawable extends Drawable {
         return mVectorState.mAutoMirrored;
     }
 
-    private static class VectorDrawableState extends ConstantState {
+    /**
+     * @hide
+     */
+    public long getNativeTree() {
+        return mVectorState.getNativeRenderer();
+    }
+
+    static class VectorDrawableState extends ConstantState {
+        // Variables below need to be copied (deep copy if applicable) for mutation.
         int[] mThemeAttrs;
-        int mChangingConfigurations;
-        VPathRenderer mVPathRenderer;
+        @Config int mChangingConfigurations;
         ColorStateList mTint = null;
         Mode mTintMode = DEFAULT_TINT_MODE;
         boolean mAutoMirrored;
 
-        Bitmap mCachedBitmap;
+        float mBaseWidth = 0;
+        float mBaseHeight = 0;
+        float mViewportWidth = 0;
+        float mViewportHeight = 0;
+        Insets mOpticalInsets = Insets.NONE;
+        String mRootName = null;
+        VGroup mRootGroup;
+        VirtualRefBasePtr mNativeTree = null;
+
+        int mDensity = DisplayMetrics.DENSITY_DEFAULT;
+        final ArrayMap<String, Object> mVGTargetsMap = new ArrayMap<>();
+
+        // Fields for cache
         int[] mCachedThemeAttrs;
         ColorStateList mCachedTint;
         Mode mCachedTintMode;
-        int mCachedRootAlpha;
         boolean mCachedAutoMirrored;
         boolean mCacheDirty;
-        /** Temporary paint object used to draw cached bitmaps. */
-        Paint mTempPaint;
 
-        // Deep copy for mutate() or implicitly mutate.
+        // Since sw canvas and hw canvas uses different bitmap caches, we track the allocation of
+        // these bitmaps separately.
+        int mLastSWCachePixelCount = 0;
+        int mLastHWCachePixelCount = 0;
+
+        final static Property<VectorDrawableState, Float> ALPHA =
+                new FloatProperty<VectorDrawableState>("alpha") {
+                    @Override
+                    public void setValue(VectorDrawableState state, float value) {
+                        state.setAlpha(value);
+                    }
+
+                    @Override
+                    public Float get(VectorDrawableState state) {
+                        return state.getAlpha();
+                    }
+                };
+
+        Property getProperty(String propertyName) {
+            if (ALPHA.getName().equals(propertyName)) {
+                return ALPHA;
+            }
+            return null;
+        }
+
+        // This tracks the total native allocation for all the nodes.
+        private int mAllocationOfAllNodes = 0;
+
+        private static final int NATIVE_ALLOCATION_SIZE = 316;
+
+        // If copy is not null, deep copy the given VectorDrawableState. Otherwise, create a
+        // native vector drawable tree with an empty root group.
         public VectorDrawableState(VectorDrawableState copy) {
             if (copy != null) {
                 mThemeAttrs = copy.mThemeAttrs;
                 mChangingConfigurations = copy.mChangingConfigurations;
-                mVPathRenderer = new VPathRenderer(copy.mVPathRenderer);
-                if (copy.mVPathRenderer.mFillPaint != null) {
-                    mVPathRenderer.mFillPaint = new Paint(copy.mVPathRenderer.mFillPaint);
-                }
-                if (copy.mVPathRenderer.mStrokePaint != null) {
-                    mVPathRenderer.mStrokePaint = new Paint(copy.mVPathRenderer.mStrokePaint);
-                }
                 mTint = copy.mTint;
                 mTintMode = copy.mTintMode;
                 mAutoMirrored = copy.mAutoMirrored;
+                mRootGroup = new VGroup(copy.mRootGroup, mVGTargetsMap);
+                createNativeTreeFromCopy(copy, mRootGroup);
+
+                mBaseWidth = copy.mBaseWidth;
+                mBaseHeight = copy.mBaseHeight;
+                setViewportSize(copy.mViewportWidth, copy.mViewportHeight);
+                mOpticalInsets = copy.mOpticalInsets;
+
+                mRootName = copy.mRootName;
+                mDensity = copy.mDensity;
+                if (copy.mRootName != null) {
+                    mVGTargetsMap.put(copy.mRootName, this);
+                }
+            } else {
+                mRootGroup = new VGroup();
+                createNativeTree(mRootGroup);
             }
+            onTreeConstructionFinished();
         }
 
-        public void drawCachedBitmapWithRootAlpha(Canvas canvas, ColorFilter filter,
-                Rect originalBounds) {
-            // The bitmap's size is the same as the bounds.
-            final Paint p = getPaint(filter);
-            canvas.drawBitmap(mCachedBitmap, null, originalBounds, p);
+        private void createNativeTree(VGroup rootGroup) {
+            mNativeTree = new VirtualRefBasePtr(nCreateTree(rootGroup.mNativePtr));
+            // Register tree size
+            VMRuntime.getRuntime().registerNativeAllocation(NATIVE_ALLOCATION_SIZE);
         }
 
-        public boolean hasTranslucentRoot() {
-            return mVPathRenderer.getRootAlpha() < 255;
+        // Create a new native tree with the given root group, and copy the properties from the
+        // given VectorDrawableState's native tree.
+        private void createNativeTreeFromCopy(VectorDrawableState copy, VGroup rootGroup) {
+            mNativeTree = new VirtualRefBasePtr(nCreateTreeFromCopy(
+                    copy.mNativeTree.get(), rootGroup.mNativePtr));
+            // Register tree size
+            VMRuntime.getRuntime().registerNativeAllocation(NATIVE_ALLOCATION_SIZE);
         }
 
-        /**
-         * @return null when there is no need for alpha paint.
-         */
-        public Paint getPaint(ColorFilter filter) {
-            if (!hasTranslucentRoot() && filter == null) {
-                return null;
+        // This should be called every time after a new RootGroup and all its subtrees are created
+        // (i.e. in constructors of VectorDrawableState and in inflate).
+        void onTreeConstructionFinished() {
+            mRootGroup.setTree(mNativeTree);
+            mAllocationOfAllNodes = mRootGroup.getNativeSize();
+            VMRuntime.getRuntime().registerNativeAllocation(mAllocationOfAllNodes);
+        }
+
+        long getNativeRenderer() {
+            if (mNativeTree == null) {
+                return 0;
             }
-
-            if (mTempPaint == null) {
-                mTempPaint = new Paint();
-                mTempPaint.setFilterBitmap(true);
-            }
-            mTempPaint.setAlpha(mVPathRenderer.getRootAlpha());
-            mTempPaint.setColorFilter(filter);
-            return mTempPaint;
-        }
-
-        public void updateCachedBitmap(int width, int height) {
-            mCachedBitmap.eraseColor(Color.TRANSPARENT);
-            Canvas tmpCanvas = new Canvas(mCachedBitmap);
-            mVPathRenderer.draw(tmpCanvas, width, height, null);
-        }
-
-        public void createCachedBitmapIfNeeded(int width, int height) {
-            if (mCachedBitmap == null || !canReuseBitmap(width, height)) {
-                mCachedBitmap = Bitmap.createBitmap(width, height,
-                        Bitmap.Config.ARGB_8888);
-                mCacheDirty = true;
-            }
-
-        }
-
-        public boolean canReuseBitmap(int width, int height) {
-            if (width == mCachedBitmap.getWidth()
-                    && height == mCachedBitmap.getHeight()) {
-                return true;
-            }
-            return false;
+            return mNativeTree.get();
         }
 
         public boolean canReuseCache() {
@@ -851,10 +956,10 @@ public class VectorDrawable extends Drawable {
                     && mCachedThemeAttrs == mThemeAttrs
                     && mCachedTint == mTint
                     && mCachedTintMode == mTintMode
-                    && mCachedAutoMirrored == mAutoMirrored
-                    && mCachedRootAlpha == mVPathRenderer.getRootAlpha()) {
+                    && mCachedAutoMirrored == mAutoMirrored) {
                 return true;
             }
+            updateCacheStates();
             return false;
         }
 
@@ -864,21 +969,20 @@ public class VectorDrawable extends Drawable {
             mCachedThemeAttrs = mThemeAttrs;
             mCachedTint = mTint;
             mCachedTintMode = mTintMode;
-            mCachedRootAlpha = mVPathRenderer.getRootAlpha();
             mCachedAutoMirrored = mAutoMirrored;
             mCacheDirty = false;
+        }
+
+        public void applyTheme(Theme t) {
+            mRootGroup.applyTheme(t);
         }
 
         @Override
         public boolean canApplyTheme() {
             return mThemeAttrs != null
-                    || (mVPathRenderer != null && mVPathRenderer.canApplyTheme())
+                    || (mRootGroup != null && mRootGroup.canApplyTheme())
                     || (mTint != null && mTint.canApplyTheme())
                     || super.canApplyTheme();
-        }
-
-        public VectorDrawableState() {
-            mVPathRenderer = new VPathRenderer();
         }
 
         @Override
@@ -892,345 +996,247 @@ public class VectorDrawable extends Drawable {
         }
 
         @Override
-        public int getChangingConfigurations() {
+        public @Config int getChangingConfigurations() {
             return mChangingConfigurations
                     | (mTint != null ? mTint.getChangingConfigurations() : 0);
         }
-    }
 
-    private static class VPathRenderer {
-        /* Right now the internal data structure is organized as a tree.
-         * Each node can be a group node, or a path.
-         * A group node can have groups or paths as children, but a path node has
-         * no children.
-         * One example can be:
-         *                 Root Group
-         *                /    |     \
-         *           Group    Path    Group
-         *          /     \             |
-         *         Path   Path         Path
-         *
-         */
-        // Variables that only used temporarily inside the draw() call, so there
-        // is no need for deep copying.
-        private final Path mPath;
-        private final Path mRenderPath;
-        private final Matrix mFinalPathMatrix = new Matrix();
-
-        private Paint mStrokePaint;
-        private Paint mFillPaint;
-        private PathMeasure mPathMeasure;
-
-        /////////////////////////////////////////////////////
-        // Variables below need to be copied (deep copy if applicable) for mutation.
-        private int mChangingConfigurations;
-        private final VGroup mRootGroup;
-        float mBaseWidth = 0;
-        float mBaseHeight = 0;
-        float mViewportWidth = 0;
-        float mViewportHeight = 0;
-        Insets mOpticalInsets = Insets.NONE;
-        int mRootAlpha = 0xFF;
-        String mRootName = null;
-
-        int mTargetDensity = DisplayMetrics.DENSITY_DEFAULT;
-
-        final ArrayMap<String, Object> mVGTargetsMap = new ArrayMap<String, Object>();
-
-        public VPathRenderer() {
-            mRootGroup = new VGroup();
-            mPath = new Path();
-            mRenderPath = new Path();
+        public boolean isStateful() {
+            return (mTint != null && mTint.isStateful())
+                    || (mRootGroup != null && mRootGroup.isStateful());
         }
 
-        public void setRootAlpha(int alpha) {
-            mRootAlpha = alpha;
+        void setViewportSize(float viewportWidth, float viewportHeight) {
+            mViewportWidth = viewportWidth;
+            mViewportHeight = viewportHeight;
+            nSetRendererViewportSize(getNativeRenderer(), viewportWidth, viewportHeight);
         }
 
-        public int getRootAlpha() {
-            return mRootAlpha;
-        }
-
-        // setAlpha() and getAlpha() are used mostly for animation purpose, since
-        // Animator like to use alpha from 0 to 1.
-        public void setAlpha(float alpha) {
-            setRootAlpha((int) (alpha * 255));
-        }
-
-        @SuppressWarnings("unused")
-        public float getAlpha() {
-            return getRootAlpha() / 255.0f;
-        }
-
-        public VPathRenderer(VPathRenderer copy) {
-            mRootGroup = new VGroup(copy.mRootGroup, mVGTargetsMap);
-            mPath = new Path(copy.mPath);
-            mRenderPath = new Path(copy.mRenderPath);
-            mBaseWidth = copy.mBaseWidth;
-            mBaseHeight = copy.mBaseHeight;
-            mViewportWidth = copy.mViewportWidth;
-            mViewportHeight = copy.mViewportHeight;
-            mOpticalInsets = copy.mOpticalInsets;
-            mChangingConfigurations = copy.mChangingConfigurations;
-            mRootAlpha = copy.mRootAlpha;
-            mRootName = copy.mRootName;
-            mTargetDensity = copy.mTargetDensity;
-            if (copy.mRootName != null) {
-                mVGTargetsMap.put(copy.mRootName, this);
-            }
-        }
-
-        public boolean canApplyTheme() {
-            // If one of the paths can apply theme, then return true;
-            return recursiveCanApplyTheme(mRootGroup);
-        }
-
-        private boolean recursiveCanApplyTheme(VGroup currentGroup) {
-            // We can do a tree traverse here, if there is one path return true,
-            // then we return true for the whole tree.
-            final ArrayList<Object> children = currentGroup.mChildren;
-
-            for (int i = 0; i < children.size(); i++) {
-                Object child = children.get(i);
-                if (child instanceof VGroup) {
-                    VGroup childGroup = (VGroup) child;
-                    if (childGroup.canApplyTheme()
-                            || recursiveCanApplyTheme(childGroup)) {
-                        return true;
-                    }
-                } else if (child instanceof VPath) {
-                    VPath childPath = (VPath) child;
-                    if (childPath.canApplyTheme()) {
-                        return true;
-                    }
-                }
+        public final boolean setDensity(int targetDensity) {
+            if (mDensity != targetDensity) {
+                final int sourceDensity = mDensity;
+                mDensity = targetDensity;
+                applyDensityScaling(sourceDensity, targetDensity);
+                return true;
             }
             return false;
         }
 
-        public void applyTheme(Theme t) {
-            // Apply theme to every path of the tree.
-            recursiveApplyTheme(mRootGroup, t);
+        private void applyDensityScaling(int sourceDensity, int targetDensity) {
+            mBaseWidth = Drawable.scaleFromDensity(mBaseWidth, sourceDensity, targetDensity);
+            mBaseHeight = Drawable.scaleFromDensity(mBaseHeight, sourceDensity, targetDensity);
+
+            final int insetLeft = Drawable.scaleFromDensity(
+                    mOpticalInsets.left, sourceDensity, targetDensity, false);
+            final int insetTop = Drawable.scaleFromDensity(
+                    mOpticalInsets.top, sourceDensity, targetDensity, false);
+            final int insetRight = Drawable.scaleFromDensity(
+                    mOpticalInsets.right, sourceDensity, targetDensity, false);
+            final int insetBottom = Drawable.scaleFromDensity(
+                    mOpticalInsets.bottom, sourceDensity, targetDensity, false);
+            mOpticalInsets = Insets.of(insetLeft, insetTop, insetRight, insetBottom);
         }
 
-        private void recursiveApplyTheme(VGroup currentGroup, Theme t) {
-            // We can do a tree traverse here, apply theme to all paths which
-            // can apply theme.
-            final ArrayList<Object> children = currentGroup.mChildren;
-            for (int i = 0; i < children.size(); i++) {
-                Object child = children.get(i);
-                if (child instanceof VGroup) {
-                    VGroup childGroup = (VGroup) child;
-                    if (childGroup.canApplyTheme()) {
-                        childGroup.applyTheme(t);
-                    }
-                    recursiveApplyTheme(childGroup, t);
-                } else if (child instanceof VPath) {
-                    VPath childPath = (VPath) child;
-                    if (childPath.canApplyTheme()) {
-                        childPath.applyTheme(t);
-                    }
-                }
-            }
+        public boolean onStateChange(int[] stateSet) {
+            return mRootGroup.onStateChange(stateSet);
         }
 
-        private void drawGroupTree(VGroup currentGroup, Matrix currentMatrix,
-                Canvas canvas, int w, int h, ColorFilter filter) {
-            // Calculate current group's matrix by preConcat the parent's and
-            // and the current one on the top of the stack.
-            // Basically the Mfinal = Mviewport * M0 * M1 * M2;
-            // Mi the local matrix at level i of the group tree.
-            currentGroup.mStackedMatrix.set(currentMatrix);
-            currentGroup.mStackedMatrix.preConcat(currentGroup.mLocalMatrix);
-
-            // Save the current clip information, which is local to this group.
-            canvas.save();
-            // Draw the group tree in the same order as the XML file.
-            for (int i = 0; i < currentGroup.mChildren.size(); i++) {
-                Object child = currentGroup.mChildren.get(i);
-                if (child instanceof VGroup) {
-                    VGroup childGroup = (VGroup) child;
-                    drawGroupTree(childGroup, currentGroup.mStackedMatrix,
-                            canvas, w, h, filter);
-                } else if (child instanceof VPath) {
-                    VPath childPath = (VPath) child;
-                    drawPath(currentGroup, childPath, canvas, w, h, filter);
-                }
-            }
-            canvas.restore();
+        @Override
+        public void finalize() throws Throwable {
+            super.finalize();
+            int bitmapCacheSize = mLastHWCachePixelCount * 4 + mLastSWCachePixelCount * 4;
+            VMRuntime.getRuntime().registerNativeFree(NATIVE_ALLOCATION_SIZE
+                    + mAllocationOfAllNodes + bitmapCacheSize);
         }
 
-        public void draw(Canvas canvas, int w, int h, ColorFilter filter) {
-            // Travese the tree in pre-order to draw.
-            drawGroupTree(mRootGroup, Matrix.IDENTITY_MATRIX, canvas, w, h, filter);
+        /**
+         * setAlpha() and getAlpha() are used mostly for animation purpose. Return true if alpha
+         * has changed.
+         */
+        public boolean setAlpha(float alpha) {
+            return nSetRootAlpha(mNativeTree.get(), alpha);
         }
 
-        private void drawPath(VGroup vGroup, VPath vPath, Canvas canvas, int w, int h,
-                ColorFilter filter) {
-            final float scaleX = w / mViewportWidth;
-            final float scaleY = h / mViewportHeight;
-            final float minScale = Math.min(scaleX, scaleY);
-            final Matrix groupStackedMatrix = vGroup.mStackedMatrix;
-
-            mFinalPathMatrix.set(groupStackedMatrix);
-            mFinalPathMatrix.postScale(scaleX, scaleY);
-
-            final float matrixScale = getMatrixScale(groupStackedMatrix);
-            if (matrixScale == 0) {
-                // When either x or y is scaled to 0, we don't need to draw anything.
-                return;
-            }
-            vPath.toPath(mPath);
-            final Path path = mPath;
-
-            mRenderPath.reset();
-
-            if (vPath.isClipPath()) {
-                mRenderPath.addPath(path, mFinalPathMatrix);
-                canvas.clipPath(mRenderPath);
-            } else {
-                VFullPath fullPath = (VFullPath) vPath;
-                if (fullPath.mTrimPathStart != 0.0f || fullPath.mTrimPathEnd != 1.0f) {
-                    float start = (fullPath.mTrimPathStart + fullPath.mTrimPathOffset) % 1.0f;
-                    float end = (fullPath.mTrimPathEnd + fullPath.mTrimPathOffset) % 1.0f;
-
-                    if (mPathMeasure == null) {
-                        mPathMeasure = new PathMeasure();
-                    }
-                    mPathMeasure.setPath(mPath, false);
-
-                    float len = mPathMeasure.getLength();
-                    start = start * len;
-                    end = end * len;
-                    path.reset();
-                    if (start > end) {
-                        mPathMeasure.getSegment(start, len, path, true);
-                        mPathMeasure.getSegment(0f, end, path, true);
-                    } else {
-                        mPathMeasure.getSegment(start, end, path, true);
-                    }
-                    path.rLineTo(0, 0); // fix bug in measure
-                }
-                mRenderPath.addPath(path, mFinalPathMatrix);
-
-                if (fullPath.mFillColor != Color.TRANSPARENT) {
-                    if (mFillPaint == null) {
-                        mFillPaint = new Paint();
-                        mFillPaint.setStyle(Paint.Style.FILL);
-                        mFillPaint.setAntiAlias(true);
-                    }
-
-                    final Paint fillPaint = mFillPaint;
-                    fillPaint.setColor(applyAlpha(fullPath.mFillColor, fullPath.mFillAlpha));
-                    fillPaint.setColorFilter(filter);
-                    canvas.drawPath(mRenderPath, fillPaint);
-                }
-
-                if (fullPath.mStrokeColor != Color.TRANSPARENT) {
-                    if (mStrokePaint == null) {
-                        mStrokePaint = new Paint();
-                        mStrokePaint.setStyle(Paint.Style.STROKE);
-                        mStrokePaint.setAntiAlias(true);
-                    }
-
-                    final Paint strokePaint = mStrokePaint;
-                    if (fullPath.mStrokeLineJoin != null) {
-                        strokePaint.setStrokeJoin(fullPath.mStrokeLineJoin);
-                    }
-
-                    if (fullPath.mStrokeLineCap != null) {
-                        strokePaint.setStrokeCap(fullPath.mStrokeLineCap);
-                    }
-
-                    strokePaint.setStrokeMiter(fullPath.mStrokeMiterlimit);
-                    strokePaint.setColor(applyAlpha(fullPath.mStrokeColor, fullPath.mStrokeAlpha));
-                    strokePaint.setColorFilter(filter);
-                    final float finalStrokeScale = minScale * matrixScale;
-                    strokePaint.setStrokeWidth(fullPath.mStrokeWidth * finalStrokeScale);
-                    canvas.drawPath(mRenderPath, strokePaint);
-                }
-            }
-        }
-
-        private float getMatrixScale(Matrix groupStackedMatrix) {
-            // Given unit vectors A = (0, 1) and B = (1, 0).
-            // After matrix mapping, we got A' and B'. Let theta = the angel b/t A' and B'.
-            // Therefore, the final scale we want is min(|A'| * sin(theta), |B'| * sin(theta)),
-            // which is (|A'| * |B'| * sin(theta)) / max (|A'|, |B'|);
-            // If  max (|A'|, |B'|) = 0, that means either x or y has a scale of 0.
-            //
-            // For non-skew case, which is most of the cases, matrix scale is computing exactly the
-            // scale on x and y axis, and take the minimal of these two.
-            // For skew case, an unit square will mapped to a parallelogram. And this function will
-            // return the minimal height of the 2 bases.
-            float[] unitVectors = new float[] {0, 1, 1, 0};
-            groupStackedMatrix.mapVectors(unitVectors);
-            float scaleX = MathUtils.mag(unitVectors[0], unitVectors[1]);
-            float scaleY = MathUtils.mag(unitVectors[2], unitVectors[3]);
-            float crossProduct = MathUtils.cross(unitVectors[0], unitVectors[1],
-                    unitVectors[2], unitVectors[3]);
-            float maxScale = MathUtils.max(scaleX, scaleY);
-
-            float matrixScale = 0;
-            if (maxScale > 0) {
-                matrixScale = MathUtils.abs(crossProduct) / maxScale;
-            }
-            if (DBG_VECTOR_DRAWABLE) {
-                Log.d(LOGTAG, "Scale x " + scaleX + " y " + scaleY + " final " + matrixScale);
-            }
-            return matrixScale;
+        @SuppressWarnings("unused")
+        public float getAlpha() {
+            return nGetRootAlpha(mNativeTree.get());
         }
     }
 
-    private static class VGroup {
-        // mStackedMatrix is only used temporarily when drawing, it combines all
-        // the parents' local matrices with the current one.
-        private final Matrix mStackedMatrix = new Matrix();
+    static class VGroup extends VObject {
+        private static final int ROTATION_INDEX = 0;
+        private static final int PIVOT_X_INDEX = 1;
+        private static final int PIVOT_Y_INDEX = 2;
+        private static final int SCALE_X_INDEX = 3;
+        private static final int SCALE_Y_INDEX = 4;
+        private static final int TRANSLATE_X_INDEX = 5;
+        private static final int TRANSLATE_Y_INDEX = 6;
+        private static final int TRANSFORM_PROPERTY_COUNT = 7;
 
+        private static final int NATIVE_ALLOCATION_SIZE = 100;
+
+        private static final HashMap<String, Integer> sPropertyIndexMap =
+                new HashMap<String, Integer>() {
+                    {
+                        put("translateX", TRANSLATE_X_INDEX);
+                        put("translateY", TRANSLATE_Y_INDEX);
+                        put("scaleX", SCALE_X_INDEX);
+                        put("scaleY", SCALE_Y_INDEX);
+                        put("pivotX", PIVOT_X_INDEX);
+                        put("pivotY", PIVOT_Y_INDEX);
+                        put("rotation", ROTATION_INDEX);
+                    }
+                };
+
+        static int getPropertyIndex(String propertyName) {
+            if (sPropertyIndexMap.containsKey(propertyName)) {
+                return sPropertyIndexMap.get(propertyName);
+            } else {
+                // property not found
+                return -1;
+            }
+        }
+
+        // Below are the Properties that wrap the setters to avoid reflection overhead in animations
+        private static final Property<VGroup, Float> TRANSLATE_X =
+                new FloatProperty<VGroup> ("translateX") {
+                    @Override
+                    public void setValue(VGroup object, float value) {
+                        object.setTranslateX(value);
+                    }
+
+                    @Override
+                    public Float get(VGroup object) {
+                        return object.getTranslateX();
+                    }
+                };
+
+        private static final Property<VGroup, Float> TRANSLATE_Y =
+                new FloatProperty<VGroup> ("translateY") {
+                    @Override
+                    public void setValue(VGroup object, float value) {
+                        object.setTranslateY(value);
+                    }
+
+                    @Override
+                    public Float get(VGroup object) {
+                        return object.getTranslateY();
+                    }
+        };
+
+        private static final Property<VGroup, Float> SCALE_X =
+                new FloatProperty<VGroup> ("scaleX") {
+                    @Override
+                    public void setValue(VGroup object, float value) {
+                        object.setScaleX(value);
+                    }
+
+                    @Override
+                    public Float get(VGroup object) {
+                        return object.getScaleX();
+                    }
+                };
+
+        private static final Property<VGroup, Float> SCALE_Y =
+                new FloatProperty<VGroup> ("scaleY") {
+                    @Override
+                    public void setValue(VGroup object, float value) {
+                        object.setScaleY(value);
+                    }
+
+                    @Override
+                    public Float get(VGroup object) {
+                        return object.getScaleY();
+                    }
+                };
+
+        private static final Property<VGroup, Float> PIVOT_X =
+                new FloatProperty<VGroup> ("pivotX") {
+                    @Override
+                    public void setValue(VGroup object, float value) {
+                        object.setPivotX(value);
+                    }
+
+                    @Override
+                    public Float get(VGroup object) {
+                        return object.getPivotX();
+                    }
+                };
+
+        private static final Property<VGroup, Float> PIVOT_Y =
+                new FloatProperty<VGroup> ("pivotY") {
+                    @Override
+                    public void setValue(VGroup object, float value) {
+                        object.setPivotY(value);
+                    }
+
+                    @Override
+                    public Float get(VGroup object) {
+                        return object.getPivotY();
+                    }
+                };
+
+        private static final Property<VGroup, Float> ROTATION =
+                new FloatProperty<VGroup> ("rotation") {
+                    @Override
+                    public void setValue(VGroup object, float value) {
+                        object.setRotation(value);
+                    }
+
+                    @Override
+                    public Float get(VGroup object) {
+                        return object.getRotation();
+                    }
+                };
+
+        private static final HashMap<String, Property> sPropertyMap =
+                new HashMap<String, Property>() {
+                    {
+                        put("translateX", TRANSLATE_X);
+                        put("translateY", TRANSLATE_Y);
+                        put("scaleX", SCALE_X);
+                        put("scaleY", SCALE_Y);
+                        put("pivotX", PIVOT_X);
+                        put("pivotY", PIVOT_Y);
+                        put("rotation", ROTATION);
+                    }
+                };
+        // Temp array to store transform values obtained from native.
+        private float[] mTransform;
         /////////////////////////////////////////////////////
         // Variables below need to be copied (deep copy if applicable) for mutation.
-        final ArrayList<Object> mChildren = new ArrayList<Object>();
-
-        private float mRotate = 0;
-        private float mPivotX = 0;
-        private float mPivotY = 0;
-        private float mScaleX = 1;
-        private float mScaleY = 1;
-        private float mTranslateX = 0;
-        private float mTranslateY = 0;
+        private final ArrayList<VObject> mChildren = new ArrayList<>();
+        private boolean mIsStateful;
 
         // mLocalMatrix is updated based on the update of transformation information,
         // either parsed from the XML or by animation.
-        private final Matrix mLocalMatrix = new Matrix();
-        private int mChangingConfigurations;
+        private @Config int mChangingConfigurations;
         private int[] mThemeAttrs;
         private String mGroupName = null;
 
+        // The native object will be created in the constructor and will be destroyed in native
+        // when the neither java nor native has ref to the tree. This pointer should be valid
+        // throughout this VGroup Java object's life.
+        private final long mNativePtr;
         public VGroup(VGroup copy, ArrayMap<String, Object> targetsMap) {
-            mRotate = copy.mRotate;
-            mPivotX = copy.mPivotX;
-            mPivotY = copy.mPivotY;
-            mScaleX = copy.mScaleX;
-            mScaleY = copy.mScaleY;
-            mTranslateX = copy.mTranslateX;
-            mTranslateY = copy.mTranslateY;
+
+            mIsStateful = copy.mIsStateful;
             mThemeAttrs = copy.mThemeAttrs;
             mGroupName = copy.mGroupName;
             mChangingConfigurations = copy.mChangingConfigurations;
             if (mGroupName != null) {
                 targetsMap.put(mGroupName, this);
             }
+            mNativePtr = nCreateGroup(copy.mNativePtr);
 
-            mLocalMatrix.set(copy.mLocalMatrix);
-
-            final ArrayList<Object> children = copy.mChildren;
+            final ArrayList<VObject> children = copy.mChildren;
             for (int i = 0; i < children.size(); i++) {
-                Object copyChild = children.get(i);
+                final VObject copyChild = children.get(i);
                 if (copyChild instanceof VGroup) {
-                    VGroup copyGroup = (VGroup) copyChild;
-                    mChildren.add(new VGroup(copyGroup, targetsMap));
+                    final VGroup copyGroup = (VGroup) copyChild;
+                    addChild(new VGroup(copyGroup, targetsMap));
                 } else {
-                    VPath newPath = null;
+                    final VPath newPath;
                     if (copyChild instanceof VFullPath) {
                         newPath = new VFullPath((VFullPath) copyChild);
                     } else if (copyChild instanceof VClipPath) {
@@ -1238,7 +1244,7 @@ public class VectorDrawable extends Drawable {
                     } else {
                         throw new IllegalStateException("Unknown object in the tree!");
                     }
-                    mChildren.add(newPath);
+                    addChild(newPath);
                     if (newPath.mPathName != null) {
                         targetsMap.put(newPath.mPathName, newPath);
                     }
@@ -1247,16 +1253,42 @@ public class VectorDrawable extends Drawable {
         }
 
         public VGroup() {
+            mNativePtr = nCreateGroup();
+        }
+
+        Property getProperty(String propertyName) {
+            if (sPropertyMap.containsKey(propertyName)) {
+                return sPropertyMap.get(propertyName);
+            } else {
+                // property not found
+                return null;
+            }
         }
 
         public String getGroupName() {
             return mGroupName;
         }
 
-        public Matrix getLocalMatrix() {
-            return mLocalMatrix;
+        public void addChild(VObject child) {
+            nAddChild(mNativePtr, child.getNativePtr());
+            mChildren.add(child);
+            mIsStateful |= child.isStateful();
         }
 
+        @Override
+        public void setTree(VirtualRefBasePtr treeRoot) {
+            super.setTree(treeRoot);
+            for (int i = 0; i < mChildren.size(); i++) {
+                mChildren.get(i).setTree(treeRoot);
+            }
+        }
+
+        @Override
+        public long getNativePtr() {
+            return mNativePtr;
+        }
+
+        @Override
         public void inflate(Resources res, AttributeSet attrs, Theme theme) {
             final TypedArray a = obtainAttributes(res, theme, attrs,
                     R.styleable.VectorDrawableGroup);
@@ -1264,142 +1296,195 @@ public class VectorDrawable extends Drawable {
             a.recycle();
         }
 
-        private void updateStateFromTypedArray(TypedArray a) {
+        void updateStateFromTypedArray(TypedArray a) {
             // Account for any configuration changes.
             mChangingConfigurations |= a.getChangingConfigurations();
 
             // Extract the theme attributes, if any.
             mThemeAttrs = a.extractThemeAttrs();
-
-            mRotate = a.getFloat(R.styleable.VectorDrawableGroup_rotation, mRotate);
-            mPivotX = a.getFloat(R.styleable.VectorDrawableGroup_pivotX, mPivotX);
-            mPivotY = a.getFloat(R.styleable.VectorDrawableGroup_pivotY, mPivotY);
-            mScaleX = a.getFloat(R.styleable.VectorDrawableGroup_scaleX, mScaleX);
-            mScaleY = a.getFloat(R.styleable.VectorDrawableGroup_scaleY, mScaleY);
-            mTranslateX = a.getFloat(R.styleable.VectorDrawableGroup_translateX, mTranslateX);
-            mTranslateY = a.getFloat(R.styleable.VectorDrawableGroup_translateY, mTranslateY);
+            if (mTransform == null) {
+                // Lazy initialization: If the group is created through copy constructor, this may
+                // never get called.
+                mTransform = new float[TRANSFORM_PROPERTY_COUNT];
+            }
+            boolean success = nGetGroupProperties(mNativePtr, mTransform, TRANSFORM_PROPERTY_COUNT);
+            if (!success) {
+                throw new RuntimeException("Error: inconsistent property count");
+            }
+            float rotate = a.getFloat(R.styleable.VectorDrawableGroup_rotation,
+                    mTransform[ROTATION_INDEX]);
+            float pivotX = a.getFloat(R.styleable.VectorDrawableGroup_pivotX,
+                    mTransform[PIVOT_X_INDEX]);
+            float pivotY = a.getFloat(R.styleable.VectorDrawableGroup_pivotY,
+                    mTransform[PIVOT_Y_INDEX]);
+            float scaleX = a.getFloat(R.styleable.VectorDrawableGroup_scaleX,
+                    mTransform[SCALE_X_INDEX]);
+            float scaleY = a.getFloat(R.styleable.VectorDrawableGroup_scaleY,
+                    mTransform[SCALE_Y_INDEX]);
+            float translateX = a.getFloat(R.styleable.VectorDrawableGroup_translateX,
+                    mTransform[TRANSLATE_X_INDEX]);
+            float translateY = a.getFloat(R.styleable.VectorDrawableGroup_translateY,
+                    mTransform[TRANSLATE_Y_INDEX]);
 
             final String groupName = a.getString(R.styleable.VectorDrawableGroup_name);
             if (groupName != null) {
                 mGroupName = groupName;
+                nSetName(mNativePtr, mGroupName);
             }
-
-            updateLocalMatrix();
+             nUpdateGroupProperties(mNativePtr, rotate, pivotX, pivotY, scaleX, scaleY,
+                     translateX, translateY);
         }
 
+        @Override
+        public boolean onStateChange(int[] stateSet) {
+            boolean changed = false;
+
+            final ArrayList<VObject> children = mChildren;
+            for (int i = 0, count = children.size(); i < count; i++) {
+                final VObject child = children.get(i);
+                if (child.isStateful()) {
+                    changed |= child.onStateChange(stateSet);
+                }
+            }
+
+            return changed;
+        }
+
+        @Override
+        public boolean isStateful() {
+            return mIsStateful;
+        }
+
+        @Override
+        int getNativeSize() {
+            // Return the native allocation needed for the subtree.
+            int size = NATIVE_ALLOCATION_SIZE;
+            for (int i = 0; i < mChildren.size(); i++) {
+                size += mChildren.get(i).getNativeSize();
+            }
+            return size;
+        }
+
+        @Override
         public boolean canApplyTheme() {
-            return mThemeAttrs != null;
-        }
-
-        public void applyTheme(Theme t) {
-            if (mThemeAttrs == null) {
-                return;
+            if (mThemeAttrs != null) {
+                return true;
             }
 
-            final TypedArray a = t.resolveAttributes(mThemeAttrs, R.styleable.VectorDrawableGroup);
-            updateStateFromTypedArray(a);
-            a.recycle();
+            final ArrayList<VObject> children = mChildren;
+            for (int i = 0, count = children.size(); i < count; i++) {
+                final VObject child = children.get(i);
+                if (child.canApplyTheme()) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
-        private void updateLocalMatrix() {
-            // The order we apply is the same as the
-            // RenderNode.cpp::applyViewPropertyTransforms().
-            mLocalMatrix.reset();
-            mLocalMatrix.postTranslate(-mPivotX, -mPivotY);
-            mLocalMatrix.postScale(mScaleX, mScaleY);
-            mLocalMatrix.postRotate(mRotate, 0, 0);
-            mLocalMatrix.postTranslate(mTranslateX + mPivotX, mTranslateY + mPivotY);
+        @Override
+        public void applyTheme(Theme t) {
+            if (mThemeAttrs != null) {
+                final TypedArray a = t.resolveAttributes(mThemeAttrs,
+                        R.styleable.VectorDrawableGroup);
+                updateStateFromTypedArray(a);
+                a.recycle();
+            }
+
+            final ArrayList<VObject> children = mChildren;
+            for (int i = 0, count = children.size(); i < count; i++) {
+                final VObject child = children.get(i);
+                if (child.canApplyTheme()) {
+                    child.applyTheme(t);
+
+                    // Applying a theme may have made the child stateful.
+                    mIsStateful |= child.isStateful();
+                }
+            }
         }
 
         /* Setters and Getters, used by animator from AnimatedVectorDrawable. */
         @SuppressWarnings("unused")
         public float getRotation() {
-            return mRotate;
+            return isTreeValid() ? nGetRotation(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         public void setRotation(float rotation) {
-            if (rotation != mRotate) {
-                mRotate = rotation;
-                updateLocalMatrix();
+            if (isTreeValid()) {
+                nSetRotation(mNativePtr, rotation);
             }
         }
 
         @SuppressWarnings("unused")
         public float getPivotX() {
-            return mPivotX;
+            return isTreeValid() ? nGetPivotX(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         public void setPivotX(float pivotX) {
-            if (pivotX != mPivotX) {
-                mPivotX = pivotX;
-                updateLocalMatrix();
+            if (isTreeValid()) {
+                nSetPivotX(mNativePtr, pivotX);
             }
         }
 
         @SuppressWarnings("unused")
         public float getPivotY() {
-            return mPivotY;
+            return isTreeValid() ? nGetPivotY(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         public void setPivotY(float pivotY) {
-            if (pivotY != mPivotY) {
-                mPivotY = pivotY;
-                updateLocalMatrix();
+            if (isTreeValid()) {
+                nSetPivotY(mNativePtr, pivotY);
             }
         }
 
         @SuppressWarnings("unused")
         public float getScaleX() {
-            return mScaleX;
+            return isTreeValid() ? nGetScaleX(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         public void setScaleX(float scaleX) {
-            if (scaleX != mScaleX) {
-                mScaleX = scaleX;
-                updateLocalMatrix();
+            if (isTreeValid()) {
+                nSetScaleX(mNativePtr, scaleX);
             }
         }
 
         @SuppressWarnings("unused")
         public float getScaleY() {
-            return mScaleY;
+            return isTreeValid() ? nGetScaleY(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         public void setScaleY(float scaleY) {
-            if (scaleY != mScaleY) {
-                mScaleY = scaleY;
-                updateLocalMatrix();
+            if (isTreeValid()) {
+                nSetScaleY(mNativePtr, scaleY);
             }
         }
 
         @SuppressWarnings("unused")
         public float getTranslateX() {
-            return mTranslateX;
+            return isTreeValid() ? nGetTranslateX(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         public void setTranslateX(float translateX) {
-            if (translateX != mTranslateX) {
-                mTranslateX = translateX;
-                updateLocalMatrix();
+            if (isTreeValid()) {
+                nSetTranslateX(mNativePtr, translateX);
             }
         }
 
         @SuppressWarnings("unused")
         public float getTranslateY() {
-            return mTranslateY;
+            return isTreeValid() ? nGetTranslateY(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         public void setTranslateY(float translateY) {
-            if (translateY != mTranslateY) {
-                mTranslateY = translateY;
-                updateLocalMatrix();
+            if (isTreeValid()) {
+                nSetTranslateY(mNativePtr, translateY);
             }
         }
     }
@@ -1407,10 +1492,32 @@ public class VectorDrawable extends Drawable {
     /**
      * Common Path information for clip path and normal path.
      */
-    private static class VPath {
-        protected PathParser.PathDataNode[] mNodes = null;
+    static abstract class VPath extends VObject {
+        protected PathParser.PathData mPathData = null;
+
         String mPathName;
-        int mChangingConfigurations;
+        @Config int mChangingConfigurations;
+
+        private static final Property<VPath, PathParser.PathData> PATH_DATA =
+                new Property<VPath, PathParser.PathData>(PathParser.PathData.class, "pathData") {
+                    @Override
+                    public void set(VPath object, PathParser.PathData data) {
+                        object.setPathData(data);
+                    }
+
+                    @Override
+                    public PathParser.PathData get(VPath object) {
+                        return object.getPathData();
+                    }
+                };
+
+        Property getProperty(String propertyName) {
+            if (PATH_DATA.getName().equals(propertyName)) {
+                return PATH_DATA;
+            }
+            // property not found
+            return null;
+        }
 
         public VPath() {
             // Empty constructor.
@@ -1419,44 +1526,25 @@ public class VectorDrawable extends Drawable {
         public VPath(VPath copy) {
             mPathName = copy.mPathName;
             mChangingConfigurations = copy.mChangingConfigurations;
-            mNodes = PathParser.deepCopyNodes(copy.mNodes);
-        }
-
-        public void toPath(Path path) {
-            path.reset();
-            if (mNodes != null) {
-                PathParser.PathDataNode.nodesToPath(mNodes, path);
-            }
+            mPathData = copy.mPathData == null ? null : new PathParser.PathData(copy.mPathData);
         }
 
         public String getPathName() {
             return mPathName;
         }
 
-        public boolean canApplyTheme() {
-            return false;
-        }
-
-        public void applyTheme(Theme t) {
-        }
-
-        public boolean isClipPath() {
-            return false;
-        }
-
         /* Setters and Getters, used by animator from AnimatedVectorDrawable. */
         @SuppressWarnings("unused")
-        public PathParser.PathDataNode[] getPathData() {
-            return mNodes;
+        public PathParser.PathData getPathData() {
+            return mPathData;
         }
 
+        // TODO: Move the PathEvaluator and this setter and the getter above into native.
         @SuppressWarnings("unused")
-        public void setPathData(PathParser.PathDataNode[] nodes) {
-            if (!PathParser.canMorph(mNodes, nodes)) {
-                // This should not happen in the middle of animation.
-                mNodes = PathParser.deepCopyNodes(nodes);
-            } else {
-                PathParser.updateNodes(mNodes, nodes);
+        public void setPathData(PathParser.PathData pathData) {
+            mPathData.setPathData(pathData);
+            if (isTreeValid()) {
+                nSetPathData(getNativePtr(), mPathData.getNativePtr());
             }
         }
     }
@@ -1465,19 +1553,54 @@ public class VectorDrawable extends Drawable {
      * Clip path, which only has name and pathData.
      */
     private static class VClipPath extends VPath {
+        private final long mNativePtr;
+        private static final int NATIVE_ALLOCATION_SIZE = 120;
+
         public VClipPath() {
-            // Empty constructor.
+            mNativePtr = nCreateClipPath();
         }
 
         public VClipPath(VClipPath copy) {
             super(copy);
+            mNativePtr = nCreateClipPath(copy.mNativePtr);
         }
 
+        @Override
+        public long getNativePtr() {
+            return mNativePtr;
+        }
+
+        @Override
         public void inflate(Resources r, AttributeSet attrs, Theme theme) {
             final TypedArray a = obtainAttributes(r, theme, attrs,
                     R.styleable.VectorDrawableClipPath);
             updateStateFromTypedArray(a);
             a.recycle();
+        }
+
+        @Override
+        public boolean canApplyTheme() {
+            return false;
+        }
+
+        @Override
+        public void applyTheme(Theme theme) {
+            // No-op.
+        }
+
+        @Override
+        public boolean onStateChange(int[] stateSet) {
+            return false;
+        }
+
+        @Override
+        public boolean isStateful() {
+            return false;
+        }
+
+        @Override
+        int getNativeSize() {
+            return NATIVE_ALLOCATION_SIZE;
         }
 
         private void updateStateFromTypedArray(TypedArray a) {
@@ -1487,97 +1610,255 @@ public class VectorDrawable extends Drawable {
             final String pathName = a.getString(R.styleable.VectorDrawableClipPath_name);
             if (pathName != null) {
                 mPathName = pathName;
+                nSetName(mNativePtr, mPathName);
             }
 
-            final String pathData = a.getString(R.styleable.VectorDrawableClipPath_pathData);
-            if (pathData != null) {
-                mNodes = PathParser.createNodesFromPathData(pathData);
+            final String pathDataString = a.getString(R.styleable.VectorDrawableClipPath_pathData);
+            if (pathDataString != null) {
+                mPathData = new PathParser.PathData(pathDataString);
+                nSetPathString(mNativePtr, pathDataString, pathDataString.length());
             }
-        }
-
-        @Override
-        public boolean isClipPath() {
-            return true;
         }
     }
 
     /**
      * Normal path, which contains all the fill / paint information.
      */
-    private static class VFullPath extends VPath {
+    static class VFullPath extends VPath {
+        private static final int STROKE_WIDTH_INDEX = 0;
+        private static final int STROKE_COLOR_INDEX = 1;
+        private static final int STROKE_ALPHA_INDEX = 2;
+        private static final int FILL_COLOR_INDEX = 3;
+        private static final int FILL_ALPHA_INDEX = 4;
+        private static final int TRIM_PATH_START_INDEX = 5;
+        private static final int TRIM_PATH_END_INDEX = 6;
+        private static final int TRIM_PATH_OFFSET_INDEX = 7;
+        private static final int STROKE_LINE_CAP_INDEX = 8;
+        private static final int STROKE_LINE_JOIN_INDEX = 9;
+        private static final int STROKE_MITER_LIMIT_INDEX = 10;
+        private static final int FILL_TYPE_INDEX = 11;
+        private static final int TOTAL_PROPERTY_COUNT = 12;
+
+        private static final int NATIVE_ALLOCATION_SIZE = 264;
+        // Property map for animatable attributes.
+        private final static HashMap<String, Integer> sPropertyIndexMap
+                = new HashMap<String, Integer> () {
+            {
+                put("strokeWidth", STROKE_WIDTH_INDEX);
+                put("strokeColor", STROKE_COLOR_INDEX);
+                put("strokeAlpha", STROKE_ALPHA_INDEX);
+                put("fillColor", FILL_COLOR_INDEX);
+                put("fillAlpha", FILL_ALPHA_INDEX);
+                put("trimPathStart", TRIM_PATH_START_INDEX);
+                put("trimPathEnd", TRIM_PATH_END_INDEX);
+                put("trimPathOffset", TRIM_PATH_OFFSET_INDEX);
+            }
+        };
+
+        // Below are the Properties that wrap the setters to avoid reflection overhead in animations
+        private static final Property<VFullPath, Float> STROKE_WIDTH =
+                new FloatProperty<VFullPath> ("strokeWidth") {
+                    @Override
+                    public void setValue(VFullPath object, float value) {
+                        object.setStrokeWidth(value);
+                    }
+
+                    @Override
+                    public Float get(VFullPath object) {
+                        return object.getStrokeWidth();
+                    }
+                };
+
+        private static final Property<VFullPath, Integer> STROKE_COLOR =
+                new IntProperty<VFullPath> ("strokeColor") {
+                    @Override
+                    public void setValue(VFullPath object, int value) {
+                        object.setStrokeColor(value);
+                    }
+
+                    @Override
+                    public Integer get(VFullPath object) {
+                        return object.getStrokeColor();
+                    }
+                };
+
+        private static final Property<VFullPath, Float> STROKE_ALPHA =
+                new FloatProperty<VFullPath> ("strokeAlpha") {
+                    @Override
+                    public void setValue(VFullPath object, float value) {
+                        object.setStrokeAlpha(value);
+                    }
+
+                    @Override
+                    public Float get(VFullPath object) {
+                        return object.getStrokeAlpha();
+                    }
+                };
+
+        private static final Property<VFullPath, Integer> FILL_COLOR =
+                new IntProperty<VFullPath>("fillColor") {
+                    @Override
+                    public void setValue(VFullPath object, int value) {
+                        object.setFillColor(value);
+                    }
+
+                    @Override
+                    public Integer get(VFullPath object) {
+                        return object.getFillColor();
+                    }
+                };
+
+        private static final Property<VFullPath, Float> FILL_ALPHA =
+                new FloatProperty<VFullPath> ("fillAlpha") {
+                    @Override
+                    public void setValue(VFullPath object, float value) {
+                        object.setFillAlpha(value);
+                    }
+
+                    @Override
+                    public Float get(VFullPath object) {
+                        return object.getFillAlpha();
+                    }
+                };
+
+        private static final Property<VFullPath, Float> TRIM_PATH_START =
+                new FloatProperty<VFullPath> ("trimPathStart") {
+                    @Override
+                    public void setValue(VFullPath object, float value) {
+                        object.setTrimPathStart(value);
+                    }
+
+                    @Override
+                    public Float get(VFullPath object) {
+                        return object.getTrimPathStart();
+                    }
+                };
+
+        private static final Property<VFullPath, Float> TRIM_PATH_END =
+                new FloatProperty<VFullPath> ("trimPathEnd") {
+                    @Override
+                    public void setValue(VFullPath object, float value) {
+                        object.setTrimPathEnd(value);
+                    }
+
+                    @Override
+                    public Float get(VFullPath object) {
+                        return object.getTrimPathEnd();
+                    }
+                };
+
+        private static final Property<VFullPath, Float> TRIM_PATH_OFFSET =
+                new FloatProperty<VFullPath> ("trimPathOffset") {
+                    @Override
+                    public void setValue(VFullPath object, float value) {
+                        object.setTrimPathOffset(value);
+                    }
+
+                    @Override
+                    public Float get(VFullPath object) {
+                        return object.getTrimPathOffset();
+                    }
+                };
+
+        private final static HashMap<String, Property> sPropertyMap
+                = new HashMap<String, Property> () {
+            {
+                put("strokeWidth", STROKE_WIDTH);
+                put("strokeColor", STROKE_COLOR);
+                put("strokeAlpha", STROKE_ALPHA);
+                put("fillColor", FILL_COLOR);
+                put("fillAlpha", FILL_ALPHA);
+                put("trimPathStart", TRIM_PATH_START);
+                put("trimPathEnd", TRIM_PATH_END);
+                put("trimPathOffset", TRIM_PATH_OFFSET);
+            }
+        };
+
+        // Temp array to store property data obtained from native getter.
+        private byte[] mPropertyData;
         /////////////////////////////////////////////////////
         // Variables below need to be copied (deep copy if applicable) for mutation.
         private int[] mThemeAttrs;
 
-        int mStrokeColor = Color.TRANSPARENT;
-        float mStrokeWidth = 0;
-
-        int mFillColor = Color.TRANSPARENT;
-        float mStrokeAlpha = 1.0f;
-        int mFillRule;
-        float mFillAlpha = 1.0f;
-        float mTrimPathStart = 0;
-        float mTrimPathEnd = 1;
-        float mTrimPathOffset = 0;
-
-        Paint.Cap mStrokeLineCap = Paint.Cap.BUTT;
-        Paint.Join mStrokeLineJoin = Paint.Join.MITER;
-        float mStrokeMiterlimit = 4;
+        ComplexColor mStrokeColors = null;
+        ComplexColor mFillColors = null;
+        private final long mNativePtr;
 
         public VFullPath() {
-            // Empty constructor.
+            mNativePtr = nCreateFullPath();
         }
 
         public VFullPath(VFullPath copy) {
             super(copy);
+            mNativePtr = nCreateFullPath(copy.mNativePtr);
             mThemeAttrs = copy.mThemeAttrs;
-
-            mStrokeColor = copy.mStrokeColor;
-            mStrokeWidth = copy.mStrokeWidth;
-            mStrokeAlpha = copy.mStrokeAlpha;
-            mFillColor = copy.mFillColor;
-            mFillRule = copy.mFillRule;
-            mFillAlpha = copy.mFillAlpha;
-            mTrimPathStart = copy.mTrimPathStart;
-            mTrimPathEnd = copy.mTrimPathEnd;
-            mTrimPathOffset = copy.mTrimPathOffset;
-
-            mStrokeLineCap = copy.mStrokeLineCap;
-            mStrokeLineJoin = copy.mStrokeLineJoin;
-            mStrokeMiterlimit = copy.mStrokeMiterlimit;
+            mStrokeColors = copy.mStrokeColors;
+            mFillColors = copy.mFillColors;
         }
 
-        private Paint.Cap getStrokeLineCap(int id, Paint.Cap defValue) {
-            switch (id) {
-                case LINECAP_BUTT:
-                    return Paint.Cap.BUTT;
-                case LINECAP_ROUND:
-                    return Paint.Cap.ROUND;
-                case LINECAP_SQUARE:
-                    return Paint.Cap.SQUARE;
-                default:
-                    return defValue;
+        Property getProperty(String propertyName) {
+            Property p = super.getProperty(propertyName);
+            if (p != null) {
+                return p;
+            }
+            if (sPropertyMap.containsKey(propertyName)) {
+                return sPropertyMap.get(propertyName);
+            } else {
+                // property not found
+                return null;
             }
         }
 
-        private Paint.Join getStrokeLineJoin(int id, Paint.Join defValue) {
-            switch (id) {
-                case LINEJOIN_MITER:
-                    return Paint.Join.MITER;
-                case LINEJOIN_ROUND:
-                    return Paint.Join.ROUND;
-                case LINEJOIN_BEVEL:
-                    return Paint.Join.BEVEL;
-                default:
-                    return defValue;
+        int getPropertyIndex(String propertyName) {
+            if (!sPropertyIndexMap.containsKey(propertyName)) {
+                return -1;
+            } else {
+                return sPropertyIndexMap.get(propertyName);
             }
         }
 
         @Override
-        public boolean canApplyTheme() {
-            return mThemeAttrs != null;
+        public boolean onStateChange(int[] stateSet) {
+            boolean changed = false;
+
+            if (mStrokeColors != null && mStrokeColors instanceof ColorStateList) {
+                final int oldStrokeColor = getStrokeColor();
+                final int newStrokeColor =
+                        ((ColorStateList) mStrokeColors).getColorForState(stateSet, oldStrokeColor);
+                changed |= oldStrokeColor != newStrokeColor;
+                if (oldStrokeColor != newStrokeColor) {
+                    nSetStrokeColor(mNativePtr, newStrokeColor);
+                }
+            }
+
+            if (mFillColors != null && mFillColors instanceof ColorStateList) {
+                final int oldFillColor = getFillColor();
+                final int newFillColor = ((ColorStateList) mFillColors).getColorForState(stateSet, oldFillColor);
+                changed |= oldFillColor != newFillColor;
+                if (oldFillColor != newFillColor) {
+                    nSetFillColor(mNativePtr, newFillColor);
+                }
+            }
+
+            return changed;
         }
 
+        @Override
+        public boolean isStateful() {
+            return mStrokeColors != null || mFillColors != null;
+        }
+
+        @Override
+        int getNativeSize() {
+            return NATIVE_ALLOCATION_SIZE;
+        }
+
+        @Override
+        public long getNativePtr() {
+            return mNativePtr;
+        }
+
+        @Override
         public void inflate(Resources r, AttributeSet attrs, Theme theme) {
             final TypedArray a = obtainAttributes(r, theme, attrs,
                     R.styleable.VectorDrawablePath);
@@ -1586,6 +1867,36 @@ public class VectorDrawable extends Drawable {
         }
 
         private void updateStateFromTypedArray(TypedArray a) {
+            int byteCount = TOTAL_PROPERTY_COUNT * 4;
+            if (mPropertyData == null) {
+                // Lazy initialization: If the path is created through copy constructor, this may
+                // never get called.
+                mPropertyData = new byte[byteCount];
+            }
+            // The bulk getters/setters of property data (e.g. stroke width, color, etc) allows us
+            // to pull current values from native and store modifications with only two methods,
+            // minimizing JNI overhead.
+            boolean success = nGetFullPathProperties(mNativePtr, mPropertyData, byteCount);
+            if (!success) {
+                throw new RuntimeException("Error: inconsistent property count");
+            }
+
+            ByteBuffer properties = ByteBuffer.wrap(mPropertyData);
+            properties.order(ByteOrder.nativeOrder());
+            float strokeWidth = properties.getFloat(STROKE_WIDTH_INDEX * 4);
+            int strokeColor = properties.getInt(STROKE_COLOR_INDEX * 4);
+            float strokeAlpha = properties.getFloat(STROKE_ALPHA_INDEX * 4);
+            int fillColor =  properties.getInt(FILL_COLOR_INDEX * 4);
+            float fillAlpha = properties.getFloat(FILL_ALPHA_INDEX * 4);
+            float trimPathStart = properties.getFloat(TRIM_PATH_START_INDEX * 4);
+            float trimPathEnd = properties.getFloat(TRIM_PATH_END_INDEX * 4);
+            float trimPathOffset = properties.getFloat(TRIM_PATH_OFFSET_INDEX * 4);
+            int strokeLineCap =  properties.getInt(STROKE_LINE_CAP_INDEX * 4);
+            int strokeLineJoin = properties.getInt(STROKE_LINE_JOIN_INDEX * 4);
+            float strokeMiterLimit = properties.getFloat(STROKE_MITER_LIMIT_INDEX * 4);
+            int fillType = properties.getInt(FILL_TYPE_INDEX * 4);
+            Shader fillGradient = null;
+            Shader strokeGradient = null;
             // Account for any configuration changes.
             mChangingConfigurations |= a.getChangingConfigurations();
 
@@ -1595,127 +1906,324 @@ public class VectorDrawable extends Drawable {
             final String pathName = a.getString(R.styleable.VectorDrawablePath_name);
             if (pathName != null) {
                 mPathName = pathName;
+                nSetName(mNativePtr, mPathName);
             }
 
-            final String pathData = a.getString(R.styleable.VectorDrawablePath_pathData);
-            if (pathData != null) {
-                mNodes = PathParser.createNodesFromPathData(pathData);
+            final String pathString = a.getString(R.styleable.VectorDrawablePath_pathData);
+            if (pathString != null) {
+                mPathData = new PathParser.PathData(pathString);
+                nSetPathString(mNativePtr, pathString, pathString.length());
             }
 
-            mFillColor = a.getColor(R.styleable.VectorDrawablePath_fillColor,
-                    mFillColor);
-            mFillAlpha = a.getFloat(R.styleable.VectorDrawablePath_fillAlpha,
-                    mFillAlpha);
-            mStrokeLineCap = getStrokeLineCap(a.getInt(
-                    R.styleable.VectorDrawablePath_strokeLineCap, -1), mStrokeLineCap);
-            mStrokeLineJoin = getStrokeLineJoin(a.getInt(
-                    R.styleable.VectorDrawablePath_strokeLineJoin, -1), mStrokeLineJoin);
-            mStrokeMiterlimit = a.getFloat(
-                    R.styleable.VectorDrawablePath_strokeMiterLimit, mStrokeMiterlimit);
-            mStrokeColor = a.getColor(R.styleable.VectorDrawablePath_strokeColor,
-                    mStrokeColor);
-            mStrokeAlpha = a.getFloat(R.styleable.VectorDrawablePath_strokeAlpha,
-                    mStrokeAlpha);
-            mStrokeWidth = a.getFloat(R.styleable.VectorDrawablePath_strokeWidth,
-                    mStrokeWidth);
-            mTrimPathEnd = a.getFloat(R.styleable.VectorDrawablePath_trimPathEnd,
-                    mTrimPathEnd);
-            mTrimPathOffset = a.getFloat(
-                    R.styleable.VectorDrawablePath_trimPathOffset, mTrimPathOffset);
-            mTrimPathStart = a.getFloat(
-                    R.styleable.VectorDrawablePath_trimPathStart, mTrimPathStart);
+            final ComplexColor fillColors = a.getComplexColor(
+                    R.styleable.VectorDrawablePath_fillColor);
+            if (fillColors != null) {
+                // If the colors is a gradient color, or the color state list is stateful, keep the
+                // colors information. Otherwise, discard the colors and keep the default color.
+                if (fillColors instanceof  GradientColor) {
+                    mFillColors = fillColors;
+                    fillGradient = ((GradientColor) fillColors).getShader();
+                } else if (fillColors.isStateful()) {
+                    mFillColors = fillColors;
+                } else {
+                    mFillColors = null;
+                }
+                fillColor = fillColors.getDefaultColor();
+            }
+
+            final ComplexColor strokeColors = a.getComplexColor(
+                    R.styleable.VectorDrawablePath_strokeColor);
+            if (strokeColors != null) {
+                // If the colors is a gradient color, or the color state list is stateful, keep the
+                // colors information. Otherwise, discard the colors and keep the default color.
+                if (strokeColors instanceof GradientColor) {
+                    mStrokeColors = strokeColors;
+                    strokeGradient = ((GradientColor) strokeColors).getShader();
+                } else if (strokeColors.isStateful()) {
+                    mStrokeColors = strokeColors;
+                } else {
+                    mStrokeColors = null;
+                }
+                strokeColor = strokeColors.getDefaultColor();
+            }
+            // Update the gradient info, even if the gradiet is null.
+            nUpdateFullPathFillGradient(mNativePtr,
+                    fillGradient != null ? fillGradient.getNativeInstance() : 0);
+            nUpdateFullPathStrokeGradient(mNativePtr,
+                    strokeGradient != null ? strokeGradient.getNativeInstance() : 0);
+
+            fillAlpha = a.getFloat(R.styleable.VectorDrawablePath_fillAlpha, fillAlpha);
+
+            strokeLineCap = a.getInt(
+                    R.styleable.VectorDrawablePath_strokeLineCap, strokeLineCap);
+            strokeLineJoin = a.getInt(
+                    R.styleable.VectorDrawablePath_strokeLineJoin, strokeLineJoin);
+            strokeMiterLimit = a.getFloat(
+                    R.styleable.VectorDrawablePath_strokeMiterLimit, strokeMiterLimit);
+            strokeAlpha = a.getFloat(R.styleable.VectorDrawablePath_strokeAlpha,
+                    strokeAlpha);
+            strokeWidth = a.getFloat(R.styleable.VectorDrawablePath_strokeWidth,
+                    strokeWidth);
+            trimPathEnd = a.getFloat(R.styleable.VectorDrawablePath_trimPathEnd,
+                    trimPathEnd);
+            trimPathOffset = a.getFloat(
+                    R.styleable.VectorDrawablePath_trimPathOffset, trimPathOffset);
+            trimPathStart = a.getFloat(
+                    R.styleable.VectorDrawablePath_trimPathStart, trimPathStart);
+            fillType = a.getInt(R.styleable.VectorDrawablePath_fillType, fillType);
+
+            nUpdateFullPathProperties(mNativePtr, strokeWidth, strokeColor, strokeAlpha,
+                    fillColor, fillAlpha, trimPathStart, trimPathEnd, trimPathOffset,
+                    strokeMiterLimit, strokeLineCap, strokeLineJoin, fillType);
+        }
+
+        @Override
+        public boolean canApplyTheme() {
+            if (mThemeAttrs != null) {
+                return true;
+            }
+
+            boolean fillCanApplyTheme = canComplexColorApplyTheme(mFillColors);
+            boolean strokeCanApplyTheme = canComplexColorApplyTheme(mStrokeColors);
+            if (fillCanApplyTheme || strokeCanApplyTheme) {
+                return true;
+            }
+            return false;
+
         }
 
         @Override
         public void applyTheme(Theme t) {
-            if (mThemeAttrs == null) {
-                return;
+            // Resolve the theme attributes directly referred by the VectorDrawable.
+            if (mThemeAttrs != null) {
+                final TypedArray a = t.resolveAttributes(mThemeAttrs, R.styleable.VectorDrawablePath);
+                updateStateFromTypedArray(a);
+                a.recycle();
             }
 
-            final TypedArray a = t.resolveAttributes(mThemeAttrs, R.styleable.VectorDrawablePath);
-            updateStateFromTypedArray(a);
-            a.recycle();
+            // Resolve the theme attributes in-directly referred by the VectorDrawable, for example,
+            // fillColor can refer to a color state list which itself needs to apply theme.
+            // And this is the reason we still want to keep partial update for the path's properties.
+            boolean fillCanApplyTheme = canComplexColorApplyTheme(mFillColors);
+            boolean strokeCanApplyTheme = canComplexColorApplyTheme(mStrokeColors);
+
+            if (fillCanApplyTheme) {
+                mFillColors = mFillColors.obtainForTheme(t);
+                if (mFillColors instanceof GradientColor) {
+                    nUpdateFullPathFillGradient(mNativePtr,
+                            ((GradientColor) mFillColors).getShader().getNativeInstance());
+                } else if (mFillColors instanceof ColorStateList) {
+                    nSetFillColor(mNativePtr, mFillColors.getDefaultColor());
+                }
+            }
+
+            if (strokeCanApplyTheme) {
+                mStrokeColors = mStrokeColors.obtainForTheme(t);
+                if (mStrokeColors instanceof GradientColor) {
+                    nUpdateFullPathStrokeGradient(mNativePtr,
+                            ((GradientColor) mStrokeColors).getShader().getNativeInstance());
+                } else if (mStrokeColors instanceof ColorStateList) {
+                    nSetStrokeColor(mNativePtr, mStrokeColors.getDefaultColor());
+                }
+            }
+        }
+
+        private boolean canComplexColorApplyTheme(ComplexColor complexColor) {
+            return complexColor != null && complexColor.canApplyTheme();
         }
 
         /* Setters and Getters, used by animator from AnimatedVectorDrawable. */
         @SuppressWarnings("unused")
         int getStrokeColor() {
-            return mStrokeColor;
+            return isTreeValid() ? nGetStrokeColor(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setStrokeColor(int strokeColor) {
-            mStrokeColor = strokeColor;
+            mStrokeColors = null;
+            if (isTreeValid()) {
+                nSetStrokeColor(mNativePtr, strokeColor);
+            }
         }
 
         @SuppressWarnings("unused")
         float getStrokeWidth() {
-            return mStrokeWidth;
+            return isTreeValid() ? nGetStrokeWidth(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setStrokeWidth(float strokeWidth) {
-            mStrokeWidth = strokeWidth;
+            if (isTreeValid()) {
+                nSetStrokeWidth(mNativePtr, strokeWidth);
+            }
         }
 
         @SuppressWarnings("unused")
         float getStrokeAlpha() {
-            return mStrokeAlpha;
+            return isTreeValid() ? nGetStrokeAlpha(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setStrokeAlpha(float strokeAlpha) {
-            mStrokeAlpha = strokeAlpha;
+            if (isTreeValid()) {
+                nSetStrokeAlpha(mNativePtr, strokeAlpha);
+            }
         }
 
         @SuppressWarnings("unused")
         int getFillColor() {
-            return mFillColor;
+            return isTreeValid() ? nGetFillColor(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setFillColor(int fillColor) {
-            mFillColor = fillColor;
+            mFillColors = null;
+            if (isTreeValid()) {
+                nSetFillColor(mNativePtr, fillColor);
+            }
         }
 
         @SuppressWarnings("unused")
         float getFillAlpha() {
-            return mFillAlpha;
+            return isTreeValid() ? nGetFillAlpha(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setFillAlpha(float fillAlpha) {
-            mFillAlpha = fillAlpha;
+            if (isTreeValid()) {
+                nSetFillAlpha(mNativePtr, fillAlpha);
+            }
         }
 
         @SuppressWarnings("unused")
         float getTrimPathStart() {
-            return mTrimPathStart;
+            return isTreeValid() ? nGetTrimPathStart(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setTrimPathStart(float trimPathStart) {
-            mTrimPathStart = trimPathStart;
+            if (isTreeValid()) {
+                nSetTrimPathStart(mNativePtr, trimPathStart);
+            }
         }
 
         @SuppressWarnings("unused")
         float getTrimPathEnd() {
-            return mTrimPathEnd;
+            return isTreeValid() ? nGetTrimPathEnd(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setTrimPathEnd(float trimPathEnd) {
-            mTrimPathEnd = trimPathEnd;
+            if (isTreeValid()) {
+                nSetTrimPathEnd(mNativePtr, trimPathEnd);
+            }
         }
 
         @SuppressWarnings("unused")
         float getTrimPathOffset() {
-            return mTrimPathOffset;
+            return isTreeValid() ? nGetTrimPathOffset(mNativePtr) : 0;
         }
 
         @SuppressWarnings("unused")
         void setTrimPathOffset(float trimPathOffset) {
-            mTrimPathOffset = trimPathOffset;
+            if (isTreeValid()) {
+                nSetTrimPathOffset(mNativePtr, trimPathOffset);
+            }
         }
     }
+
+    abstract static class VObject {
+        VirtualRefBasePtr mTreePtr = null;
+        boolean isTreeValid() {
+            return mTreePtr != null && mTreePtr.get() != 0;
+        }
+        void setTree(VirtualRefBasePtr ptr) {
+            mTreePtr = ptr;
+        }
+        abstract long getNativePtr();
+        abstract void inflate(Resources r, AttributeSet attrs, Theme theme);
+        abstract boolean canApplyTheme();
+        abstract void applyTheme(Theme t);
+        abstract boolean onStateChange(int[] state);
+        abstract boolean isStateful();
+        abstract int getNativeSize();
+        abstract Property getProperty(String propertyName);
+    }
+
+    private static native long nCreateTree(long rootGroupPtr);
+    private static native long nCreateTreeFromCopy(long treeToCopy, long rootGroupPtr);
+    private static native void nSetRendererViewportSize(long rendererPtr, float viewportWidth,
+            float viewportHeight);
+    private static native boolean nSetRootAlpha(long rendererPtr, float alpha);
+    private static native float nGetRootAlpha(long rendererPtr);
+    private static native void nSetAllowCaching(long rendererPtr, boolean allowCaching);
+
+    private static native int nDraw(long rendererPtr, long canvasWrapperPtr,
+            long colorFilterPtr, Rect bounds, boolean needsMirroring, boolean canReuseCache);
+    private static native long nCreateFullPath();
+    private static native long nCreateFullPath(long nativeFullPathPtr);
+    private static native boolean nGetFullPathProperties(long pathPtr, byte[] properties,
+            int length);
+
+    private static native void nUpdateFullPathProperties(long pathPtr, float strokeWidth,
+            int strokeColor, float strokeAlpha, int fillColor, float fillAlpha, float trimPathStart,
+            float trimPathEnd, float trimPathOffset, float strokeMiterLimit, int strokeLineCap,
+            int strokeLineJoin, int fillType);
+    private static native void nUpdateFullPathFillGradient(long pathPtr, long fillGradientPtr);
+    private static native void nUpdateFullPathStrokeGradient(long pathPtr, long strokeGradientPtr);
+
+    private static native long nCreateClipPath();
+    private static native long nCreateClipPath(long clipPathPtr);
+
+    private static native long nCreateGroup();
+    private static native long nCreateGroup(long groupPtr);
+    private static native void nSetName(long nodePtr, String name);
+    private static native boolean nGetGroupProperties(long groupPtr, float[] properties,
+            int length);
+    private static native void nUpdateGroupProperties(long groupPtr, float rotate, float pivotX,
+            float pivotY, float scaleX, float scaleY, float translateX, float translateY);
+
+    private static native void nAddChild(long groupPtr, long nodePtr);
+    private static native void nSetPathString(long pathPtr, String pathString, int length);
+
+    /**
+     * The setters and getters below for paths and groups are here temporarily, and will be
+     * removed once the animation in AVD is replaced with RenderNodeAnimator, in which case the
+     * animation will modify these properties in native. By then no JNI hopping would be necessary
+     * for VD during animation, and these setters and getters will be obsolete.
+     */
+    // Setters and getters during animation.
+    private static native float nGetRotation(long groupPtr);
+    private static native void nSetRotation(long groupPtr, float rotation);
+    private static native float nGetPivotX(long groupPtr);
+    private static native void nSetPivotX(long groupPtr, float pivotX);
+    private static native float nGetPivotY(long groupPtr);
+    private static native void nSetPivotY(long groupPtr, float pivotY);
+    private static native float nGetScaleX(long groupPtr);
+    private static native void nSetScaleX(long groupPtr, float scaleX);
+    private static native float nGetScaleY(long groupPtr);
+    private static native void nSetScaleY(long groupPtr, float scaleY);
+    private static native float nGetTranslateX(long groupPtr);
+    private static native void nSetTranslateX(long groupPtr, float translateX);
+    private static native float nGetTranslateY(long groupPtr);
+    private static native void nSetTranslateY(long groupPtr, float translateY);
+
+    // Setters and getters for VPath during animation.
+    private static native void nSetPathData(long pathPtr, long pathDataPtr);
+    private static native float nGetStrokeWidth(long pathPtr);
+    private static native void nSetStrokeWidth(long pathPtr, float width);
+    private static native int nGetStrokeColor(long pathPtr);
+    private static native void nSetStrokeColor(long pathPtr, int strokeColor);
+    private static native float nGetStrokeAlpha(long pathPtr);
+    private static native void nSetStrokeAlpha(long pathPtr, float alpha);
+    private static native int nGetFillColor(long pathPtr);
+    private static native void nSetFillColor(long pathPtr, int fillColor);
+    private static native float nGetFillAlpha(long pathPtr);
+    private static native void nSetFillAlpha(long pathPtr, float fillAlpha);
+    private static native float nGetTrimPathStart(long pathPtr);
+    private static native void nSetTrimPathStart(long pathPtr, float trimPathStart);
+    private static native float nGetTrimPathEnd(long pathPtr);
+    private static native void nSetTrimPathEnd(long pathPtr, float trimPathEnd);
+    private static native float nGetTrimPathOffset(long pathPtr);
+    private static native void nSetTrimPathOffset(long pathPtr, float trimPathOffset);
 }

@@ -22,11 +22,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.support.annotation.ColorInt;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringDef;
 import android.text.TextUtils;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 
 /**
@@ -52,6 +56,7 @@ public final class ContentRecommendation
         CONTENT_TYPE_MAGAZINE,
         CONTENT_TYPE_WEBSITE,
     })
+    @Retention(RetentionPolicy.SOURCE)
     public @interface ContentType {}
 
     /**
@@ -152,6 +157,7 @@ public final class ContentRecommendation
         CONTENT_PRICING_PREORDER,
         CONTENT_PRICING_SUBSCRIPTION,
     })
+    @Retention(RetentionPolicy.SOURCE)
     public @interface ContentPricing {}
 
     /**
@@ -195,6 +201,7 @@ public final class ContentRecommendation
         CONTENT_STATUS_AVAILABLE,
         CONTENT_STATUS_UNAVAILABLE,
     })
+    @Retention(RetentionPolicy.SOURCE)
     public @interface ContentStatus {}
 
     /**
@@ -230,6 +237,7 @@ public final class ContentRecommendation
         CONTENT_MATURITY_MEDIUM,
         CONTENT_MATURITY_HIGH,
     })
+    @Retention(RetentionPolicy.SOURCE)
     public @interface ContentMaturity {}
 
     /**
@@ -261,6 +269,7 @@ public final class ContentRecommendation
             INTENT_TYPE_BROADCAST,
             INTENT_TYPE_SERVICE,
     })
+    @Retention(RetentionPolicy.SOURCE)
     public @interface IntentType {
     }
 
@@ -799,7 +808,7 @@ public final class ContentRecommendation
          * @param iconResourceId An integer id for the badge icon resource.
          * @return The Builder object, for chaining.
          */
-        public Builder setBadgeIcon(int iconResourceId) {
+        public Builder setBadgeIcon(@DrawableRes int iconResourceId) {
             mBuilderBadgeIconId = iconResourceId;
             return this;
         }
@@ -823,7 +832,7 @@ public final class ContentRecommendation
          * @param color An integer value representing the accent color for this recommendation.
          * @return The Builder object, for chaining.
          */
-        public Builder setColor(int color) {
+        public Builder setColor(@ColorInt int color) {
             mBuilderColor = color;
             return this;
         }

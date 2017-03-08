@@ -16,39 +16,41 @@
 
 package android.support.v7.graphics;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.test.InstrumentationTestCase;
+import static android.support.v7.graphics.TestUtils.loadSampleBitmap;
 
-/**
- * @hide
- */
-public class MaxColorsTest extends InstrumentationTestCase {
+import static org.junit.Assert.assertTrue;
 
-    private Bitmap mSource;
+import android.support.test.runner.AndroidJUnit4;
+import android.test.suitebuilder.annotation.SmallTest;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-        mSource = BitmapFactory.decodeResource(getInstrumentation().getContext().getResources(),
-                android.R.drawable.sym_def_app_icon);
-    }
+@RunWith(AndroidJUnit4.class)
+public class MaxColorsTest {
 
+    @Test
+    @SmallTest
     public void testMaxColorCount32() {
         testMaxColorCount(32);
     }
 
+    @Test
+    @SmallTest
     public void testMaxColorCount1() {
         testMaxColorCount(1);
     }
 
+    @Test
+    @SmallTest
     public void testMaxColorCount15() {
         testMaxColorCount(15);
     }
 
     private void testMaxColorCount(int colorCount) {
-        Palette newPalette = Palette.from(mSource).maximumColorCount(colorCount).generate();
+        Palette newPalette = Palette.from(loadSampleBitmap())
+                .maximumColorCount(colorCount)
+                .generate();
         assertTrue(newPalette.getSwatches().size() <= colorCount);
     }
 }

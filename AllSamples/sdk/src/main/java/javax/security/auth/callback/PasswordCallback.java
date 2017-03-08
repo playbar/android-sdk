@@ -1,121 +1,142 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1999, 2003, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package javax.security.auth.callback;
 
-import java.io.Serializable;
-import java.util.Arrays;
-
 /**
- * Used in conjunction with a {@link CallbackHandler} to retrieve a password
- * when needed.
+ * <p> Underlying security services instantiate and pass a
+ * <code>PasswordCallback</code> to the <code>handle</code>
+ * method of a <code>CallbackHandler</code> to retrieve password information.
+ *
+ * @see javax.security.auth.callback.CallbackHandler
  */
-public class PasswordCallback implements Callback, Serializable {
+public class PasswordCallback implements Callback, java.io.Serializable {
 
     private static final long serialVersionUID = 2267422647454909926L;
 
+    /**
+     * @serial
+     * @since 1.4
+     */
     private String prompt;
-
-    boolean echoOn;
-
+    /**
+     * @serial
+     * @since 1.4
+     */
+    private boolean echoOn;
+    /**
+     * @serial
+     * @since 1.4
+     */
     private char[] inputPassword;
 
-    private void setPrompt(String prompt) throws IllegalArgumentException {
-        if (prompt == null || prompt.length() == 0) {
-            throw new IllegalArgumentException("Invalid prompt");
-        }
-        this.prompt = prompt;
-    }
-
     /**
-     * Creates a new {@code PasswordCallback} instance.
+     * Construct a <code>PasswordCallback</code> with a prompt
+     * and a boolean specifying whether the password should be displayed
+     * as it is being typed.
      *
-     * @param prompt
-     *            the message that should be displayed to the user
-     * @param echoOn
-     *            determines whether the user input should be echoed
+     * <p>
+     *
+     * @param prompt the prompt used to request the password. <p>
+     *
+     * @param echoOn true if the password should be displayed
+     *                  as it is being typed.
+     *
+     * @exception IllegalArgumentException if <code>prompt</code> is null or
+     *                  if <code>prompt</code> has a length of 0.
      */
     public PasswordCallback(String prompt, boolean echoOn) {
-        setPrompt(prompt);
+        if (prompt == null || prompt.length() == 0)
+            throw new IllegalArgumentException();
+
+        this.prompt = prompt;
         this.echoOn = echoOn;
     }
 
     /**
-     * Returns the prompt that was specified when creating this {@code
-     * PasswordCallback}
+     * Get the prompt.
      *
-     * @return the prompt
+     * <p>
+     *
+     * @return the prompt.
      */
     public String getPrompt() {
         return prompt;
     }
 
     /**
-     * Queries whether this {@code PasswordCallback} expects user input to be
-     * echoed, which is specified during the creation of the object.
+     * Return whether the password
+     * should be displayed as it is being typed.
      *
-     * @return {@code true} if (and only if) user input should be echoed
+     * <p>
+     *
+     * @return the whether the password
+     *          should be displayed as it is being typed.
      */
     public boolean isEchoOn() {
         return echoOn;
     }
 
     /**
-     * Sets the password. The {@link CallbackHandler} that performs the actual
-     * provisioning or input of the password needs to call this method to hand
-     * back the password to the security service that requested it.
+     * Set the retrieved password.
      *
-     * @param password
-     *            the password. A copy of this is stored, so subsequent changes
-     *            to the input array do not affect the {@code PasswordCallback}.
+     * <p> This method makes a copy of the input <i>password</i>
+     * before storing it.
+     *
+     * <p>
+     *
+     * @param password the retrieved password, which may be null.
+     *
+     * @see #getPassword
      */
     public void setPassword(char[] password) {
-        if (password == null) {
-            this.inputPassword = password;
-        } else {
-            inputPassword = new char[password.length];
-            System.arraycopy(password, 0, inputPassword, 0, inputPassword.length);
-        }
+        this.inputPassword = (password == null ? null : password.clone());
     }
 
     /**
-     * Returns the password. The security service that needs the password
-     * usually calls this method once the {@link CallbackHandler} has finished
-     * its work.
+     * Get the retrieved password.
      *
-     * @return the password. A copy of the internal password is created and
-     *         returned, so subsequent changes to the internal password do not
-     *         affect the result.
+     * <p> This method returns a copy of the retrieved password.
+     *
+     * <p>
+     *
+     * @return the retrieved password, which may be null.
+     *
+     * @see #setPassword
      */
     public char[] getPassword() {
-        if (inputPassword != null) {
-            char[] tmp = new char[inputPassword.length];
-            System.arraycopy(inputPassword, 0, tmp, 0, tmp.length);
-            return tmp;
-        }
-        return null;
+        return (inputPassword == null ? null : inputPassword.clone());
     }
 
     /**
-     * Clears the password stored in this {@code PasswordCallback}.
+     * Clear the retrieved password.
      */
     public void clearPassword() {
         if (inputPassword != null) {
-            Arrays.fill(inputPassword, '\u0000');
+            for (int i = 0; i < inputPassword.length; i++)
+                inputPassword[i] = ' ';
         }
     }
 }

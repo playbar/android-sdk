@@ -60,7 +60,7 @@ import java.util.Set;
 public class StorageMeasurement {
     private static final String TAG = "StorageMeasurement";
 
-    private static final boolean LOCAL_LOGV = true;
+    private static final boolean LOCAL_LOGV = false;
     static final boolean LOGV = LOCAL_LOGV && Log.isLoggable(TAG, Log.VERBOSE);
 
     private static final String DEFAULT_CONTAINER_PACKAGE = "com.android.defcontainer";
@@ -126,6 +126,13 @@ public class StorageMeasurement {
          * internal storage. Key is {@link UserHandle}.
          */
         public SparseLongArray usersSize = new SparseLongArray();
+
+        @Override
+        public String toString() {
+            return "MeasurementDetails: [totalSize: " + totalSize + " availSize: " + availSize
+                    + " cacheSize: " + cacheSize + " mediaSize: " + mediaSize
+                    + " miscSize: " + miscSize + "usersSize: " + usersSize + "]";
+        }
     }
 
     public interface MeasurementReceiver {
@@ -314,7 +321,7 @@ public class StorageMeasurement {
                         } else {
                             Intent service = new Intent().setComponent(DEFAULT_CONTAINER_COMPONENT);
                             mContext.bindServiceAsUser(service, mDefContainerConn,
-                                    Context.BIND_AUTO_CREATE, UserHandle.OWNER);
+                                    Context.BIND_AUTO_CREATE, UserHandle.SYSTEM);
                         }
                     }
                     break;
@@ -422,7 +429,7 @@ public class StorageMeasurement {
                     ActivityManager.getCurrentUser(), currentProfiles, finished, count);
             for (UserInfo user : users) {
                 for (ApplicationInfo app : volumeApps) {
-                    packageManager.getPackageSizeInfo(app.packageName, user.id, observer);
+                    packageManager.getPackageSizeInfoAsUser(app.packageName, user.id, observer);
                 }
             }
 
@@ -435,7 +442,7 @@ public class StorageMeasurement {
     private static long getDirectorySize(IMediaContainerService imcs, File path) {
         try {
             final long size = imcs.calculateDirectorySize(path.toString());
-            Log.d(TAG, "getDirectorySize(" + path + ") returned " + size);
+            if (LOGV) Log.v(TAG, "getDirectorySize(" + path + ") returned " + size);
             return size;
         } catch (Exception e) {
             Log.w(TAG, "Could not read memory from default container service for " + path, e);

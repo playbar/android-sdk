@@ -16,7 +16,11 @@
 
 package android.view;
 
+import android.annotation.IntDef;
+import android.annotation.RequiresPermission;
+import android.content.Context;
 import android.content.res.CompatibilityInfo;
+import android.content.res.Resources;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -28,7 +32,11 @@ import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
+
+import static android.Manifest.permission.CONFIGURE_DISPLAY_COLOR_MODE;
 
 /**
  * Provides information about the size and density of a logical display.
@@ -276,6 +284,27 @@ public final class Display {
      */
     public static final int STATE_DOZE_SUSPEND = 4;
 
+    /* The color mode constants defined below must be kept in sync with the ones in
+     * system/graphics.h */
+
+    /**
+     * Display color mode: The current color mode is unknown or invalid.
+     * @hide
+     */
+    public static final int COLOR_MODE_INVALID = -1;
+
+    /**
+     * Display color mode: The default or native gamut of the display.
+     * @hide
+     */
+    public static final int COLOR_MODE_DEFAULT = 0;
+
+    /**
+     * Display color mode: SRGB
+     * @hide
+     */
+    public static final int COLOR_MODE_SRGB = 7;
+
     /**
      * Internal method to create a display.
      * Applications should use {@link android.view.WindowManager#getDefaultDisplay()}
@@ -455,20 +484,29 @@ public final class Display {
 
     /**
      * Gets the size of the display, in pixels.
+     * Value returned by this method does not necessarily represent the actual raw size
+     * (native resolution) of the display.
      * <p>
-     * Note that this value should <em>not</em> be used for computing layouts,
-     * since a device will typically have screen decoration (such as a status bar)
-     * along the edges of the display that reduce the amount of application
-     * space available from the size returned here.  Layouts should instead use
-     * the window size.
+     * 1. The returned size may be adjusted to exclude certain system decor elements
+     * that are always visible.
      * </p><p>
-     * The size is adjusted based on the current rotation of the display.
-     * </p><p>
-     * The size returned by this method does not necessarily represent the
-     * actual raw size (native resolution) of the display.  The returned size may
-     * be adjusted to exclude certain system decoration elements that are always visible.
-     * It may also be scaled to provide compatibility with older applications that
+     * 2. It may be scaled to provide compatibility with older applications that
      * were originally designed for smaller displays.
+     * </p><p>
+     * 3. It can be different depending on the WindowManager to which the display belongs.
+     * </p><p>
+     * - If requested from non-Activity context (e.g. Application context via
+     * {@code (WindowManager) getApplicationContext().getSystemService(Context.WINDOW_SERVICE)})
+     * it will report the size of the entire display based on current rotation and with subtracted
+     * system decoration areas.
+     * </p><p>
+     * - If requested from activity (either using {@code getWindowManager()} or
+     * {@code (WindowManager) getSystemService(Context.WINDOW_SERVICE)}) resulting size will
+     * correspond to current app window size. In this case it can be smaller than physical size in
+     * multi-window mode.
+     * </p><p>
+     * Typically for the purposes of layout apps should make a request from activity context
+     * to obtain size available for the app content.
      * </p>
      *
      * @param outSize A {@link Point} object to receive the size information.
@@ -679,6 +717,48 @@ public final class Display {
     }
 
     /**
+     * Request the display applies a color mode.
+     * @hide
+     */
+    @RequiresPermission(CONFIGURE_DISPLAY_COLOR_MODE)
+    public void requestColorMode(int colorMode) {
+        mGlobal.requestColorMode(mDisplayId, colorMode);
+    }
+
+    /**
+     * Returns the active color mode of this display
+     * @hide
+     */
+    public int getColorMode() {
+        synchronized (this) {
+            updateDisplayInfoLocked();
+            return mDisplayInfo.colorMode;
+        }
+    }
+
+    /**
+     * Returns the display's HDR capabilities.
+     */
+    public HdrCapabilities getHdrCapabilities() {
+        synchronized (this) {
+            updateDisplayInfoLocked();
+            return mDisplayInfo.hdrCapabilities;
+        }
+    }
+
+    /**
+     * Gets the supported color modes of this device.
+     * @hide
+     */
+    public int[] getSupportedColorModes() {
+        synchronized (this) {
+            updateDisplayInfoLocked();
+            int[] colorModes = mDisplayInfo.supportedColorModes;
+            return Arrays.copyOf(colorModes, colorModes.length);
+        }
+    }
+
+    /**
      * Gets the app VSYNC offset, in nanoseconds.  This is a positive value indicating
      * the phase offset of the VSYNC events provided by Choreographer relative to the
      * display refresh.  For example, if Choreographer reports that the refresh occurred
@@ -714,14 +794,26 @@ public final class Display {
 
     /**
      * Gets display metrics that describe the size and density of this display.
-     * <p>
-     * The size is adjusted based on the current rotation of the display.
-     * </p><p>
      * The size returned by this method does not necessarily represent the
-     * actual raw size (native resolution) of the display.  The returned size may
-     * be adjusted to exclude certain system decor elements that are always visible.
-     * It may also be scaled to provide compatibility with older applications that
+     * actual raw size (native resolution) of the display.
+     * <p>
+     * 1. The returned size may be adjusted to exclude certain system decor elements
+     * that are always visible.
+     * </p><p>
+     * 2. It may be scaled to provide compatibility with older applications that
      * were originally designed for smaller displays.
+     * </p><p>
+     * 3. It can be different depending on the WindowManager to which the display belongs.
+     * </p><p>
+     * - If requested from non-Activity context (e.g. Application context via
+     * {@code (WindowManager) getApplicationContext().getSystemService(Context.WINDOW_SERVICE)})
+     * metrics will report the size of the entire display based on current rotation and with
+     * subtracted system decoration areas.
+     * </p><p>
+     * - If requested from activity (either using {@code getWindowManager()} or
+     * {@code (WindowManager) getSystemService(Context.WINDOW_SERVICE)}) resulting metrics will
+     * correspond to current app window metrics. In this case the size can be smaller than physical
+     * size in multi-window mode.
      * </p>
      *
      * @param outMetrics A {@link DisplayMetrics} object to receive the metrics.
@@ -759,7 +851,7 @@ public final class Display {
      * The size is adjusted based on the current rotation of the display.
      * </p><p>
      * The real size may be smaller than the physical size of the screen when the
-     * window manager is emulating a smaller display (using adb shell am display-size).
+     * window manager is emulating a smaller display (using adb shell wm size).
      * </p>
      *
      * @param outMetrics A {@link DisplayMetrics} object to receive the metrics.
@@ -768,8 +860,7 @@ public final class Display {
         synchronized (this) {
             updateDisplayInfoLocked();
             mDisplayInfo.getLogicalMetrics(outMetrics,
-                    CompatibilityInfo.DEFAULT_COMPATIBILITY_INFO,
-                    mDisplayAdjustments.getConfiguration());
+                    CompatibilityInfo.DEFAULT_COMPATIBILITY_INFO, null);
         }
     }
 
@@ -1053,5 +1144,160 @@ public final class Display {
                 return new Mode[size];
             }
         };
+    }
+
+    /**
+     * Encapsulates the HDR capabilities of a given display.
+     * For example, what HDR types it supports and details about the desired luminance data.
+     * <p>You can get an instance for a given {@link Display} object with
+     * {@link Display#getHdrCapabilities getHdrCapabilities()}.
+     */
+    public static final class HdrCapabilities implements Parcelable {
+        /**
+         * Invalid luminance value.
+         */
+        public static final float INVALID_LUMINANCE = -1;
+        /**
+         * Dolby Vision high dynamic range (HDR) display.
+         */
+        public static final int HDR_TYPE_DOLBY_VISION = 1;
+        /**
+         * HDR10 display.
+         */
+        public static final int HDR_TYPE_HDR10 = 2;
+        /**
+         * Hybrid Log-Gamma HDR display.
+         */
+        public static final int HDR_TYPE_HLG = 3;
+
+        /** @hide */
+        @IntDef({
+            HDR_TYPE_DOLBY_VISION,
+            HDR_TYPE_HDR10,
+            HDR_TYPE_HLG,
+        })
+        @Retention(RetentionPolicy.SOURCE)
+        public @interface HdrType {}
+
+        private @HdrType int[] mSupportedHdrTypes = new int[0];
+        private float mMaxLuminance = INVALID_LUMINANCE;
+        private float mMaxAverageLuminance = INVALID_LUMINANCE;
+        private float mMinLuminance = INVALID_LUMINANCE;
+
+        /**
+         * @hide
+         */
+        public HdrCapabilities() {
+        }
+
+        /**
+         * @hide
+         */
+        public HdrCapabilities(int[] supportedHdrTypes, float maxLuminance,
+                float maxAverageLuminance, float minLuminance) {
+            mSupportedHdrTypes = supportedHdrTypes;
+            mMaxLuminance = maxLuminance;
+            mMaxAverageLuminance = maxAverageLuminance;
+            mMinLuminance = minLuminance;
+        }
+
+        /**
+         * Gets the supported HDR types of this display.
+         * Returns empty array if HDR is not supported by the display.
+         */
+        public @HdrType int[] getSupportedHdrTypes() {
+            return mSupportedHdrTypes;
+        }
+        /**
+         * Returns the desired content max luminance data in cd/m2 for this display.
+         */
+        public float getDesiredMaxLuminance() {
+            return mMaxLuminance;
+        }
+        /**
+         * Returns the desired content max frame-average luminance data in cd/m2 for this display.
+         */
+        public float getDesiredMaxAverageLuminance() {
+            return mMaxAverageLuminance;
+        }
+        /**
+         * Returns the desired content min luminance data in cd/m2 for this display.
+         */
+        public float getDesiredMinLuminance() {
+            return mMinLuminance;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof HdrCapabilities)) {
+                return false;
+            }
+            HdrCapabilities that = (HdrCapabilities) other;
+
+            return Arrays.equals(mSupportedHdrTypes, that.mSupportedHdrTypes)
+                && mMaxLuminance == that.mMaxLuminance
+                && mMaxAverageLuminance == that.mMaxAverageLuminance
+                && mMinLuminance == that.mMinLuminance;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 23;
+            hash = hash * 17 + Arrays.hashCode(mSupportedHdrTypes);
+            hash = hash * 17 + Float.floatToIntBits(mMaxLuminance);
+            hash = hash * 17 + Float.floatToIntBits(mMaxAverageLuminance);
+            hash = hash * 17 + Float.floatToIntBits(mMinLuminance);
+            return hash;
+        }
+
+        public static final Creator<HdrCapabilities> CREATOR = new Creator<HdrCapabilities>() {
+            @Override
+            public HdrCapabilities createFromParcel(Parcel source) {
+                return new HdrCapabilities(source);
+            }
+
+            @Override
+            public HdrCapabilities[] newArray(int size) {
+                return new HdrCapabilities[size];
+            }
+        };
+
+        private HdrCapabilities(Parcel source) {
+            readFromParcel(source);
+        }
+
+        /**
+         * @hide
+         */
+        public void readFromParcel(Parcel source) {
+            int types = source.readInt();
+            mSupportedHdrTypes = new int[types];
+            for (int i = 0; i < types; ++i) {
+                mSupportedHdrTypes[i] = source.readInt();
+            }
+            mMaxLuminance = source.readFloat();
+            mMaxAverageLuminance = source.readFloat();
+            mMinLuminance = source.readFloat();
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeInt(mSupportedHdrTypes.length);
+            for (int i = 0; i < mSupportedHdrTypes.length; ++i) {
+                dest.writeInt(mSupportedHdrTypes[i]);
+            }
+            dest.writeFloat(mMaxLuminance);
+            dest.writeFloat(mMaxAverageLuminance);
+            dest.writeFloat(mMinLuminance);
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
     }
 }

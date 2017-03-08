@@ -40,7 +40,8 @@ public class ScriptIntrinsicBlur extends ScriptIntrinsic {
      * Create an intrinsic for applying a blur to an allocation. The
      * default radius is 5.0.
      *
-     * Supported elements types are {@link Element#U8_4}
+     * Supported elements types are {@link Element#U8},
+     * {@link Element#U8_4}.
      *
      * @param rs The RenderScript context
      * @param e Element type for inputs and outputs
@@ -49,7 +50,7 @@ public class ScriptIntrinsicBlur extends ScriptIntrinsic {
      */
     public static ScriptIntrinsicBlur create(RenderScript rs, Element e) {
         if ((!e.isCompatible(Element.U8_4(rs))) && (!e.isCompatible(Element.U8(rs)))) {
-            throw new RSIllegalArgumentException("Unsuported element type.");
+            throw new RSIllegalArgumentException("Unsupported element type.");
         }
         long id;
         boolean mUseIncSupp = rs.isUseNative() &&
@@ -97,7 +98,7 @@ public class ScriptIntrinsicBlur extends ScriptIntrinsic {
      *             type.
      */
     public void forEach(Allocation aout) {
-        forEach(0, null, aout, null);
+        forEach(0, (Allocation) null, aout, null);
     }
 
     /**

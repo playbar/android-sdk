@@ -22,16 +22,36 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.v14.preference.MultiSelectListPreference;
 import android.support.v14.preference.PreferenceFragment;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Space;
 
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+
+/**
+ * This fragment provides a container for displaying a {@link LeanbackPreferenceFragment}
+ *
+ * <p>The following sample code shows a simple leanback preference fragment that is
+ * populated from a resource.  The resource it loads is:</p>
+ *
+ * {@sample frameworks/support/samples/SupportPreferenceDemos/res/xml/preferences.xml preferences}
+ *
+ * <p>The sample implements
+ * {@link PreferenceFragment.OnPreferenceStartFragmentCallback#onPreferenceStartFragment(PreferenceFragment, Preference)},
+ * {@link PreferenceFragment.OnPreferenceStartScreenCallback#onPreferenceStartScreen(PreferenceFragment, PreferenceScreen)},
+ * and {@link #onPreferenceStartInitialScreen()}:</p>
+ *
+ * {@sample frameworks/support/samples/SupportPreferenceDemos/src/com/example/android/supportpreference/FragmentSupportPreferencesLeanback.java
+ *      support_fragment_leanback}
+ */
 public abstract class LeanbackSettingsFragment extends Fragment
         implements PreferenceFragment.OnPreferenceStartFragmentCallback,
         PreferenceFragment.OnPreferenceStartScreenCallback,
@@ -40,13 +60,12 @@ public abstract class LeanbackSettingsFragment extends Fragment
     private static final String PREFERENCE_FRAGMENT_TAG =
             "android.support.v17.preference.LeanbackSettingsFragment.PREFERENCE_FRAGMENT";
 
+    private final RootViewOnKeyListener mRootViewOnKeyListener = new RootViewOnKeyListener();
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         final View v = inflater.inflate(R.layout.leanback_settings_fragment, container, false);
-
-        // Trap back button presses
-        ((LeanbackSettingsRootView) v).setOnBackKeyListener(new RootViewOnKeyListener());
 
         return v;
     }
@@ -56,6 +75,25 @@ public abstract class LeanbackSettingsFragment extends Fragment
         super.onViewCreated(view, savedInstanceState);
         if (savedInstanceState == null) {
             onPreferenceStartInitialScreen();
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Trap back button presses
+        final LeanbackSettingsRootView rootView = (LeanbackSettingsRootView) getView();
+        if (rootView != null) {
+            rootView.setOnBackKeyListener(mRootViewOnKeyListener);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        final LeanbackSettingsRootView rootView = (LeanbackSettingsRootView) getView();
+        if (rootView != null) {
+            rootView.setOnBackKeyListener(null);
         }
     }
 
@@ -150,6 +188,7 @@ public abstract class LeanbackSettingsFragment extends Fragment
     /**
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     public static class DummyFragment extends Fragment {
 
         @Override

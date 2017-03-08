@@ -25,7 +25,7 @@ import android.view.accessibility.AccessibilityEvent;
  * Helper for accessing features in {@link ViewGroup}
  * introduced after API level 4 in a backwards compatible fashion.
  */
-public class ViewGroupCompat {
+public final class ViewGroupCompat {
 
     /**
      * This constant is a {@link #setLayoutMode(ViewGroup, int) layoutMode}.
@@ -55,11 +55,13 @@ public class ViewGroupCompat {
     }
 
     static class ViewGroupCompatStubImpl implements ViewGroupCompatImpl {
+        @Override
         public boolean onRequestSendAccessibilityEvent(
                 ViewGroup group, View child, AccessibilityEvent event) {
             return true;
         }
 
+        @Override
         public void setMotionEventSplittingEnabled(ViewGroup group, boolean split) {
             // no-op, didn't exist.
         }
@@ -155,9 +157,7 @@ public class ViewGroupCompat {
     /*
      * Hide the constructor.
      */
-    private ViewGroupCompat() {
-
-    }
+    private ViewGroupCompat() {}
 
     /**
      * Called when a child has requested sending an {@link AccessibilityEvent} and

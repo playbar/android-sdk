@@ -1,85 +1,112 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1994, 2001, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.lang;
 
-
 /**
- * The abstract superclass of the classes which represent numeric base types
- * (that is {@link Byte}, {@link Short}, {@link Integer}, {@link Long},
- * {@link Float}, and {@link Double}.
+ * The abstract class <code>Number</code> is the superclass of classes
+ * <code>BigDecimal</code>, <code>BigInteger</code>,
+ * <code>Byte</code>, <code>Double</code>, <code>Float</code>,
+ * <code>Integer</code>, <code>Long</code>, and <code>Short</code>.
+ * <p>
+ * Subclasses of <code>Number</code> must provide methods to convert
+ * the represented numeric value to <code>byte</code>, <code>double</code>,
+ * <code>float</code>, <code>int</code>, <code>long</code>, and
+ * <code>short</code>.
+ *
+ * @author      Lee Boynton
+ * @author      Arthur van Hoff
+ * @see     java.lang.Byte
+ * @see     java.lang.Double
+ * @see     java.lang.Float
+ * @see     java.lang.Integer
+ * @see     java.lang.Long
+ * @see     java.lang.Short
+ * @since   JDK1.0
  */
 public abstract class Number implements java.io.Serializable {
-
-    private static final long serialVersionUID = -8742448824652078965L;
-
     /**
-     * Empty default constructor.
-     */
-    public Number() {
-    }
-
-    /**
-     * Returns this object's value as a byte. Might involve rounding and/or
-     * truncating the value, so it fits into a byte.
+     * Returns the value of the specified number as an <code>int</code>.
+     * This may involve rounding or truncation.
      *
-     * @return the primitive byte value of this object.
-     */
-    public byte byteValue() {
-        return (byte) intValue();
-    }
-
-    /**
-     * Returns this object's value as a double. Might involve rounding.
-     *
-     * @return the primitive double value of this object.
-     */
-    public abstract double doubleValue();
-
-    /**
-     * Returns this object's value as a float. Might involve rounding.
-     *
-     * @return the primitive float value of this object.
-     */
-    public abstract float floatValue();
-
-    /**
-     * Returns this object's value as an int. Might involve rounding and/or
-     * truncating the value, so it fits into an int.
-     *
-     * @return the primitive int value of this object.
+     * @return  the numeric value represented by this object after conversion
+     *          to type <code>int</code>.
      */
     public abstract int intValue();
 
     /**
-     * Returns this object's value as a long. Might involve rounding and/or
-     * truncating the value, so it fits into a long.
+     * Returns the value of the specified number as a <code>long</code>.
+     * This may involve rounding or truncation.
      *
-     * @return the primitive long value of this object.
+     * @return  the numeric value represented by this object after conversion
+     *          to type <code>long</code>.
      */
     public abstract long longValue();
 
     /**
-     * Returns this object's value as a short. Might involve rounding and/or
-     * truncating the value, so it fits into a short.
+     * Returns the value of the specified number as a <code>float</code>.
+     * This may involve rounding.
      *
-     * @return the primitive short value of this object.
+     * @return  the numeric value represented by this object after conversion
+     *          to type <code>float</code>.
+     */
+    public abstract float floatValue();
+
+    /**
+     * Returns the value of the specified number as a <code>double</code>.
+     * This may involve rounding.
+     *
+     * @return  the numeric value represented by this object after conversion
+     *          to type <code>double</code>.
+     */
+    public abstract double doubleValue();
+
+    /**
+     * Returns the value of the specified number as a <code>byte</code>.
+     * This may involve rounding or truncation.
+     *
+     * @return  the numeric value represented by this object after conversion
+     *          to type <code>byte</code>.
+     * @since   JDK1.1
+     */
+    public byte byteValue() {
+        return (byte)intValue();
+    }
+
+    /**
+     * Returns the value of the specified number as a <code>short</code>.
+     * This may involve rounding or truncation.
+     *
+     * @return  the numeric value represented by this object after conversion
+     *          to type <code>short</code>.
+     * @since   JDK1.1
      */
     public short shortValue() {
-        return (short) intValue();
+        return (short)intValue();
     }
+
+    /** use serialVersionUID from JDK 1.0.2 for interoperability */
+    private static final long serialVersionUID = -8742448824652078965L;
 }

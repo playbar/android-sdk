@@ -46,7 +46,7 @@ import java.lang.annotation.RetentionPolicy;
  * provide substantially improved capabilities over the older camera
  * API. Applications that target the limited level devices will run unchanged on
  * the full-level devices; if your application requires a full-level device for
- * proper operation, declare the "android.hardware.camera2.full" feature in your
+ * proper operation, declare the "android.hardware.camera.level.full" feature in your
  * manifest.</p>
  *
  * @see CameraManager#openCamera
@@ -168,7 +168,7 @@ public abstract class CameraDevice implements AutoCloseable {
      * <p>The active capture session determines the set of potential output Surfaces for
      * the camera device for each capture request. A given request may use all
      * or only some of the outputs. Once the CameraCaptureSession is created, requests can be
-     * can be submitted with {@link CameraCaptureSession#capture capture},
+     * submitted with {@link CameraCaptureSession#capture capture},
      * {@link CameraCaptureSession#captureBurst captureBurst},
      * {@link CameraCaptureSession#setRepeatingRequest setRepeatingRequest}, or
      * {@link CameraCaptureSession#setRepeatingBurst setRepeatingBurst}.</p>
@@ -314,7 +314,7 @@ public abstract class CameraDevice implements AutoCloseable {
      * </table><br>
      * </p>
      *
-     * <p>Limited-capability ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
+     * <p>Limited-level ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
      * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED LIMITED}) devices
      * support at least the following stream combinations in addition to those for
      * {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY LEGACY} devices:
@@ -332,13 +332,13 @@ public abstract class CameraDevice implements AutoCloseable {
      * </table><br>
      * </p>
      *
-     * <p>FULL-capability ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
+     * <p>FULL-level ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
      * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_FULL FULL}) devices
      * support at least the following stream combinations in addition to those for
      * {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED LIMITED} devices:
      *
      * <table>
-     * <tr><th colspan="7">FULL-capability additional guaranteed configurations</th></tr>
+     * <tr><th colspan="7">FULL-level additional guaranteed configurations</th></tr>
      * <tr><th colspan="2" id="rb">Target 1</th><th colspan="2" id="rb">Target 2</th><th colspan="2" id="rb">Target 3</th> <th rowspan="2">Sample use case(s)</th> </tr>
      * <tr><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th> </tr>
      * <tr> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code PRIV}</td><td id="rb">{@code MAXIMUM}</td> <td colspan="2" id="rb"></td> <td>Maximum-resolution GPU processing with preview.</td> </tr>
@@ -389,6 +389,22 @@ public abstract class CameraDevice implements AutoCloseable {
      * </table><br>
      * </p>
      *
+     * <p>LEVEL-3 ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
+     * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_3 LEVEL_3})
+     * support at least the following stream combinations in addition to the combinations for
+     * {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_FULL FULL} and for
+     * RAW capability ({@link CameraCharacteristics#REQUEST_AVAILABLE_CAPABILITIES} includes
+     * {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_RAW RAW}):
+     *
+     * <table>
+     * <tr><th colspan="11">LEVEL-3 additional guaranteed configurations</th></tr>
+     * <tr><th colspan="2" id="rb">Target 1</th><th colspan="2" id="rb">Target 2</th><th colspan="2" id="rb">Target 3</th><th colspan="2" id="rb">Target 4</th><th rowspan="2">Sample use case(s)</th> </tr>
+     * <tr><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th> </tr>
+     * <tr> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code PRIV}</td><td id="rb">{@code 640x480}</td> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code RAW}</td><td id="rb">{@code MAXIMUM}</td> <td>In-app viewfinder analysis with dynamic selection of output format.</td> </tr>
+     * <tr> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code PRIV}</td><td id="rb">{@code 640x480}</td> <td>{@code JPEG}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code RAW}</td><td id="rb">{@code MAXIMUM}</td> <td>In-app viewfinder analysis with dynamic selection of output format.</td> </tr>
+     * </table><br>
+     * </p>
+     *
      * <p>Since the capabilities of camera devices vary greatly, a given camera device may support
      * target combinations with sizes outside of these guarantees, but this can only be tested for
      * by attempting to create a session with such targets.</p>
@@ -421,10 +437,8 @@ public abstract class CameraDevice implements AutoCloseable {
      *
      * @see #createCaptureSession
      * @see OutputConfiguration
-     *
-     * @hide
      */
-    public abstract void createCaptureSessionByOutputConfiguration(
+    public abstract void createCaptureSessionByOutputConfigurations(
             List<OutputConfiguration> outputConfigurations,
             CameraCaptureSession.StateCallback callback, Handler handler)
             throws CameraAccessException;
@@ -480,8 +494,11 @@ public abstract class CameraDevice implements AutoCloseable {
      * the configurations in the tables below are also guaranteed for creating a reprocessable
      * capture session if the camera device supports YUV reprocessing or PRIVATE reprocessing.
      * However, not all output targets used to create a reprocessable session may be used in a
-     * {@link CaptureRequest} simultaneously. The guaranteed output targets that can be included
-     * in a {@link CaptureRequest} simultaneously are listed in the tables under
+     * {@link CaptureRequest} simultaneously. For devices that support only 1 output target in a
+     * reprocess {@link CaptureRequest}, submitting a reprocess {@link CaptureRequest} with multiple
+     * output targets will result in a {@link CaptureFailure}. For devices that support multiple
+     * output targets in a reprocess {@link CaptureRequest}, the guaranteed output targets that can
+     * be included in a {@link CaptureRequest} simultaneously are listed in the tables under
      * {@link #createCaptureSession createCaptureSession}. For example, with a FULL-capability
      * ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL} {@code == }
      * {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_FULL FULL}) device that supports PRIVATE
@@ -500,7 +517,7 @@ public abstract class CameraDevice implements AutoCloseable {
      *  #rb { border-right-width: thick; }
      * </style>
      *
-     * <p>Limited-capability ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
+     * <p>LIMITED-level ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
      * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED LIMITED}) devices
      * support at least the following stream combinations for creating a reprocessable capture
      * session in addition to those listed in {@link #createCaptureSession createCaptureSession} for
@@ -517,14 +534,14 @@ public abstract class CameraDevice implements AutoCloseable {
      * </table><br>
      * </p>
      *
-     * <p>FULL-capability ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
+     * <p>FULL-level ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
      * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_FULL FULL}) devices
      * support at least the following stream combinations for creating a reprocessable capture
      * session in addition to those for
      * {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED LIMITED} devices:
      *
      * <table>
-     * <tr><th colspan="11">FULL-capability additional guaranteed configurations for creating a reprocessable capture session<br>({@code PRIV} input is guaranteed only if PRIVATE reprocessing is supported. {@code YUV} input is guaranteed only if YUV reprocessing is supported)</th></tr>
+     * <tr><th colspan="11">FULL-level additional guaranteed configurations for creating a reprocessable capture session<br>({@code PRIV} input is guaranteed only if PRIVATE reprocessing is supported. {@code YUV} input is guaranteed only if YUV reprocessing is supported)</th></tr>
      * <tr><th colspan="2" id="rb">Input</th><th colspan="2" id="rb">Target 1</th><th colspan="2" id="rb">Target 2</th><th colspan="2" id="rb">Target 3</th><th colspan="2" id="rb">Target 4</th><th rowspan="2">Sample use case(s)</th> </tr>
      * <tr><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th></tr>
      * <tr> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td></td><td id="rb"></td> <td></td><td id="rb"></td> <td>Maximum-resolution multi-frame image fusion in-app processing with regular preview.</td> </tr>
@@ -532,8 +549,6 @@ public abstract class CameraDevice implements AutoCloseable {
      * <tr> <td>{@code PRIV}/{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Same as input</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code YUV}</td><td id="rb">{@code RECORD}</td> <td></td><td id="rb"></td> <td>High-resolution ZSL in-app video processing with regular preview.</td> </tr>
      * <tr> <td>{@code PRIV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td></td><td id="rb"></td> <td>Maximum-resolution ZSL in-app processing with regular preview.</td> </tr>
      * <tr> <td>{@code PRIV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code YUV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td></td><td id="rb"></td> <td>Maximum-resolution two-input ZSL in-app processing.</td> </tr>
-     * <tr> <td>{@code PRIV}/{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Same as input</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code YUV}</td><td id="rb">{@code RECORD}</td> <td>{@code JPEG}</td><td id="rb">{@code RECORD}</td> <td>High-resolution ZSL in-app video processing and video snapshot with regular preview.</td> </tr>
-     * <tr> <td>{@code PRIV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code YUV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Maximum-resolution two-input ZSL in-app processing with regular preview.</td> </tr>
      * <tr> <td>{@code PRIV}/{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Same as input</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code YUV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code JPEG}</td><td id="rb">{@code MAXIMUM}</td> <td>ZSL still capture and in-app processing.</td> </tr>
      * </table><br>
      * </p>
@@ -553,6 +568,24 @@ public abstract class CameraDevice implements AutoCloseable {
      * <tr> <td>{@code PRIV}/{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Same as input</td><td id="rb">{@code MAXIMUM}</td> <td>{@code YUV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code YUV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code RAW}</td><td id="rb">{@code MAXIMUM}</td> <td>Mutually exclusive ZSL two-input in-app processing and DNG capture.</td> </tr>
      * <tr> <td>{@code PRIV}/{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Same as input</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code JPEG}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code RAW}</td><td id="rb">{@code MAXIMUM}</td> <td>Mutually exclusive ZSL still capture and preview with DNG capture.</td> </tr>
      * <tr> <td>{@code PRIV}/{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Same as input</td><td id="rb">{@code MAXIMUM}</td> <td>{@code YUV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code JPEG}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code RAW}</td><td id="rb">{@code MAXIMUM}</td> <td>Mutually exclusive ZSL in-app processing with still capture and DNG capture.</td> </tr>
+     * </table><br>
+     * </p>
+     *
+     * <p>LEVEL-3 ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
+     * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_3 LEVEL_3}) devices
+     * support at least the following stream combinations for creating a reprocessable capture
+     * session in addition to those for
+     * {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_FULL FULL} devices. Note that while
+     * the second configuration allows for configuring {@code MAXIMUM} {@code YUV} and {@code JPEG}
+     * outputs at the same time, that configuration is not listed for regular capture sessions, and
+     * therefore simultaneous output to both targets is not allowed.
+     *
+     * <table>
+     * <tr><th colspan="13">LEVEL-3 additional guaranteed configurations for creating a reprocessable capture session<br>({@code PRIV} input is guaranteed only if PRIVATE reprocessing is supported. {@code YUV} input is always guaranteed.</th></tr>
+     * <tr><th colspan="2" id="rb">Input</th><th colspan="2" id="rb">Target 1</th><th colspan="2" id="rb">Target 2</th><th colspan="2" id="rb">Target 3</th><th colspan="2" id="rb">Target 4</th><th colspan="2" id="rb">Target 5</th><th rowspan="2">Sample use case(s)</th> </tr>
+     * <tr><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th><th>Type</th><th id="rb">Max size</th></tr>
+     * <tr> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code PRIV}</td><td id="rb">{@code 640x480}</td> <td>{@code RAW}</td><td id="rb">{@code MAXIMUM}</td> <td></td><td id="rb"></td> <td>In-app viewfinder analysis with ZSL and RAW.</td> </tr>
+     * <tr> <td>{@code PRIV}/{@code YUV}</td><td id="rb">{@code MAXIMUM}</td> <td>Same as input</td><td id="rb">{@code MAXIMUM}</td> <td>{@code PRIV}</td><td id="rb">{@code PREVIEW}</td> <td>{@code PRIV}</td><td id="rb">{@code 640x480}</td> <td>{@code RAW}</td><td id="rb">{@code MAXIMUM}</td> <td>{@code JPEG}</td><td id="rb">{@code MAXIMUM}</td><td>In-app viewfinder analysis with ZSL, RAW, and JPEG reprocessing output.</td> </tr>
      * </table><br>
      * </p>
      *
@@ -582,6 +615,22 @@ public abstract class CameraDevice implements AutoCloseable {
      */
     public abstract void createReprocessableCaptureSession(@NonNull InputConfiguration inputConfig,
             @NonNull List<Surface> outputs, @NonNull CameraCaptureSession.StateCallback callback,
+            @Nullable Handler handler)
+            throws CameraAccessException;
+
+    /**
+     * Create a new reprocessable camera capture session by providing the desired reprocessing
+     * input configuration and output {@link OutputConfiguration}
+     * to the camera device.
+     *
+     * @see #createReprocessableCaptureSession
+     * @see OutputConfiguration
+     *
+     */
+    public abstract void createReprocessableCaptureSessionByConfigurations(
+            @NonNull InputConfiguration inputConfig,
+            @NonNull List<OutputConfiguration> outputs,
+            @NonNull CameraCaptureSession.StateCallback callback,
             @Nullable Handler handler)
             throws CameraAccessException;
 
@@ -711,7 +760,9 @@ public abstract class CameraDevice implements AutoCloseable {
      * provide input images to camera device via {@link android.media.ImageWriter#queueInputImage}.
      * The application must use the capture result of one of those output images to create a
      * reprocess capture request so that the camera device can use the information to achieve
-     * optimal reprocess image quality.
+     * optimal reprocess image quality. For camera devices that support only 1 output
+     * {@link Surface}, submitting a reprocess {@link CaptureRequest} with multiple
+     * output targets will result in a {@link CaptureFailure}.
      *
      * @param inputResult The capture result of the output image or one of the output images used
      *                       to generate the reprocess input image for this capture request.

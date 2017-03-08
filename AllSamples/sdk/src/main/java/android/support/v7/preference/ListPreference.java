@@ -33,8 +33,8 @@ import android.util.AttributeSet;
  * This preference will store a string into the SharedPreferences. This string will be the value
  * from the {@link #setEntryValues(CharSequence[])} array.
  *
- * @attr ref android.R.styleable#ListPreference_entries
- * @attr ref android.R.styleable#ListPreference_entryValues
+ * @attr name android:entries
+ * @attr name android:entryValues
  */
 public class ListPreference extends DialogPreference {
     private CharSequence[] mEntries;
@@ -74,7 +74,8 @@ public class ListPreference extends DialogPreference {
     }
 
     public ListPreference(Context context, AttributeSet attrs) {
-        this(context, attrs, R.attr.dialogPreferenceStyle);
+        this(context, attrs, TypedArrayUtils.getAttr(context, R.attr.dialogPreferenceStyle,
+                android.R.attr.dialogPreferenceStyle));
     }
 
     public ListPreference(Context context) {
@@ -304,10 +305,12 @@ public class ListPreference extends DialogPreference {
 
         public static final Parcelable.Creator<SavedState> CREATOR =
                 new Parcelable.Creator<SavedState>() {
+            @Override
             public SavedState createFromParcel(Parcel in) {
                 return new SavedState(in);
             }
 
+            @Override
             public SavedState[] newArray(int size) {
                 return new SavedState[size];
             }

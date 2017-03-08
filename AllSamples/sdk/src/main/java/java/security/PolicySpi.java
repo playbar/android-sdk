@@ -1,110 +1,118 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
+
 
 package java.security;
 
 /**
- * Represents the Service Provider Interface (SPI) for java.security.Policy
- * class.
+ * This class defines the <i>Service Provider Interface</i> (<b>SPI</b>)
+ * for the <code>Policy</code> class.
+ * All the abstract methods in this class must be implemented by each
+ * service provider who wishes to supply a Policy implementation.
  *
- * <p>If there is any class that wants to provide a Policy implementation, all
- * abstract methods in this SPI should be implemented.
+ * <p> Subclass implementations of this abstract class must provide
+ * a public constructor that takes a <code>Policy.Parameters</code>
+ * object as an input parameter.  This constructor also must throw
+ * an IllegalArgumentException if it does not understand the
+ * <code>Policy.Parameters</code> input.
  *
- * <p>The detailed implementations should offer a public constructor, in which a
- * Policy.Paramters implementation acts as an input parameter.If the
- * Policy.Paramters input cannot by understood by the constructor, an
- * IllegalArgumentException will be thrown.
+ *
+ * @since 1.6
  */
+
 public abstract class PolicySpi {
 
-    public PolicySpi() {
-        // default constructor
-    }
-
     /**
-     * Answers if the policy has granted a Permission to a
-     * ProtectionDomain.
+     * Check whether the policy has granted a Permission to a ProtectionDomain.
      *
-     * @param domain -
-     *            the domain to check.
-     * @param permission -
-     *            check whether this permission is granted to the specified
-     *            domain.
-     * @return - true if the permission is granted to the domain.
+     * @param domain the ProtectionDomain to check.
      *
+     * @param permission check whether this permission is granted to the
+     *          specified domain.
+     *
+     * @return boolean true if the permission is granted to the domain.
      */
-    protected abstract boolean engineImplies(ProtectionDomain domain,
-            Permission permission);
+    protected abstract boolean engineImplies
+        (ProtectionDomain domain, Permission permission);
 
     /**
      * Refreshes/reloads the policy configuration. The behavior of this method
-     * depends on the implementation. For example, calling refresh on a
-     * file-based policy will cause the file to be re-read.
+     * depends on the implementation. For example, calling <code>refresh</code>
+     * on a file-based policy will cause the file to be re-read.
      *
-     * The default implementation of this method does nothing. This method
-     * should be overridden if a refresh operation is supported by the policy
-     * implementation.
-     *
+     * <p> The default implementation of this method does nothing.
+     * This method should be overridden if a refresh operation is supported
+     * by the policy implementation.
      */
-    protected void engineRefresh() {
-        // do nothing in default implementation
-    }
+    protected void engineRefresh() { }
 
     /**
-     * Answers a PermissionCollection object containing the set of permissions
-     * granted to the specified CodeSource.
+     * Return a PermissionCollection object containing the set of
+     * permissions granted to the specified CodeSource.
      *
-     * The default implementation of this method returns
-     * Policy.UNSUPPORTED_EMPTY_COLLECTION object. This method can be overridden
-     * if the policy implementation can return a set of permissions granted to a
-     * CodeSource.
+     * <p> The default implementation of this method returns
+     * Policy.UNSUPPORTED_EMPTY_COLLECTION object.  This method can be
+     * overridden if the policy implementation can return a set of
+     * permissions granted to a CodeSource.
      *
-     * @param codesource -
-     *            the CodeSource to which the returned PermissionCollection has
-     *            been granted.
-     * @return a set of permissions granted to the specified CodeSource. If this
-     *         operation is supported, the returned set of permissions must be a
-     *         new mutable instance and it must support heterogeneous Permission
-     *         types. If this operation is not supported,
-     *         Policy.UNSUPPORTED_EMPTY_COLLECTION is returned.
+     * @param codesource the CodeSource to which the returned
+     *          PermissionCollection has been granted.
+     *
+     * @return a set of permissions granted to the specified CodeSource.
+     *          If this operation is supported, the returned
+     *          set of permissions must be a new mutable instance
+     *          and it must support heterogeneous Permission types.
+     *          If this operation is not supported,
+     *          Policy.UNSUPPORTED_EMPTY_COLLECTION is returned.
      */
-    protected PermissionCollection engineGetPermissions(CodeSource codesource) {
+    protected PermissionCollection engineGetPermissions
+                                        (CodeSource codesource) {
         return Policy.UNSUPPORTED_EMPTY_COLLECTION;
     }
 
     /**
-     * Answers a PermissionCollection object containing the set of permissions
-     * granted to the specified ProtectionDomain.
+     * Return a PermissionCollection object containing the set of
+     * permissions granted to the specified ProtectionDomain.
      *
-     * The default implementation of this method returns
-     * Policy.UNSUPPORTED_EMPTY_COLLECTION object. This method can be overridden
-     * if the policy implementation can return a set of permissions granted to a
-     * ProtectionDomain.
+     * <p> The default implementation of this method returns
+     * Policy.UNSUPPORTED_EMPTY_COLLECTION object.  This method can be
+     * overridden if the policy implementation can return a set of
+     * permissions granted to a ProtectionDomain.
      *
-     * @param domain -
-     *            the ProtectionDomain to which the returned
-     *            PermissionCollection has been granted.
+     * @param domain the ProtectionDomain to which the returned
+     *          PermissionCollection has been granted.
+     *
      * @return a set of permissions granted to the specified ProtectionDomain.
-     *         If this operation is supported, the returned set of permissions
-     *         must be a new mutable instance and it must support heterogeneous
-     *         Permission types. If this operation is not supported,
-     *         Policy.UNSUPPORTED_EMPTY_COLLECTION is returned.
+     *          If this operation is supported, the returned
+     *          set of permissions must be a new mutable instance
+     *          and it must support heterogeneous Permission types.
+     *          If this operation is not supported,
+     *          Policy.UNSUPPORTED_EMPTY_COLLECTION is returned.
      */
-    protected PermissionCollection engineGetPermissions(ProtectionDomain domain) {
+    protected PermissionCollection engineGetPermissions
+                                        (ProtectionDomain domain) {
         return Policy.UNSUPPORTED_EMPTY_COLLECTION;
     }
 }

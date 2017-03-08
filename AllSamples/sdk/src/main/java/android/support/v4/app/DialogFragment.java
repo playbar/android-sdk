@@ -24,6 +24,7 @@ import android.os.Bundle;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StyleRes;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,6 +34,8 @@ import android.view.WindowManager;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Static library support version of the framework's {@link android.app.DialogFragment}.
@@ -45,6 +48,7 @@ public class DialogFragment extends Fragment
         implements DialogInterface.OnCancelListener, DialogInterface.OnDismissListener {
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     @IntDef({STYLE_NORMAL, STYLE_NO_TITLE, STYLE_NO_FRAME, STYLE_NO_INPUT})
     @Retention(RetentionPolicy.SOURCE)
     private @interface DialogStyle {}
@@ -247,7 +251,7 @@ public class DialogFragment extends Fragment
      * initialized to false; otherwise, it will be true.
      *
      * @param showsDialog If true, the fragment will be displayed in a Dialog.
-     * If false, no Dialog will be created and the fragment's view hierarchly
+     * If false, no Dialog will be created and the fragment's view hierarchy
      * left undisturbed.
      */
     public void setShowsDialog(boolean showsDialog) {
@@ -262,8 +266,8 @@ public class DialogFragment extends Fragment
     }
 
     @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
+    public void onAttach(Context context) {
+        super.onAttach(context);
         if (!mShownByMe) {
             // If not explicitly shown through our API, take this as an
             // indication that the dialog is no longer dismissed.
@@ -295,10 +299,10 @@ public class DialogFragment extends Fragment
             mShowsDialog = savedInstanceState.getBoolean(SAVED_SHOWS_DIALOG, mShowsDialog);
             mBackStackId = savedInstanceState.getInt(SAVED_BACK_STACK_ID, -1);
         }
-        
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     @Override
     public LayoutInflater getLayoutInflater(Bundle savedInstanceState) {
         if (!mShowsDialog) {
@@ -318,6 +322,7 @@ public class DialogFragment extends Fragment
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public void setupDialog(Dialog dialog, int style) {
         switch (style) {
             case STYLE_NO_INPUT:
@@ -358,9 +363,11 @@ public class DialogFragment extends Fragment
         return new Dialog(getActivity(), getTheme());
     }
 
+    @Override
     public void onCancel(DialogInterface dialog) {
     }
 
+    @Override
     public void onDismiss(DialogInterface dialog) {
         if (!mViewDestroyed) {
             // Note: we need to use allowStateLoss, because the dialog
@@ -382,11 +389,15 @@ public class DialogFragment extends Fragment
         View view = getView();
         if (view != null) {
             if (view.getParent() != null) {
-                throw new IllegalStateException("DialogFragment can not be attached to a container view");
+                throw new IllegalStateException(
+                        "DialogFragment can not be attached to a container view");
             }
             mDialog.setContentView(view);
         }
-        mDialog.setOwnerActivity(getActivity());
+        final Activity activity = getActivity();
+        if (activity != null) {
+            mDialog.setOwnerActivity(activity);
+        }
         mDialog.setCancelable(mCancelable);
         mDialog.setOnCancelListener(this);
         mDialog.setOnDismissListener(this);
@@ -401,6 +412,7 @@ public class DialogFragment extends Fragment
     @Override
     public void onStart() {
         super.onStart();
+
         if (mDialog != null) {
             mViewDestroyed = false;
             mDialog.show();

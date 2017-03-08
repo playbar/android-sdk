@@ -1,125 +1,167 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2000, 2010, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.lang;
 
 /**
- * Thrown when an assertion has failed.
+ * Thrown to indicate that an assertion has failed.
  *
- * @since 1.4
+ * <p>The seven one-argument public constructors provided by this
+ * class ensure that the assertion error returned by the invocation:
+ * <pre>
+ *     new AssertionError(<i>expression</i>)
+ * </pre>
+ * has as its detail message the <i>string conversion</i> of
+ * <i>expression</i> (as defined in section 15.18.1.1 of
+ * <cite>The Java&trade; Language Specification</cite>),
+ * regardless of the type of <i>expression</i>.
+ *
+ * @since   1.4
  */
 public class AssertionError extends Error {
-
     private static final long serialVersionUID = -5013299493970297370L;
 
     /**
-     * Constructs a new {@code AssertionError} with no message.
+     * Constructs an AssertionError with no detail message.
      */
     public AssertionError() {
     }
 
     /**
-     * Constructs a new {@code AssertionError} with the given detail message and cause.
-     * @since 1.7
+     * This internal constructor does no processing on its string argument,
+     * even if it is a null reference.  The public constructors will
+     * never call this constructor with a null argument.
      */
-    public AssertionError(String detailMessage, Throwable cause) {
-        super(detailMessage, cause);
+    private AssertionError(String detailMessage) {
+        super(detailMessage);
     }
 
     /**
-     * Constructs a new {@code AssertionError} with a message based on calling
-     * {@link String#valueOf(Object)} with the specified object. If the object
-     * is an instance of {@link Throwable}, then it also becomes the cause of
-     * this error.
+     * Constructs an AssertionError with its detail message derived
+     * from the specified object, which is converted to a string as
+     * defined in section 15.18.1.1 of
+     * <cite>The Java&trade; Language Specification</cite>.
+     *<p>
+     * If the specified object is an instance of {@code Throwable}, it
+     * becomes the <i>cause</i> of the newly constructed assertion error.
      *
-     * @param detailMessage
-     *            the object to be converted into the detail message and
-     *            optionally the cause.
+     * @param detailMessage value to be used in constructing detail message
+     * @see   Throwable#getCause()
      */
     public AssertionError(Object detailMessage) {
-        super(String.valueOf(detailMessage));
-        if (detailMessage instanceof Throwable) {
+        this("" +  detailMessage);
+        if (detailMessage instanceof Throwable)
             initCause((Throwable) detailMessage);
-        }
     }
 
     /**
-     * Constructs a new {@code AssertionError} with a message based on calling
-     * {@link String#valueOf(boolean)} with the specified boolean value.
+     * Constructs an AssertionError with its detail message derived
+     * from the specified <code>boolean</code>, which is converted to
+     * a string as defined in section 15.18.1.1 of
+     * <cite>The Java&trade; Language Specification</cite>.
      *
-     * @param detailMessage
-     *            the value to be converted into the message.
+     * @param detailMessage value to be used in constructing detail message
      */
     public AssertionError(boolean detailMessage) {
-        this(String.valueOf(detailMessage));
+        this("" +  detailMessage);
     }
 
     /**
-     * Constructs a new {@code AssertionError} with a message based on calling
-     * {@link String#valueOf(char)} with the specified character value.
+     * Constructs an AssertionError with its detail message derived
+     * from the specified <code>char</code>, which is converted to a
+     * string as defined in section 15.18.1.1 of
+     * <cite>The Java&trade; Language Specification</cite>.
      *
-     * @param detailMessage
-     *            the value to be converted into the message.
+     * @param detailMessage value to be used in constructing detail message
      */
     public AssertionError(char detailMessage) {
-        this(String.valueOf(detailMessage));
+        this("" +  detailMessage);
     }
 
     /**
-     * Constructs a new {@code AssertionError} with a message based on calling
-     * {@link String#valueOf(int)} with the specified integer value.
+     * Constructs an AssertionError with its detail message derived
+     * from the specified <code>int</code>, which is converted to a
+     * string as defined in section 15.18.1.1 of
+     * <cite>The Java&trade; Language Specification</cite>.
      *
-     * @param detailMessage
-     *            the value to be converted into the message.
+     * @param detailMessage value to be used in constructing detail message
      */
     public AssertionError(int detailMessage) {
-        this(Integer.toString(detailMessage));
+        this("" +  detailMessage);
     }
 
     /**
-     * Constructs a new {@code AssertionError} with a message based on calling
-     * {@link String#valueOf(long)} with the specified long value.
+     * Constructs an AssertionError with its detail message derived
+     * from the specified <code>long</code>, which is converted to a
+     * string as defined in section 15.18.1.1 of
+     * <cite>The Java&trade; Language Specification</cite>.
      *
-     * @param detailMessage
-     *            the value to be converted into the message.
+     * @param detailMessage value to be used in constructing detail message
      */
     public AssertionError(long detailMessage) {
-        this(Long.toString(detailMessage));
+        this("" +  detailMessage);
     }
 
     /**
-     * Constructs a new {@code AssertionError} with a message based on calling
-     * {@link String#valueOf(float)} with the specified float value.
+     * Constructs an AssertionError with its detail message derived
+     * from the specified <code>float</code>, which is converted to a
+     * string as defined in section 15.18.1.1 of
+     * <cite>The Java&trade; Language Specification</cite>.
      *
-     * @param detailMessage
-     *            the value to be converted into the message.
+     * @param detailMessage value to be used in constructing detail message
      */
     public AssertionError(float detailMessage) {
-        this(Float.toString(detailMessage));
+        this("" +  detailMessage);
     }
 
     /**
-     * Constructs a new {@code AssertionError} with a message based on calling
-     * {@link String#valueOf(double)} with the specified double value.
+     * Constructs an AssertionError with its detail message derived
+     * from the specified <code>double</code>, which is converted to a
+     * string as defined in section 15.18.1.1 of
+     * <cite>The Java&trade; Language Specification</cite>.
      *
-     * @param detailMessage
-     *            the value to be converted into the message.
+     * @param detailMessage value to be used in constructing detail message
      */
     public AssertionError(double detailMessage) {
-        this(Double.toString(detailMessage));
+        this("" +  detailMessage);
+    }
+
+    /**
+     * Constructs a new {@code AssertionError} with the specified
+     * detail message and cause.
+     *
+     * <p>Note that the detail message associated with
+     * {@code cause} is <i>not</i> automatically incorporated in
+     * this error's detail message.
+     *
+     * @param  message the detail message, may be {@code null}
+     * @param  cause the cause, may be {@code null}
+     *
+     * @since 1.7
+     */
+    public AssertionError(String message, Throwable cause) {
+        super(message, cause);
     }
 }

@@ -15,16 +15,22 @@
  */
 package android.support.v4.content.res;
 
+import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.AnyRes;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StyleableRes;
+import android.util.TypedValue;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Compat methods for accessing TypedArray values.
  *
  * @hide
  */
+@RestrictTo(GROUP_ID)
 public class TypedArrayUtils {
     public static boolean getBoolean(TypedArray a, @StyleableRes int index,
             @StyleableRes int fallbackIndex, boolean defaultValue) {
@@ -69,5 +75,14 @@ public class TypedArrayUtils {
             val = a.getTextArray(fallbackIndex);
         }
         return val;
+    }
+
+    public static int getAttr(Context context, int attr, int fallbackAttr) {
+        TypedValue value = new TypedValue();
+        context.getTheme().resolveAttribute(attr, value, true);
+        if (value.resourceId != 0) {
+            return attr;
+        }
+        return fallbackAttr;
     }
 }

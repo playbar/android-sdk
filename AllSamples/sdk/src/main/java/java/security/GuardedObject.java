@@ -1,76 +1,102 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1997, 2004, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security;
 
-import java.io.IOException;
-import java.io.Serializable;
-
 /**
- * {@code GuardedObject} controls access to an object, by checking all requests
- * for the object with a {@code Guard}.
+ * A GuardedObject is an object that is used to protect access to
+ * another object.
+ *
+ * <p>A GuardedObject encapsulates a target object and a Guard object,
+ * such that access to the target object is possible
+ * only if the Guard object allows it.
+ * Once an object is encapsulated by a GuardedObject,
+ * access to that object is controlled by the <code>getObject</code>
+ * method, which invokes the
+ * <code>checkGuard</code> method on the Guard object that is
+ * guarding access. If access is not allowed,
+ * an exception is thrown.
+ *
+ * @see Guard
+ * @see Permission
+ *
+ * @author Roland Schemers
+ * @author Li Gong
  */
-public class GuardedObject implements Serializable {
+
+public class GuardedObject implements java.io.Serializable {
 
     private static final long serialVersionUID = -5240450096227834308L;
 
-    private final Object object;
-
-    private final Guard guard;
+    private Object object; // the object we are guarding
+    private Guard guard;   // the guard
 
     /**
-     * Constructs a new instance of {@code GuardedObject} which protects access
-     * to the specified {@code Object} using the specified {@code Guard}.
+     * Constructs a GuardedObject using the specified object and guard.
+     * If the Guard object is null, then no restrictions will
+     * be placed on who can access the object.
      *
-     * @param object
-     *            the {@code Object} to protect.
-     * @param guard
-     *            the {@code Guard} which protects the specified {@code Object},
-     *            maybe {@code null}.
+     * @param object the object to be guarded.
+     *
+     * @param guard the Guard object that guards access to the object.
      */
-    public GuardedObject(Object object, Guard guard) {
-        this.object = object;
+
+    public GuardedObject(Object object, Guard guard)
+    {
         this.guard = guard;
+        this.object = object;
     }
 
     /**
-     * Returns the guarded {@code Object} if the associated {@code Guard}
-     * permits access. If access is not granted, then a {@code
-     * SecurityException} is thrown.
+     * Retrieves the guarded object, or throws an exception if access
+     * to the guarded object is denied by the guard.
      *
      * @return the guarded object.
-     * @throws SecurityException
-     *                if access is not granted to the guarded object.
+     *
+     * @exception SecurityException if access to the guarded object is
+     * denied.
      */
-    public Object getObject() throws SecurityException {
-        if (guard != null) {
+    public Object getObject()
+        throws SecurityException
+    {
+        if (guard != null)
             guard.checkGuard(object);
-        }
+
         return object;
     }
 
     /**
-     * Checks the guard (if there is one) before performing a default
-     * serialization.
+     * Writes this object out to a stream (i.e., serializes it).
+     * We check the guard if there is one.
      */
-    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
-        if (guard != null) {
+    private void writeObject(java.io.ObjectOutputStream oos)
+        throws java.io.IOException
+    {
+        if (guard != null)
             guard.checkGuard(object);
-        }
-        out.defaultWriteObject();
+
+        oos.defaultWriteObject();
     }
 }

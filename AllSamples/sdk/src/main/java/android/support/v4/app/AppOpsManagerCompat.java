@@ -24,7 +24,7 @@ import android.support.annotation.NonNull;
  * Helper for accessing features in android.app.AppOpsManager
  * introduced after API level 4 in a backwards compatible fashion.
  */
-public class AppOpsManagerCompat {
+public final class AppOpsManagerCompat {
 
     /**
      * Result from {@link #noteOp}: the given caller is allowed to
@@ -48,6 +48,9 @@ public class AppOpsManagerCompat {
     public static final int MODE_DEFAULT = 3;
 
     private static class AppOpsManagerImpl {
+        AppOpsManagerImpl() {
+        }
+
         public String permissionToOp(String permission) {
             return null;
         }
@@ -62,6 +65,9 @@ public class AppOpsManagerCompat {
     }
 
     private static class AppOpsManager23 extends AppOpsManagerImpl {
+        AppOpsManager23() {
+        }
+
         @Override
         public String permissionToOp(String permission) {
             return AppOpsManagerCompat23.permissionToOp(permission);
@@ -86,6 +92,8 @@ public class AppOpsManagerCompat {
             IMPL = new AppOpsManagerImpl();
         }
     }
+
+    private AppOpsManagerCompat() {}
 
     /**
      * Gets the app op name associated with a given permission.

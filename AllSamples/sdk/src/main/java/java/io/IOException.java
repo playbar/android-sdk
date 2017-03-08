@@ -1,57 +1,80 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1994, 2006, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.io;
 
 /**
- * Signals a general, I/O-related error. Error details may be specified when
- * calling the constructor, as usual. Note there are also several subclasses of
- * this class for more specific error situations, such as
- * {@link FileNotFoundException} or {@link EOFException}.
+ * Signals that an I/O exception of some sort has occurred. This
+ * class is the general class of exceptions produced by failed or
+ * interrupted I/O operations.
+ *
+ * @author  unascribed
+ * @see     java.io.InputStream
+ * @see     java.io.OutputStream
+ * @since   JDK1.0
  */
-public class IOException extends Exception {
-
-    private static final long serialVersionUID = 7818375828146090155L;
+public
+class IOException extends Exception {
+    static final long serialVersionUID = 7818375828146090155L;
 
     /**
-     * Constructs a new {@code IOException} with its stack trace filled in.
+     * Constructs an {@code IOException} with {@code null}
+     * as its error detail message.
      */
     public IOException() {
+        super();
     }
 
     /**
-     * Constructs a new {@code IOException} with its stack trace and detail
-     * message filled in.
-     *
-     * @param detailMessage
-     *            the detail message for this exception.
-     */
-    public IOException(String detailMessage) {
-        super(detailMessage);
-    }
-
-    /**
-     * Constructs a new instance of this class with detail message and cause
-     * filled in.
+     * Constructs an {@code IOException} with the specified detail message.
      *
      * @param message
-     *            The detail message for the exception.
+     *        The detail message (which is saved for later retrieval
+     *        by the {@link #getMessage()} method)
+     */
+    public IOException(String message) {
+        super(message);
+    }
+
+    /**
+     * Constructs an {@code IOException} with the specified detail message
+     * and cause.
+     *
+     * <p> Note that the detail message associated with {@code cause} is
+     * <i>not</i> automatically incorporated into this exception's detail
+     * message.
+     *
+     * @param message
+     *        The detail message (which is saved for later retrieval
+     *        by the {@link #getMessage()} method)
+     *
      * @param cause
-     *            The detail cause for the exception.
+     *        The cause (which is saved for later retrieval by the
+     *        {@link #getCause()} method).  (A null value is permitted,
+     *        and indicates that the cause is nonexistent or unknown.)
+     *
      * @since 1.6
      */
     public IOException(String message, Throwable cause) {
@@ -59,13 +82,20 @@ public class IOException extends Exception {
     }
 
     /**
-     * Constructs a new instance of this class with its detail cause filled in.
+     * Constructs an {@code IOException} with the specified cause and a
+     * detail message of {@code (cause==null ? null : cause.toString())}
+     * (which typically contains the class and detail message of {@code cause}).
+     * This constructor is useful for IO exceptions that are little more
+     * than wrappers for other throwables.
      *
      * @param cause
-     *            The detail cause for the exception.
+     *        The cause (which is saved for later retrieval by the
+     *        {@link #getCause()} method).  (A null value is permitted,
+     *        and indicates that the cause is nonexistent or unknown.)
+     *
      * @since 1.6
      */
     public IOException(Throwable cause) {
-        super(cause == null ? null : cause.toString(), cause);
+        super(cause);
     }
 }

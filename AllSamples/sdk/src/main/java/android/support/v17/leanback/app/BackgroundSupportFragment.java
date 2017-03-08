@@ -16,11 +16,15 @@
 package android.support.v17.leanback.app;
 
 import android.support.v4.app.Fragment;
+import android.support.annotation.RestrictTo;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Fragment used by the background manager.
  * @hide
  */
+@RestrictTo(GROUP_ID)
 public final class BackgroundSupportFragment extends Fragment implements
         BackgroundManager.FragmentStateQueriable {
     private BackgroundManager mBackgroundManager;

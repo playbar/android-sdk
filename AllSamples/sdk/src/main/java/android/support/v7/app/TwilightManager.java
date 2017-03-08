@@ -21,6 +21,7 @@ import android.content.Context;
 import android.location.Location;
 import android.location.LocationManager;
 import android.support.annotation.NonNull;
+import android.support.annotation.VisibleForTesting;
 import android.support.v4.content.PermissionChecker;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -37,14 +38,31 @@ class TwilightManager {
     private static final int SUNRISE = 6; // 6am
     private static final int SUNSET = 22; // 10pm
 
-    private static final TwilightState sTwilightState = new TwilightState();
+    private static TwilightManager sInstance;
+
+    static TwilightManager getInstance(@NonNull Context context) {
+        if (sInstance == null) {
+            context = context.getApplicationContext();
+            sInstance = new TwilightManager(context,
+                    (LocationManager) context.getSystemService(Context.LOCATION_SERVICE));
+        }
+        return sInstance;
+    }
+
+    @VisibleForTesting
+    static void setInstance(TwilightManager twilightManager) {
+        sInstance = twilightManager;
+    }
 
     private final Context mContext;
     private final LocationManager mLocationManager;
 
-    TwilightManager(Context context) {
+    private final TwilightState mTwilightState = new TwilightState();
+
+    @VisibleForTesting
+    TwilightManager(@NonNull Context context, @NonNull LocationManager locationManager) {
         mContext = context;
-        mLocationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        mLocationManager = locationManager;
     }
 
     /**
@@ -53,9 +71,9 @@ class TwilightManager {
      * @return true if we are at night, false if the day.
      */
     boolean isNight() {
-        final TwilightState state = sTwilightState;
+        final TwilightState state = mTwilightState;
 
-        if (isStateValid(state)) {
+        if (isStateValid()) {
             // If the current twilight state is still valid, use it
             return state.isNight;
         }
@@ -79,31 +97,27 @@ class TwilightManager {
     }
 
     private Location getLastKnownLocation() {
-        Location coarseLocation = null;
-        Location fineLocation = null;
+        Location coarseLoc = null;
+        Location fineLoc = null;
 
         int permission = PermissionChecker.checkSelfPermission(mContext,
-                Manifest.permission.ACCESS_FINE_LOCATION);
+                Manifest.permission.ACCESS_COARSE_LOCATION);
         if (permission == PermissionChecker.PERMISSION_GRANTED) {
-            coarseLocation = getLastKnownLocationForProvider(LocationManager.NETWORK_PROVIDER);
+            coarseLoc = getLastKnownLocationForProvider(LocationManager.NETWORK_PROVIDER);
         }
 
         permission = PermissionChecker.checkSelfPermission(mContext,
-                Manifest.permission.ACCESS_COARSE_LOCATION);
+                Manifest.permission.ACCESS_FINE_LOCATION);
         if (permission == PermissionChecker.PERMISSION_GRANTED) {
-            fineLocation = getLastKnownLocationForProvider(LocationManager.GPS_PROVIDER);
+            fineLoc = getLastKnownLocationForProvider(LocationManager.GPS_PROVIDER);
         }
 
-        if (coarseLocation != null && fineLocation != null) {
+        if (fineLoc != null && coarseLoc != null) {
             // If we have both a fine and coarse location, use the latest
-            if (fineLocation.getTime() > coarseLocation.getTime()) {
-                return fineLocation;
-            } else {
-                return coarseLocation;
-            }
+            return fineLoc.getTime() > coarseLoc.getTime() ? fineLoc : coarseLoc;
         } else {
             // Else, return the non-null one (if there is one)
-            return fineLocation != null ? fineLocation : coarseLocation;
+            return fineLoc != null ? fineLoc : coarseLoc;
         }
     }
 
@@ -120,12 +134,12 @@ class TwilightManager {
         return null;
     }
 
-    private boolean isStateValid(TwilightState state) {
-        return state != null && state.nextUpdate > System.currentTimeMillis();
+    private boolean isStateValid() {
+        return mTwilightState != null && mTwilightState.nextUpdate > System.currentTimeMillis();
     }
 
     private void updateState(@NonNull Location location) {
-        final TwilightState state = sTwilightState;
+        final TwilightState state = mTwilightState;
         final long now = System.currentTimeMillis();
         final TwilightCalculator calculator = TwilightCalculator.getInstance();
 
@@ -181,5 +195,8 @@ class TwilightManager {
         long todaySunset;
         long tomorrowSunrise;
         long nextUpdate;
+
+        TwilightState() {
+        }
     }
 }

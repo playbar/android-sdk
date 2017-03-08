@@ -17,6 +17,8 @@
 package com.android.server;
 
 import android.os.Handler;
+import android.os.Process;
+import android.os.Trace;
 
 /**
  * Shared singleton thread for showing UI.  This is a foreground thread, and in
@@ -28,13 +30,16 @@ public final class UiThread extends ServiceThread {
     private static Handler sHandler;
 
     private UiThread() {
-        super("android.ui", android.os.Process.THREAD_PRIORITY_FOREGROUND, false /*allowIo*/);
+        super("android.ui", Process.THREAD_PRIORITY_FOREGROUND, false /*allowIo*/);
+        // Make sure UiThread is in the fg stune boost group
+        Process.setThreadGroup(Process.myTid(), Process.THREAD_GROUP_TOP_APP);
     }
 
     private static void ensureThreadLocked() {
         if (sInstance == null) {
             sInstance = new UiThread();
             sInstance.start();
+            sInstance.getLooper().setTraceTag(Trace.TRACE_TAG_ACTIVITY_MANAGER);
             sHandler = new Handler(sInstance.getLooper());
         }
     }

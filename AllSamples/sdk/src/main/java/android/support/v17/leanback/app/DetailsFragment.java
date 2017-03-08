@@ -14,23 +14,22 @@
 package android.support.v17.leanback.app;
 
 import android.support.v17.leanback.R;
+import android.support.v17.leanback.transition.TransitionHelper;
 import android.support.v17.leanback.widget.BrowseFrameLayout;
-import android.support.v17.leanback.widget.DetailsOverviewRow;
 import android.support.v17.leanback.widget.FullWidthDetailsOverviewRowPresenter;
 import android.support.v17.leanback.widget.ItemAlignmentFacet;
 import android.support.v17.leanback.widget.ItemBridgeAdapter;
 import android.support.v17.leanback.widget.ObjectAdapter;
-import android.support.v17.leanback.widget.OnItemViewClickedListener;
-import android.support.v17.leanback.widget.OnItemViewSelectedListener;
+import android.support.v17.leanback.widget.BaseOnItemViewClickedListener;
+import android.support.v17.leanback.widget.BaseOnItemViewSelectedListener;
 import android.support.v17.leanback.widget.Presenter;
 import android.support.v17.leanback.widget.PresenterSelector;
-import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.RowPresenter;
 import android.support.v17.leanback.widget.TitleHelper;
-import android.support.v17.leanback.widget.TitleView;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,8 +39,7 @@ import android.view.ViewGroup;
  *
  * <p>
  * A DetailsFragment renders the elements of its {@link ObjectAdapter} as a set
- * of rows in a vertical list. The elements in this adapter must be subclasses
- * of {@link Row}, the Adapter's {@link PresenterSelector} must maintains subclasses
+ * of rows in a vertical list.The Adapter's {@link PresenterSelector} must maintain subclasses
  * of {@link RowPresenter}.
  * </p>
  *
@@ -71,35 +69,41 @@ import android.view.ViewGroup;
  * </p>
  */
 public class DetailsFragment extends BaseFragment {
-    private static final String TAG = "DetailsFragment";
-    private static boolean DEBUG = false;
+    static final String TAG = "DetailsFragment";
+    static boolean DEBUG = false;
 
     private class SetSelectionRunnable implements Runnable {
         int mPosition;
         boolean mSmooth = true;
 
+        SetSelectionRunnable() {
+        }
+
         @Override
         public void run() {
+            if (mRowsFragment == null) {
+                return;
+            }
             mRowsFragment.setSelectedPosition(mPosition, mSmooth);
         }
     }
 
-    private RowsFragment mRowsFragment;
+    RowsFragment mRowsFragment;
 
     private ObjectAdapter mAdapter;
     private int mContainerListAlignTop;
-    private OnItemViewSelectedListener mExternalOnItemViewSelectedListener;
-    private OnItemViewClickedListener mOnItemViewClickedListener;
+    BaseOnItemViewSelectedListener mExternalOnItemViewSelectedListener;
+    private BaseOnItemViewClickedListener mOnItemViewClickedListener;
 
     private Object mSceneAfterEntranceTransition;
 
     private final SetSelectionRunnable mSetSelectionRunnable = new SetSelectionRunnable();
 
-    private final OnItemViewSelectedListener mOnItemViewSelectedListener =
-            new OnItemViewSelectedListener() {
+    private final BaseOnItemViewSelectedListener<Object> mOnItemViewSelectedListener =
+            new BaseOnItemViewSelectedListener<Object>() {
         @Override
         public void onItemSelected(Presenter.ViewHolder itemViewHolder, Object item,
-                                   RowPresenter.ViewHolder rowViewHolder, Row row) {
+                                   RowPresenter.ViewHolder rowViewHolder, Object row) {
             int position = mRowsFragment.getVerticalGridView().getSelectedPosition();
             int subposition = mRowsFragment.getVerticalGridView().getSelectedSubPosition();
             if (DEBUG) Log.v(TAG, "row selected position " + position
@@ -140,14 +144,14 @@ public class DetailsFragment extends BaseFragment {
     /**
      * Sets an item selection listener.
      */
-    public void setOnItemViewSelectedListener(OnItemViewSelectedListener listener) {
+    public void setOnItemViewSelectedListener(BaseOnItemViewSelectedListener listener) {
         mExternalOnItemViewSelectedListener = listener;
     }
 
     /**
      * Sets an item clicked listener.
      */
-    public void setOnItemViewClickedListener(OnItemViewClickedListener listener) {
+    public void setOnItemViewClickedListener(BaseOnItemViewClickedListener listener) {
         if (mOnItemViewClickedListener != listener) {
             mOnItemViewClickedListener = listener;
             if (mRowsFragment != null) {
@@ -159,7 +163,7 @@ public class DetailsFragment extends BaseFragment {
     /**
      * Returns the item clicked listener.
      */
-    public OnItemViewClickedListener getOnItemViewClickedListener() {
+    public BaseOnItemViewClickedListener getOnItemViewClickedListener() {
         return mOnItemViewClickedListener;
     }
 
@@ -176,10 +180,7 @@ public class DetailsFragment extends BaseFragment {
             Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.lb_details_fragment, container, false);
         ViewGroup fragment_root = (ViewGroup) view.findViewById(R.id.details_fragment_root);
-        View titleView = inflateTitle(inflater, fragment_root, savedInstanceState);
-        if (titleView != null) {
-            fragment_root.addView(titleView);
-        }
+        installTitleView(inflater, fragment_root, savedInstanceState);
         mRowsFragment = (RowsFragment) getChildFragmentManager().findFragmentById(
                 R.id.details_rows_dock);
         if (mRowsFragment == null) {
@@ -191,16 +192,7 @@ public class DetailsFragment extends BaseFragment {
         mRowsFragment.setOnItemViewSelectedListener(mOnItemViewSelectedListener);
         mRowsFragment.setOnItemViewClickedListener(mOnItemViewClickedListener);
 
-        if (titleView != null) {
-            View titleGroup = titleView.findViewById(R.id.browse_title_group);
-            if (titleGroup instanceof TitleView) {
-                setTitleView((TitleView) titleGroup);
-            } else {
-                setTitleView(null);
-            }
-        }
-
-        mSceneAfterEntranceTransition = sTransitionHelper.createScene(
+        mSceneAfterEntranceTransition = TransitionHelper.createScene(
                 (ViewGroup) view, new Runnable() {
             @Override
             public void run() {
@@ -211,13 +203,18 @@ public class DetailsFragment extends BaseFragment {
     }
 
     /**
-     * Called by {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)} to inflate
-     * TitleView.  Default implementation uses layout file lb_browse_title.
-     * Subclass may override and use its own layout or return null if no title is needed.
+     * @deprecated override {@link #onInflateTitleView(LayoutInflater,ViewGroup,Bundle)} instead.
      */
+    @Deprecated
     protected View inflateTitle(LayoutInflater inflater, ViewGroup parent,
             Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.lb_browse_title, parent, false);
+        return super.onInflateTitleView(inflater, parent, savedInstanceState);
+    }
+
+    @Override
+    public View onInflateTitleView(LayoutInflater inflater, ViewGroup parent,
+                                   Bundle savedInstanceState) {
+        return inflateTitle(inflater, parent, savedInstanceState);
     }
 
     void setVerticalGridViewLayout(VerticalGridView listview) {
@@ -234,7 +231,7 @@ public class DetailsFragment extends BaseFragment {
      * that setup should only change the Presenter behavior that is meaningful in DetailsFragment.  For
      * example how a row is aligned in details Fragment.   The default implementation invokes
      * {@link #setupDetailsOverviewRowPresenter(FullWidthDetailsOverviewRowPresenter)}
-     * 
+     *
      */
     protected void setupPresenter(Presenter rowPresenter) {
         if (rowPresenter instanceof FullWidthDetailsOverviewRowPresenter) {
@@ -244,7 +241,7 @@ public class DetailsFragment extends BaseFragment {
 
     /**
      * Called to setup {@link FullWidthDetailsOverviewRowPresenter}.  The default implementation
-     * adds two aligment positions({@link ItemAlignmentFacet}) for ViewHolder of
+     * adds two alignment positions({@link ItemAlignmentFacet}) for ViewHolder of
      * FullWidthDetailsOverviewRowPresenter to align in fragment.
      */
     protected void setupDetailsOverviewRowPresenter(FullWidthDetailsOverviewRowPresenter presenter) {
@@ -272,7 +269,12 @@ public class DetailsFragment extends BaseFragment {
         return mRowsFragment == null ? null : mRowsFragment.getVerticalGridView();
     }
 
-    RowsFragment getRowsFragment() {
+    /**
+     * Gets embedded RowsFragment showing multiple rows for DetailsFragment.  If view of
+     * DetailsFragment is not created, the method returns null.
+     * @return Embedded RowsFragment showing multiple rows for DetailsFragment.
+     */
+    public RowsFragment getRowsFragment() {
         return mRowsFragment;
     }
 
@@ -311,7 +313,7 @@ public class DetailsFragment extends BaseFragment {
         }
     }
 
-    private void onRowSelected(int selectedPosition, int selectedSubPosition) {
+    void onRowSelected(int selectedPosition, int selectedSubPosition) {
         ObjectAdapter adapter = getAdapter();
         if (adapter == null || adapter.size() == 0 ||
                 (selectedPosition == 0 && selectedSubPosition == 0)) {
@@ -394,25 +396,20 @@ public class DetailsFragment extends BaseFragment {
         super.onStart();
         setupChildFragmentLayout();
         setupFocusSearchListener();
-        mRowsFragment.getView().requestFocus();
         if (isEntranceTransitionEnabled()) {
-            // make sure recycler view animation is disabled
-            mRowsFragment.onTransitionPrepare();
-            mRowsFragment.onTransitionStart();
             mRowsFragment.setEntranceTransitionState(false);
         }
     }
 
     @Override
     protected Object createEntranceTransition() {
-        return sTransitionHelper.loadTransition(getActivity(),
+        return TransitionHelper.loadTransition(getActivity(),
                 R.transition.lb_details_enter_transition);
     }
 
     @Override
     protected void runEntranceTransition(Object entranceTransition) {
-        sTransitionHelper.runTransition(mSceneAfterEntranceTransition,
-                entranceTransition);
+        TransitionHelper.runTransition(mSceneAfterEntranceTransition, entranceTransition);
     }
 
     @Override
@@ -420,4 +417,13 @@ public class DetailsFragment extends BaseFragment {
         mRowsFragment.onTransitionEnd();
     }
 
+    @Override
+    protected void onEntranceTransitionPrepare() {
+        mRowsFragment.onTransitionPrepare();
+    }
+
+    @Override
+    protected void onEntranceTransitionStart() {
+        mRowsFragment.onTransitionStart();
+    }
 }

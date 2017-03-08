@@ -47,6 +47,7 @@ public class ListFragment extends Fragment {
     final private Handler mHandler = new Handler();
 
     final private Runnable mRequestFocus = new Runnable() {
+        @Override
         public void run() {
             mList.focusableViewAvailable(mList);
         }
@@ -54,6 +55,7 @@ public class ListFragment extends Fragment {
     
     final private AdapterView.OnItemClickListener mOnClickListener
             = new AdapterView.OnItemClickListener() {
+        @Override
         public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
             onListItemClick((ListView)parent, v, position, id);
         }
@@ -88,7 +90,7 @@ public class ListFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        final Context context = getActivity();
+        final Context context = getContext();
 
         FrameLayout root = new FrameLayout(context);
 
@@ -106,33 +108,33 @@ public class ListFragment extends Fragment {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         root.addView(pframe, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         // ------------------------------------------------------------------
 
         FrameLayout lframe = new FrameLayout(context);
         lframe.setId(INTERNAL_LIST_CONTAINER_ID);
-        
-        TextView tv = new TextView(getActivity());
+
+        TextView tv = new TextView(context);
         tv.setId(INTERNAL_EMPTY_ID);
         tv.setGravity(Gravity.CENTER);
         lframe.addView(tv, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
-        
-        ListView lv = new ListView(getActivity());
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        ListView lv = new ListView(context);
         lv.setId(android.R.id.list);
         lv.setDrawSelectorOnTop(false);
         lframe.addView(lv, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         root.addView(lframe, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
-        
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         // ------------------------------------------------------------------
 
         root.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT));
-        
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         return root;
     }
 
@@ -216,7 +218,7 @@ public class ListFragment extends Fragment {
     }
 
     /**
-     * Get the activity's list view widget.
+     * Get the fragment's list view widget.
      */
     public ListView getListView() {
         ensureList();
@@ -288,9 +290,9 @@ public class ListFragment extends Fragment {
         if (shown) {
             if (animate) {
                 mProgressContainer.startAnimation(AnimationUtils.loadAnimation(
-                        getActivity(), android.R.anim.fade_out));
+                        getContext(), android.R.anim.fade_out));
                 mListContainer.startAnimation(AnimationUtils.loadAnimation(
-                        getActivity(), android.R.anim.fade_in));
+                        getContext(), android.R.anim.fade_in));
             } else {
                 mProgressContainer.clearAnimation();
                 mListContainer.clearAnimation();
@@ -300,9 +302,9 @@ public class ListFragment extends Fragment {
         } else {
             if (animate) {
                 mProgressContainer.startAnimation(AnimationUtils.loadAnimation(
-                        getActivity(), android.R.anim.fade_in));
+                        getContext(), android.R.anim.fade_in));
                 mListContainer.startAnimation(AnimationUtils.loadAnimation(
-                        getActivity(), android.R.anim.fade_out));
+                        getContext(), android.R.anim.fade_out));
             } else {
                 mProgressContainer.clearAnimation();
                 mListContainer.clearAnimation();
@@ -313,7 +315,7 @@ public class ListFragment extends Fragment {
     }
     
     /**
-     * Get the ListAdapter associated with this activity's ListView.
+     * Get the ListAdapter associated with this fragment's ListView.
      */
     public ListAdapter getListAdapter() {
         return mAdapter;

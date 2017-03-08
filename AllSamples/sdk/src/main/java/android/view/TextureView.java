@@ -16,6 +16,7 @@
 
 package android.view;
 
+import android.annotation.Nullable;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -23,6 +24,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.Log;
 
@@ -132,7 +134,6 @@ public class TextureView extends View {
      */
     public TextureView(Context context) {
         super(context);
-        init();
     }
 
     /**
@@ -143,7 +144,6 @@ public class TextureView extends View {
      */
     public TextureView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        init();
     }
 
     /**
@@ -157,7 +157,6 @@ public class TextureView extends View {
      */
     public TextureView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init();
     }
 
     /**
@@ -175,11 +174,6 @@ public class TextureView extends View {
      */
     public TextureView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        init();
-    }
-
-    private void init() {
-        mLayerPaint = new Paint();
     }
 
     /**
@@ -224,15 +218,33 @@ public class TextureView extends View {
     /** @hide */
     @Override
     protected void onDetachedFromWindowInternal() {
-        destroySurface();
+        destroyHardwareLayer();
+        releaseSurfaceTexture();
         super.onDetachedFromWindowInternal();
     }
 
-    private void destroySurface() {
+    /**
+     * @hide
+     */
+    @Override
+    protected void destroyHardwareResources() {
+        super.destroyHardwareResources();
+        destroyHardwareLayer();
+    }
+
+    private void destroyHardwareLayer() {
         if (mLayer != null) {
             mLayer.detachSurfaceTexture();
+            mLayer.destroy();
+            mLayer = null;
+            mMatrixChanged = true;
+        }
+    }
 
+    private void releaseSurfaceTexture() {
+        if (mSurface != null) {
             boolean shouldRelease = true;
+
             if (mListener != null) {
                 shouldRelease = mListener.onSurfaceTextureDestroyed(mSurface);
             }
@@ -241,14 +253,10 @@ public class TextureView extends View {
                 nDestroyNativeWindow();
             }
 
-            mLayer.destroy();
-            if (shouldRelease) mSurface.release();
+            if (shouldRelease) {
+                mSurface.release();
+            }
             mSurface = null;
-            mLayer = null;
-
-            // Make sure if/when new layer gets re-created, transform matrix will
-            // be re-applied.
-            mMatrixChanged = true;
             mHadSurface = true;
         }
     }
@@ -259,7 +267,7 @@ public class TextureView extends View {
      * method will however be taken into account when rendering the content of
      * this TextureView.
      *
-     * @param layerType The ype of layer to use with this view, must be one of
+     * @param layerType The type of layer to use with this view, must be one of
      *        {@link #LAYER_TYPE_NONE}, {@link #LAYER_TYPE_SOFTWARE} or
      *        {@link #LAYER_TYPE_HARDWARE}
      * @param paint The paint used to compose the layer. This argument is optional
@@ -267,16 +275,16 @@ public class TextureView extends View {
      *        {@link #LAYER_TYPE_NONE}
      */
     @Override
-    public void setLayerType(int layerType, Paint paint) {
-        if (paint != mLayerPaint) {
-            mLayerPaint = paint == null ? new Paint() : paint;
-            invalidate();
-        }
+    public void setLayerType(int layerType, @Nullable Paint paint) {
+        setLayerPaint(paint);
     }
 
     @Override
-    public void setLayerPaint(Paint paint) {
-        setLayerType(/* ignored */ 0, paint);
+    public void setLayerPaint(@Nullable Paint paint) {
+        if (paint != mLayerPaint) {
+            mLayerPaint = paint;
+            invalidate();
+        }
     }
 
     /**
@@ -294,6 +302,22 @@ public class TextureView extends View {
     public void buildLayer() {
     }
 
+    @Override
+    public void setForeground(Drawable foreground) {
+        if (foreground != null && !sTextureViewIgnoresDrawableSetters) {
+            throw new UnsupportedOperationException(
+                    "TextureView doesn't support displaying a foreground drawable");
+        }
+    }
+
+    @Override
+    public void setBackgroundDrawable(Drawable background) {
+        if (background != null && !sTextureViewIgnoresDrawableSetters) {
+            throw new UnsupportedOperationException(
+                    "TextureView doesn't support displaying a background drawable");
+        }
+    }
+
     /**
      * Subclasses of TextureView cannot do their own rendering
      * with the {@link Canvas} object.
@@ -302,11 +326,25 @@ public class TextureView extends View {
      */
     @Override
     public final void draw(Canvas canvas) {
-        // NOTE: Maintain this carefully (see View.java)
+        // NOTE: Maintain this carefully (see View#draw)
         mPrivateFlags = (mPrivateFlags & ~PFLAG_DIRTY_MASK) | PFLAG_DRAWN;
 
-        applyUpdate();
-        applyTransformMatrix();
+        /* Simplify drawing to guarantee the layer is the only thing drawn - so e.g. no background,
+        scrolling, or fading edges. This guarantees all drawing is in the layer, so drawing
+        properties (alpha, layer paint) affect all of the content of a TextureView. */
+
+        if (canvas.isHardwareAccelerated()) {
+            DisplayListCanvas displayListCanvas = (DisplayListCanvas) canvas;
+
+            HardwareLayer layer = getHardwareLayer();
+            if (layer != null) {
+                applyUpdate();
+                applyTransformMatrix();
+
+                mLayer.setLayerPaint(mLayerPaint); // ensure layer paint is up to date
+                displayListCanvas.drawHardwareLayer(layer);
+            }
+        }
     }
 
     /**
@@ -331,40 +369,24 @@ public class TextureView extends View {
         }
     }
 
-    /**
-     * @hide
-     */
-    @Override
-    protected void destroyHardwareResources() {
-        super.destroyHardwareResources();
-        destroySurface();
-        invalidateParentCaches();
-        invalidate(true);
-    }
-
-    @Override
     HardwareLayer getHardwareLayer() {
-        // NOTE: Maintain these two lines very carefully (see View.java)
-        mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
-        mPrivateFlags &= ~PFLAG_DIRTY_MASK;
-
         if (mLayer == null) {
             if (mAttachInfo == null || mAttachInfo.mHardwareRenderer == null) {
                 return null;
             }
 
             mLayer = mAttachInfo.mHardwareRenderer.createTextureLayer();
-            if (!mUpdateSurface) {
+            boolean createNewSurface = (mSurface == null);
+            if (createNewSurface) {
                 // Create a new SurfaceTexture for the layer.
                 mSurface = new SurfaceTexture(false);
-                mLayer.setSurfaceTexture(mSurface);
+                nCreateNativeWindow(mSurface);
             }
+            mLayer.setSurfaceTexture(mSurface);
             mSurface.setDefaultBufferSize(getWidth(), getHeight());
-            nCreateNativeWindow(mSurface);
-
             mSurface.setOnFrameAvailableListener(mUpdateListener, mAttachInfo.mHandler);
 
-            if (mListener != null && !mUpdateSurface) {
+            if (mListener != null && createNewSurface) {
                 mListener.onSurfaceTextureAvailable(mSurface, getWidth(), getHeight());
             }
             mLayer.setLayerPaint(mLayerPaint);
@@ -384,9 +406,6 @@ public class TextureView extends View {
             mLayer.setSurfaceTexture(mSurface);
             mSurface.setDefaultBufferSize(getWidth(), getHeight());
         }
-
-        applyUpdate();
-        applyTransformMatrix();
 
         return mLayer;
     }
@@ -701,7 +720,7 @@ public class TextureView extends View {
     /**
      * Set the {@link SurfaceTexture} for this view to use. If a {@link
      * SurfaceTexture} is already being used by this view, it is immediately
-     * released and not be usable any more.  The {@link
+     * released and not usable any more.  The {@link
      * SurfaceTextureListener#onSurfaceTextureDestroyed} callback is <b>not</b>
      * called for the previous {@link SurfaceTexture}.  Similarly, the {@link
      * SurfaceTextureListener#onSurfaceTextureAvailable} callback is <b>not</b>
@@ -726,9 +745,11 @@ public class TextureView extends View {
                     "released SurfaceTexture");
         }
         if (mSurface != null) {
+            nDestroyNativeWindow();
             mSurface.release();
         }
         mSurface = surfaceTexture;
+        nCreateNativeWindow(mSurface);
 
         /*
          * If the view is visible and we already made a layer, update the

@@ -22,12 +22,14 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
-import android.support.v4.content.ContextCompat;
+import android.support.annotation.RestrictTo;
 import android.support.v4.widget.TintableCompoundButton;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.widget.TintManager;
+import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.widget.RadioButton;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * A {@link RadioButton} which supports compatible features on older version of the platform,
@@ -44,7 +46,6 @@ import android.widget.RadioButton;
  */
 public class AppCompatRadioButton extends RadioButton implements TintableCompoundButton {
 
-    private TintManager mTintManager;
     private AppCompatCompoundButtonHelper mCompoundButtonHelper;
 
     public AppCompatRadioButton(Context context) {
@@ -56,9 +57,8 @@ public class AppCompatRadioButton extends RadioButton implements TintableCompoun
     }
 
     public AppCompatRadioButton(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        mTintManager = TintManager.get(context);
-        mCompoundButtonHelper = new AppCompatCompoundButtonHelper(this, mTintManager);
+        super(TintContextWrapper.wrap(context), attrs, defStyleAttr);
+        mCompoundButtonHelper = new AppCompatCompoundButtonHelper(this);
         mCompoundButtonHelper.loadFromAttributes(attrs, defStyleAttr);
     }
 
@@ -72,9 +72,7 @@ public class AppCompatRadioButton extends RadioButton implements TintableCompoun
 
     @Override
     public void setButtonDrawable(@DrawableRes int resId) {
-        setButtonDrawable(mTintManager != null
-                ? mTintManager.getDrawable(resId)
-                : ContextCompat.getDrawable(getContext(), resId));
+        setButtonDrawable(AppCompatResources.getDrawable(getContext(), resId));
     }
 
     @Override
@@ -89,6 +87,7 @@ public class AppCompatRadioButton extends RadioButton implements TintableCompoun
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     @Override
     public void setSupportButtonTintList(@Nullable ColorStateList tint) {
         if (mCompoundButtonHelper != null) {
@@ -100,6 +99,7 @@ public class AppCompatRadioButton extends RadioButton implements TintableCompoun
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     @Nullable
     @Override
     public ColorStateList getSupportButtonTintList() {
@@ -112,6 +112,7 @@ public class AppCompatRadioButton extends RadioButton implements TintableCompoun
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     @Override
     public void setSupportButtonTintMode(@Nullable PorterDuff.Mode tintMode) {
         if (mCompoundButtonHelper != null) {
@@ -123,6 +124,7 @@ public class AppCompatRadioButton extends RadioButton implements TintableCompoun
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     @Nullable
     @Override
     public PorterDuff.Mode getSupportButtonTintMode() {

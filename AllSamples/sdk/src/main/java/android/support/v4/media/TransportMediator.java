@@ -20,7 +20,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Build;
-import android.support.v4.view.KeyEventCompat;
 import android.view.KeyEvent;
 import android.view.View;
 
@@ -42,7 +41,7 @@ import java.util.ArrayList;
  * applications often implement their own transport controls, or you can copy the
  * implementation here out of Support4Demos.</p>
  *
- * {@sample development/samples/Support4Demos/src/com/example/android/supportv4/media/TransportControllerActivity.java
+ * {@sample frameworks/support/samples/Support4Demos/src/com/example/android/supportv4/media/TransportControllerActivity.java
  *      complete}
  */
 public class TransportMediator extends TransportController {
@@ -133,6 +132,7 @@ public class TransportMediator extends TransportController {
             return isMediaKey(keyCode) ? mCallbacks.onMediaButtonDown(keyCode, event) : false;
         }
 
+        @Override
         public boolean onKeyLongPress(int keyCode, KeyEvent event) {
             return false;
         }
@@ -161,7 +161,7 @@ public class TransportMediator extends TransportController {
         mCallbacks = callbacks;
         mAudioManager = (AudioManager)mContext.getSystemService(Context.AUDIO_SERVICE);
         mView = activity != null ? activity.getWindow().getDecorView() : view;
-        mDispatcherState = KeyEventCompat.getKeyDispatcherState(mView);
+        mDispatcherState = mView.getKeyDispatcherState();
         if (Build.VERSION.SDK_INT >= 18) { // JellyBean MR2
             mController = new TransportMediatorJellybeanMR2(mContext, mAudioManager,
                     mView, mTransportKeyCallback);
@@ -197,13 +197,15 @@ public class TransportMediator extends TransportController {
      * @param event
      */
     public boolean dispatchKeyEvent(KeyEvent event) {
-        return KeyEventCompat.dispatch(event, mKeyEventCallback, mDispatcherState, this);
+        return event.dispatch(mKeyEventCallback, (KeyEvent.DispatcherState) mDispatcherState, this);
     }
 
+    @Override
     public void registerStateListener(TransportStateListener listener) {
         mListeners.add(listener);
     }
 
+    @Override
     public void unregisterStateListener(TransportStateListener listener) {
         mListeners.remove(listener);
     }
@@ -328,6 +330,7 @@ public class TransportMediator extends TransportController {
      *      {@link #FLAG_KEY_MEDIA_FAST_FORWARD},
      *      {@link #FLAG_KEY_MEDIA_NEXT}
      */
+    @Override
     public int getTransportControlFlags() {
         return mCallbacks.onGetTransportControlFlags();
     }

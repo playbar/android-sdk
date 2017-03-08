@@ -31,7 +31,6 @@ import java.util.ArrayList;
 /**
  * Saves the focused grandchild position.
  * Helps add persistent focus feature to various ViewGroups.
- * @hide
  */
 class PersistentFocusWrapper extends FrameLayout {
 
@@ -167,6 +166,10 @@ class PersistentFocusWrapper extends FrameLayout {
 
     @Override
     protected void onRestoreInstanceState(Parcelable state) {
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
         SavedState savedState = (SavedState) state;
         mSelectedPosition = ((SavedState) state).mSelectedPosition;
         if (DEBUG) Log.v(TAG, "onRestoreInstanceState mSelectedPosition " + mSelectedPosition);

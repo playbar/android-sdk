@@ -16,6 +16,15 @@
 
 package android.support.v4.content;
 
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+
+import android.os.Binder;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Process;
+import android.support.annotation.RestrictTo;
+
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -29,11 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
-import android.os.Process;
 
 /**
  * Copy of the required parts of {@link android.os.AsyncTask} from Android 3.0 that is
@@ -55,6 +59,7 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
     private static final ThreadFactory sThreadFactory = new ThreadFactory() {
         private final AtomicInteger mCount = new AtomicInteger(1);
 
+        @Override
         public Thread newThread(Runnable r) {
             return new Thread(r, "ModernAsyncTask #" + mCount.getAndIncrement());
         }
@@ -81,6 +86,7 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
 
     private volatile Status mStatus = Status.PENDING;
 
+    private final AtomicBoolean mCancelled = new AtomicBoolean();
     private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
 
     /**
@@ -112,6 +118,7 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public static void setDefaultExecutor(Executor exec) {
         sDefaultExecutor = exec;
     }
@@ -121,11 +128,22 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
      */
     public ModernAsyncTask() {
         mWorker = new WorkerRunnable<Params, Result>() {
+            @Override
             public Result call() throws Exception {
                 mTaskInvoked.set(true);
-
-                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-                return postResult(doInBackground(mParams));
+                Result result = null;
+                try {
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                    //noinspection unchecked
+                    result = doInBackground(mParams);
+                    Binder.flushPendingCommands();
+                } catch (Throwable tr) {
+                    mCancelled.set(true);
+                    throw tr;
+                } finally {
+                    postResult(result);
+                }
+                return result;
             }
         };
 
@@ -151,14 +169,14 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
         };
     }
 
-    private void postResultIfNotInvoked(Result result) {
+    void postResultIfNotInvoked(Result result) {
         final boolean wasTaskInvoked = mTaskInvoked.get();
         if (!wasTaskInvoked) {
             postResult(result);
         }
     }
 
-    private Result postResult(Result result) {
+    Result postResult(Result result) {
         Message message = getHandler().obtainMessage(MESSAGE_POST_RESULT,
                 new AsyncTaskResult<Result>(this, result));
         message.sendToTarget();
@@ -275,7 +293,7 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
      * @see #cancel(boolean)
      */
     public final boolean isCancelled() {
-        return mFuture.isCancelled();
+        return mCancelled.get();
     }
 
     /**
@@ -308,6 +326,7 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
      * @see #onCancelled(Object)
      */
     public final boolean cancel(boolean mayInterruptIfRunning) {
+        mCancelled.set(true);
         return mFuture.cancel(mayInterruptIfRunning);
     }
 
@@ -459,7 +478,7 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
         }
     }
 
-    private void finish(Result result) {
+    void finish(Result result) {
         if (isCancelled()) {
             onCancelled(result);
         } else {
@@ -491,6 +510,9 @@ abstract class ModernAsyncTask<Params, Progress, Result> {
 
     private static abstract class WorkerRunnable<Params, Result> implements Callable<Result> {
         Params[] mParams;
+
+        WorkerRunnable() {
+        }
     }
 
     @SuppressWarnings({"RawUseOfParameterizedType"})

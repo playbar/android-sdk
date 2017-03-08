@@ -1,426 +1,217 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.net;
 
-import android.system.ErrnoException;
-import java.io.File;
-import java.io.FileDescriptor;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Enumeration;
-import java.util.LinkedList;
-import java.util.List;
-import libcore.io.IoUtils;
-import libcore.io.Libcore;
-import static android.system.OsConstants.*;
+import java.util.NoSuchElementException;
+import sun.security.action.*;
+import java.security.AccessController;
 
 /**
- * This class is used to represent a network interface of the local device. An
- * interface is defined by its address and a platform dependent name. The class
- * provides methods to get all information about the available interfaces of the
- * system or to identify the local interface of a joined multicast group.
+ * This class represents a Network Interface made up of a name,
+ * and a list of IP addresses assigned to this interface.
+ * It is used to identify the local interface on which a multicast group
+ * is joined.
+ *
+ * Interfaces are normally known by names such as "le0".
+ *
+ * @since 1.4
  */
-public final class NetworkInterface extends Object {
-    private static final File SYS_CLASS_NET = new File("/sys/class/net");
-
-    private final String name;
-    private final int interfaceIndex;
-    private final List<InterfaceAddress> interfaceAddresses;
-    private final List<InetAddress> addresses;
-
-    private final List<NetworkInterface> children = new LinkedList<NetworkInterface>();
-
+public final class NetworkInterface {
+    private String name;
+    private String displayName;
+    private int index;
+    private InetAddress addrs[];
+    private InterfaceAddress bindings[];
+    private NetworkInterface childs[];
     private NetworkInterface parent = null;
+    private boolean virtual = false;
+    private byte[] hardwareAddr;
+    private static final NetworkInterface defaultInterface;
+    private static final int defaultIndex; /* index of defaultInterface */
 
-    private NetworkInterface(String name, int interfaceIndex,
-            List<InetAddress> addresses, List<InterfaceAddress> interfaceAddresses) {
-        this.name = name;
-        this.interfaceIndex = interfaceIndex;
-        this.addresses = addresses;
-        this.interfaceAddresses = interfaceAddresses;
-    }
-
-    static NetworkInterface forUnboundMulticastSocket() {
-        // This is what the RI returns for a MulticastSocket that hasn't been constrained
-        // to a specific interface.
-        return new NetworkInterface(null, -1,
-                Arrays.asList(Inet6Address.ANY), Collections.<InterfaceAddress>emptyList());
+    static {
+        defaultInterface = DefaultInterface.getDefault();
+        if (defaultInterface != null) {
+            defaultIndex = defaultInterface.getIndex();
+        } else {
+            defaultIndex = 0;
+        }
     }
 
     /**
-     * Returns the index for the network interface, or -1 if unknown.
-     * @since 1.7
+     * Returns an NetworkInterface object with index set to 0 and name to null.
+     * Setting such an interface on a MulticastSocket will cause the
+     * kernel to choose one interface for sending multicast packets.
+     *
      */
-    public int getIndex() {
-        return interfaceIndex;
+    NetworkInterface() {
+    }
+
+    NetworkInterface(String name, int index, InetAddress[] addrs) {
+        this.name = name;
+        this.index = index;
+        this.addrs = addrs;
     }
 
     /**
-     * Returns the name of this network interface (such as "eth0" or "lo").
+     * Get the name of this network interface.
+     *
+     * @return the name of this network interface
      */
     public String getName() {
-        return name;
+            return name;
     }
 
     /**
-     * Returns an enumeration of the addresses bound to this network interface.
+     * Convenience method to return an Enumeration with all or a
+     * subset of the InetAddresses bound to this network interface.
+     * <p>
+     * If there is a security manager, its <code>checkConnect</code>
+     * method is called for each InetAddress. Only InetAddresses where
+     * the <code>checkConnect</code> doesn't throw a SecurityException
+     * will be returned in the Enumeration. However, if the caller has the
+     * {@link NetPermission}("getNetworkInformation") permission, then all
+     * InetAddresses are returned.
+     * @return an Enumeration object with all or a subset of the InetAddresses
+     * bound to this network interface
      */
     public Enumeration<InetAddress> getInetAddresses() {
-        return Collections.enumeration(addresses);
-    }
 
-    /**
-     * Returns a human-readable name for this network interface. On Android, this is the same
-     * string as returned by {@link #getName}.
-     */
-    public String getDisplayName() {
-        return name;
-    }
+        class checkedAddresses implements Enumeration<InetAddress> {
 
-    /**
-     * Returns the {@code NetworkInterface} corresponding to the named network interface, or null
-     * if no interface has this name.
-     *
-     * @throws SocketException if an error occurs.
-     * @throws NullPointerException if {@code interfaceName == null}.
-     */
-    public static NetworkInterface getByName(String interfaceName) throws SocketException {
-        if (interfaceName == null) {
-            throw new NullPointerException("interfaceName == null");
-        }
-        if (!isValidInterfaceName(interfaceName)) {
-            return null;
-        }
+            private int i=0, count=0;
+            private InetAddress local_addrs[];
 
-        return getByNameInternal(interfaceName, readIfInet6Lines());
-    }
+            checkedAddresses() {
+                local_addrs = new InetAddress[addrs.length];
+                boolean trusted = true;
 
-    /**
-     * Similar to {@link #getByName(String)} except that {@code interfaceName}
-     * is assumed to be valid.
-     */
-    private static NetworkInterface getByNameInternal(String interfaceName,
-            String[] ifInet6Lines) throws SocketException {
-        int interfaceIndex = readIntFile("/sys/class/net/" + interfaceName + "/ifindex");
-        List<InetAddress> addresses = new ArrayList<InetAddress>();
-        List<InterfaceAddress> interfaceAddresses = new ArrayList<InterfaceAddress>();
-
-        collectIpv6Addresses(interfaceName, interfaceIndex, addresses, interfaceAddresses,
-                ifInet6Lines);
-        collectIpv4Address(interfaceName, addresses, interfaceAddresses);
-
-        return new NetworkInterface(interfaceName, interfaceIndex, addresses, interfaceAddresses);
-    }
-
-    private static String[] readIfInet6Lines() throws SocketException {
-        try {
-            return IoUtils.readFileAsString("/proc/net/if_inet6").split("\n");
-        } catch (IOException ioe) {
-            throw rethrowAsSocketException(ioe);
-        }
-    }
-
-    /**
-     * Visible for testing only.
-     *
-     * @hide
-     */
-    public static void collectIpv6Addresses(String interfaceName, int interfaceIndex,
-            List<InetAddress> addresses, List<InterfaceAddress> interfaceAddresses,
-            String[] ifInet6Lines) throws SocketException {
-        // Format of /proc/net/if_inet6.
-        // All numeric fields are implicit hex,
-        // but not necessarily two-digit (http://code.google.com/p/android/issues/detail?id=34022).
-        // 1. IPv6 address
-        // 2. interface index
-        // 3. prefix length
-        // 4. scope
-        // 5. flags
-        // 6. interface name
-        // "00000000000000000000000000000001 01 80 10 80       lo"
-        // "fe800000000000000000000000000000 407 40 20 80    wlan0"
-        final String suffix = " " + interfaceName;
-        try {
-            for (String line : ifInet6Lines) {
-                if (!line.endsWith(suffix)) {
-                    continue;
+                SecurityManager sec = System.getSecurityManager();
+                if (sec != null) {
+                    try {
+                        sec.checkPermission(new NetPermission("getNetworkInformation"));
+                    } catch (SecurityException e) {
+                        trusted = false;
+                    }
+                }
+                for (int j=0; j<addrs.length; j++) {
+                    try {
+                        if (sec != null && !trusted) {
+                            sec.checkConnect(addrs[j].getHostAddress(), -1);
+                        }
+                        local_addrs[count++] = addrs[j];
+                    } catch (SecurityException e) { }
                 }
 
-                // Extract the IPv6 address.
-                byte[] addressBytes = new byte[16];
-                for (int i = 0; i < addressBytes.length; ++i) {
-                    addressBytes[i] = (byte) Integer.parseInt(line.substring(2*i, 2*i + 2), 16);
-                }
-
-                // Extract the prefix length.
-                // Skip the IPv6 address and its trailing space.
-                int prefixLengthStart = 32 + 1;
-                // Skip the interface index and its trailing space.
-                prefixLengthStart = line.indexOf(' ', prefixLengthStart) + 1;
-                int prefixLengthEnd = line.indexOf(' ', prefixLengthStart);
-                short prefixLength = Short.parseShort(line.substring(prefixLengthStart, prefixLengthEnd), 16);
-
-                Inet6Address inet6Address = new Inet6Address(addressBytes, null, interfaceIndex);
-                addresses.add(inet6Address);
-                interfaceAddresses.add(new InterfaceAddress(inet6Address, prefixLength));
-            }
-        } catch (NumberFormatException ex) {
-            throw rethrowAsSocketException(ex);
-        }
-    }
-
-    private static void collectIpv4Address(String interfaceName, List<InetAddress> addresses,
-            List<InterfaceAddress> interfaceAddresses) throws SocketException {
-        FileDescriptor fd = null;
-        try {
-            fd = Libcore.os.socket(AF_INET, SOCK_DGRAM, 0);
-            InetAddress address = Libcore.os.ioctlInetAddress(fd, SIOCGIFADDR, interfaceName);
-            InetAddress broadcast = Libcore.os.ioctlInetAddress(fd, SIOCGIFBRDADDR, interfaceName);
-            InetAddress netmask = Libcore.os.ioctlInetAddress(fd, SIOCGIFNETMASK, interfaceName);
-            if (broadcast.equals(Inet4Address.ANY)) {
-                broadcast = null;
             }
 
-            addresses.add(address);
-            interfaceAddresses.add(new InterfaceAddress((Inet4Address) address,
-                    (Inet4Address) broadcast, (Inet4Address) netmask));
-        } catch (ErrnoException errnoException) {
-            if (errnoException.errno != EADDRNOTAVAIL) {
-                // EADDRNOTAVAIL just means no IPv4 address for this interface.
-                // Anything else is a real error.
-                throw rethrowAsSocketException(errnoException);
-            }
-        } catch (Exception ex) {
-            throw rethrowAsSocketException(ex);
-        } finally {
-            IoUtils.closeQuietly(fd);
-        }
-    }
-
-    @FindBugsSuppressWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
-    private static boolean isValidInterfaceName(String interfaceName) {
-        final String[] interfaceList = SYS_CLASS_NET.list();
-        // We have no interfaces listed under /sys/class/net
-        if (interfaceList == null) {
-            return false;
-        }
-
-        // Don't just stat because a crafty user might have / or .. in the supposed interface name.
-        for (String validName : interfaceList) {
-            if (interfaceName.equals(validName)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static int readIntFile(String path) throws SocketException {
-        try {
-            String s = IoUtils.readFileAsString(path).trim();
-            if (s.startsWith("0x")) {
-                return Integer.parseInt(s.substring(2), 16);
-            } else {
-                return Integer.parseInt(s);
-            }
-        } catch (Exception ex) {
-            throw rethrowAsSocketException(ex);
-        }
-    }
-
-    private static SocketException rethrowAsSocketException(Exception ex) throws SocketException {
-        SocketException result = new SocketException();
-        result.initCause(ex);
-        throw result;
-    }
-
-    /**
-     * Returns the {@code NetworkInterface} corresponding to the given address, or null if no
-     * interface has this address.
-     *
-     * @throws SocketException if an error occurs.
-     * @throws NullPointerException if {@code address == null}.
-     */
-    public static NetworkInterface getByInetAddress(InetAddress address) throws SocketException {
-        if (address == null) {
-            throw new NullPointerException("address == null");
-        }
-        for (NetworkInterface networkInterface : getNetworkInterfacesList()) {
-            if (networkInterface.addresses.contains(address)) {
-                return networkInterface;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Returns the NetworkInterface corresponding to the given interface index, or null if no
-     * interface has this index.
-     *
-     * @throws SocketException if an error occurs.
-     * @since 1.7
-     */
-    public static NetworkInterface getByIndex(int index) throws SocketException {
-        String name = Libcore.os.if_indextoname(index);
-        if (name == null) {
-            return null;
-        }
-        return NetworkInterface.getByName(name);
-    }
-
-    /**
-     * Gets a list of all network interfaces available on the local system or
-     * {@code null} if no interface is available.
-     *
-     * @return the list of {@code NetworkInterface} instances representing the
-     *         available interfaces.
-     * @throws SocketException
-     *             if an error occurs while getting the network interface
-     *             information.
-     */
-    public static Enumeration<NetworkInterface> getNetworkInterfaces() throws SocketException {
-        return Collections.enumeration(getNetworkInterfacesList());
-    }
-
-    @FindBugsSuppressWarnings("DMI_HARDCODED_ABSOLUTE_FILENAME")
-    private static List<NetworkInterface> getNetworkInterfacesList() throws SocketException {
-        String[] interfaceNames = SYS_CLASS_NET.list();
-        NetworkInterface[] interfaces = new NetworkInterface[interfaceNames.length];
-        boolean[] done = new boolean[interfaces.length];
-
-        String[] ifInet6Lines = readIfInet6Lines();
-        for (int i = 0; i < interfaceNames.length; ++i) {
-            interfaces[i] = NetworkInterface.getByNameInternal(interfaceNames[i], ifInet6Lines);
-            // http://b/5833739: getByName can return null if the interface went away between our
-            // readdir(2) and our stat(2), so mark interfaces that disappeared as 'done'.
-            if (interfaces[i] == null) {
-                done[i] = true;
-            }
-        }
-
-        List<NetworkInterface> result = new ArrayList<NetworkInterface>();
-        for (int counter = 0; counter < interfaces.length; counter++) {
-            // If this interface has been dealt with already, continue.
-            if (done[counter]) {
-                continue;
-            }
-
-            // Checks whether the following interfaces are children.
-            for (int counter2 = counter; counter2 < interfaces.length; counter2++) {
-                if (done[counter2]) {
-                    continue;
-                }
-                if (interfaces[counter2].name.startsWith(interfaces[counter].name + ":")) {
-                    interfaces[counter].children.add(interfaces[counter2]);
-                    interfaces[counter2].parent = interfaces[counter];
-                    interfaces[counter].addresses.addAll(interfaces[counter2].addresses);
-                    done[counter2] = true;
+            public InetAddress nextElement() {
+                if (i < count) {
+                    return local_addrs[i++];
+                } else {
+                    throw new NoSuchElementException();
                 }
             }
-            result.add(interfaces[counter]);
-            done[counter] = true;
+
+            public boolean hasMoreElements() {
+                return (i < count);
+            }
         }
-        return result;
+        return new checkedAddresses();
+
     }
 
     /**
-     * Compares the specified object to this {@code NetworkInterface} and
-     * returns whether they are equal or not. The object must be an instance of
-     * {@code NetworkInterface} with the same name, display name, and list
-     * of interface addresses.
+     * Get a List of all or a subset of the <code>InterfaceAddresses</code>
+     * of this network interface.
+     * <p>
+     * If there is a security manager, its <code>checkConnect</code>
+     * method is called with the InetAddress for each InterfaceAddress.
+     * Only InterfaceAddresses where the <code>checkConnect</code> doesn't throw
+     * a SecurityException will be returned in the List.
      *
-     * @param obj
-     *            the object to compare with this instance.
-     * @return {@code true} if the specified object is equal to this {@code
-     *         NetworkInterface}, {@code false} otherwise.
-     * @see #hashCode()
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) {
-            return true;
-        }
-        if (!(obj instanceof NetworkInterface)) {
-            return false;
-        }
-        NetworkInterface rhs = (NetworkInterface) obj;
-        // TODO: should the order of the addresses matter (we use List.equals)?
-        return interfaceIndex == rhs.interfaceIndex &&
-                name.equals(rhs.name) &&
-                addresses.equals(rhs.addresses);
-    }
-
-    /**
-     * Returns the hash code for this {@code NetworkInterface}. Since the
-     * name should be unique for each network interface the hash code is
-     * generated using the name.
-     */
-    @Override public int hashCode() {
-        return name.hashCode();
-    }
-
-    /**
-     * Returns a string containing details of this network interface.
-     * The exact format is deliberately unspecified. Callers that require a specific
-     * format should build a string themselves, using this class' accessor methods.
-     */
-    @Override public String toString() {
-        StringBuilder sb = new StringBuilder(25);
-        sb.append("[");
-        sb.append(name);
-        sb.append("][");
-        sb.append(interfaceIndex);
-        sb.append("]");
-        for (InetAddress address : addresses) {
-            sb.append("[");
-            sb.append(address.toString());
-            sb.append("]");
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Returns a List of the InterfaceAddresses for this network interface.
+     * @return a <code>List</code> object with all or a subset of the
+     *         InterfaceAddresss of this network interface
      * @since 1.6
      */
-    public List<InterfaceAddress> getInterfaceAddresses() {
-        return Collections.unmodifiableList(interfaceAddresses);
+    public java.util.List<InterfaceAddress> getInterfaceAddresses() {
+        java.util.List<InterfaceAddress> lst = new java.util.ArrayList<InterfaceAddress>(1);
+        SecurityManager sec = System.getSecurityManager();
+        for (int j=0; j<bindings.length; j++) {
+            try {
+                if (sec != null) {
+                    sec.checkConnect(bindings[j].getAddress().getHostAddress(), -1);
+                }
+                lst.add(bindings[j]);
+            } catch (SecurityException e) { }
+        }
+        return lst;
     }
 
     /**
-     * Returns an enumeration of all the sub-interfaces of this network interface.
-     * Sub-interfaces are also known as virtual interfaces.
+     * Get an Enumeration with all the subinterfaces (also known as virtual
+     * interfaces) attached to this network interface.
+     * <p>
+     * For instance eth0:1 will be a subinterface to eth0.
      *
-     * <p>For example, {@code eth0:1} would be a sub-interface of {@code eth0}.
-     *
-     * @return an Enumeration of all the sub-interfaces of this network interface
+     * @return an Enumeration object with all of the subinterfaces
+     * of this network interface
      * @since 1.6
      */
     public Enumeration<NetworkInterface> getSubInterfaces() {
-        return Collections.enumeration(children);
+        class subIFs implements Enumeration<NetworkInterface> {
+
+            private int i=0;
+
+            subIFs() {
+            }
+
+            public NetworkInterface nextElement() {
+                if (i < childs.length) {
+                    return childs[i++];
+                } else {
+                    throw new NoSuchElementException();
+                }
+            }
+
+            public boolean hasMoreElements() {
+                return (i < childs.length);
+            }
+        }
+        return new subIFs();
+
     }
 
     /**
-     * Returns the parent NetworkInterface of this interface if this is a
-     * sub-interface, or null if it's a physical (non virtual) interface.
+     * Returns the parent NetworkInterface of this interface if this is
+     * a subinterface, or <code>null</code> if it is a physical
+     * (non virtual) interface or has no parent.
      *
-     * @return the NetworkInterface this interface is attached to.
+     * @return The <code>NetworkInterface</code> this interface is attached to.
      * @since 1.6
      */
     public NetworkInterface getParent() {
@@ -428,104 +219,339 @@ public final class NetworkInterface extends Object {
     }
 
     /**
-     * Returns true if this network interface is up.
+     * Returns the index of this network interface. The index is an integer greater
+     * or equal to zero, or {@code -1} for unknown. This is a system specific value
+     * and interfaces with the same name can have different indexes on different
+     * machines.
      *
-     * @return true if the interface is up.
-     * @throws SocketException if an I/O error occurs.
+     * @return the index of this network interface or {@code -1} if the index is
+     *         unknown
+     * @see #getByIndex(int)
+     * @since 1.7
+     */
+    public int getIndex() {
+        return index;
+    }
+
+    /**
+     * Get the display name of this network interface.
+     * A display name is a human readable String describing the network
+     * device.
+     *
+     * @return a non-empty string representing the display name of this network
+     *         interface, or null if no display name is available.
+     */
+    public String getDisplayName() {
+        /* strict TCK conformance */
+        return "".equals(displayName) ? null : displayName;
+    }
+
+    /**
+     * Searches for the network interface with the specified name.
+     *
+     * @param   name
+     *          The name of the network interface.
+     *
+     * @return  A <tt>NetworkInterface</tt> with the specified name,
+     *          or <tt>null</tt> if there is no network interface
+     *          with the specified name.
+     *
+     * @throws  SocketException
+     *          If an I/O error occurs.
+     *
+     * @throws  NullPointerException
+     *          If the specified name is <tt>null</tt>.
+     */
+    public static NetworkInterface getByName(String name) throws SocketException {
+        if (name == null)
+            throw new NullPointerException();
+        return getByName0(name);
+    }
+
+    /**
+     * Get a network interface given its index.
+     *
+     * @param index an integer, the index of the interface
+     * @return the NetworkInterface obtained from its index, or {@code null} if
+     *         there is no interface with such an index on the system
+     * @throws  SocketException  if an I/O error occurs.
+     * @throws  IllegalArgumentException if index has a negative value
+     * @see #getIndex()
+     * @since 1.7
+     */
+    public static NetworkInterface getByIndex(int index) throws SocketException {
+        if (index < 0)
+            throw new IllegalArgumentException("Interface index can't be negative");
+        return getByIndex0(index);
+    }
+
+    /**
+     * Convenience method to search for a network interface that
+     * has the specified Internet Protocol (IP) address bound to
+     * it.
+     * <p>
+     * If the specified IP address is bound to multiple network
+     * interfaces it is not defined which network interface is
+     * returned.
+     *
+     * @param   addr
+     *          The <tt>InetAddress</tt> to search with.
+     *
+     * @return  A <tt>NetworkInterface</tt>
+     *          or <tt>null</tt> if there is no network interface
+     *          with the specified IP address.
+     *
+     * @throws  SocketException
+     *          If an I/O error occurs.
+     *
+     * @throws  NullPointerException
+     *          If the specified address is <tt>null</tt>.
+     */
+    public static NetworkInterface getByInetAddress(InetAddress addr) throws SocketException {
+        if (addr == null) {
+            throw new NullPointerException();
+        }
+        if (!(addr instanceof Inet4Address || addr instanceof Inet6Address)) {
+            throw new IllegalArgumentException ("invalid address type");
+        }
+        return getByInetAddress0(addr);
+    }
+
+    /**
+     * Returns all the interfaces on this machine. Returns null if no
+     * network interfaces could be found on this machine.
+     *
+     * NOTE: can use getNetworkInterfaces()+getInetAddresses()
+     *       to obtain all IP addresses for this node
+     *
+     * @return an Enumeration of NetworkInterfaces found on this machine
+     * @exception  SocketException  if an I/O error occurs.
+     */
+
+    public static Enumeration<NetworkInterface> getNetworkInterfaces()
+        throws SocketException {
+        final NetworkInterface[] netifs = getAll();
+
+        // specified to return null if no network interfaces
+        if (netifs == null)
+            return null;
+
+        return new Enumeration<NetworkInterface>() {
+            private int i = 0;
+            public NetworkInterface nextElement() {
+                if (netifs != null && i < netifs.length) {
+                    NetworkInterface netif = netifs[i++];
+                    return netif;
+                } else {
+                    throw new NoSuchElementException();
+                }
+            }
+
+            public boolean hasMoreElements() {
+                return (netifs != null && i < netifs.length);
+            }
+        };
+    }
+
+    private native static NetworkInterface[] getAll()
+        throws SocketException;
+
+    private native static NetworkInterface getByName0(String name)
+        throws SocketException;
+
+    private native static NetworkInterface getByIndex0(int index)
+        throws SocketException;
+
+    private native static NetworkInterface getByInetAddress0(InetAddress addr)
+        throws SocketException;
+
+    /**
+     * Returns whether a network interface is up and running.
+     *
+     * @return  <code>true</code> if the interface is up and running.
+     * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
+
     public boolean isUp() throws SocketException {
-        return hasFlag(IFF_UP);
+        return isUp0(name, index);
     }
 
     /**
-     * Returns true if this network interface is a loopback interface.
+     * Returns whether a network interface is a loopback interface.
      *
-     * @return true if the interface is a loopback interface.
-     * @throws SocketException if an I/O error occurs.
+     * @return  <code>true</code> if the interface is a loopback interface.
+     * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
+
     public boolean isLoopback() throws SocketException {
-        return hasFlag(IFF_LOOPBACK);
+        return isLoopback0(name, index);
     }
 
     /**
-     * Returns true if this network interface is a point-to-point interface.
-     * (For example, a PPP connection using a modem.)
+     * Returns whether a network interface is a point to point interface.
+     * A typical point to point interface would be a PPP connection through
+     * a modem.
      *
-     * @return true if the interface is point-to-point.
-     * @throws SocketException if an I/O error occurs.
+     * @return  <code>true</code> if the interface is a point to point
+     *          interface.
+     * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
+
     public boolean isPointToPoint() throws SocketException {
-        return hasFlag(IFF_POINTOPOINT);
+        return isP2P0(name, index);
     }
 
     /**
-     * Returns true if this network interface supports multicast.
+     * Returns whether a network interface supports multicasting or not.
      *
-     * @throws SocketException if an I/O error occurs.
+     * @return  <code>true</code> if the interface supports Multicasting.
+     * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
-    public boolean supportsMulticast() throws SocketException {
-        return hasFlag(IFF_MULTICAST);
-    }
 
-    private boolean hasFlag(int mask) throws SocketException {
-        int flags = readIntFile("/sys/class/net/" + name + "/flags");
-        return (flags & mask) != 0;
+    public boolean supportsMulticast() throws SocketException {
+        return supportsMulticast0(name, index);
     }
 
     /**
-     * Returns the hardware address of the interface, if it has one, or null otherwise.
+     * Returns the hardware address (usually MAC) of the interface if it
+     * has one and if it can be accessed given the current privileges.
+     * If a security manager is set, then the caller must have
+     * the permission {@link NetPermission}("getNetworkInformation").
      *
-     * @throws SocketException if an I/O error occurs.
+     * @return  a byte array containing the address, or <code>null</code> if
+     *          the address doesn't exist, is not accessible or a security
+     *          manager is set and the caller does not have the permission
+     *          NetPermission("getNetworkInformation")
+     *
+     * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
     public byte[] getHardwareAddress() throws SocketException {
-        try {
-            // Parse colon-separated bytes with a trailing newline: "aa:bb:cc:dd:ee:ff\n".
-            String s = IoUtils.readFileAsString("/sys/class/net/" + name + "/address");
-            byte[] result = new byte[s.length()/3];
-            for (int i = 0; i < result.length; ++i) {
-                result[i] = (byte) Integer.parseInt(s.substring(3*i, 3*i + 2), 16);
-            }
-            // We only want to return non-zero hardware addresses.
-            for (int i = 0; i < result.length; ++i) {
-                if (result[i] != 0) {
-                    return result;
-                }
-            }
-            return null;
-        } catch (Exception ex) {
-            throw rethrowAsSocketException(ex);
+        // Android chage - do not use the cached address, fetch
+        // the object again. NI might not be valid anymore.
+        NetworkInterface ni = getByName0(name);
+        if (ni == null) {
+            throw new SocketException("NetworkInterface doesn't exist anymore");
         }
+        return ni.hardwareAddr;
     }
 
     /**
      * Returns the Maximum Transmission Unit (MTU) of this interface.
      *
-     * @return the value of the MTU for the interface.
-     * @throws SocketException if an I/O error occurs.
+     * @return the value of the MTU for that interface.
+     * @exception       SocketException if an I/O error occurs.
      * @since 1.6
      */
     public int getMTU() throws SocketException {
-        return readIntFile("/sys/class/net/" + name + "/mtu");
+        return getMTU0(name, index);
     }
 
     /**
-     * Returns true if this interface is a virtual interface (also called
-     * a sub-interface). Virtual interfaces are, on some systems, interfaces
-     * created as a child of a physical interface and given different settings
-     * (like address or MTU). Usually the name of the interface will the name of
-     * the parent followed by a colon (:) and a number identifying the child,
-     * since there can be several virtual interfaces attached to a single
-     * physical interface.
+     * Returns whether this interface is a virtual interface (also called
+     * subinterface).
+     * Virtual interfaces are, on some systems, interfaces created as a child
+     * of a physical interface and given different settings (like address or
+     * MTU). Usually the name of the interface will the name of the parent
+     * followed by a colon (:) and a number identifying the child since there
+     * can be several virtual interfaces attached to a single physical
+     * interface.
      *
-     * @return true if this interface is a virtual interface.
+     * @return <code>true</code> if this interface is a virtual interface.
      * @since 1.6
      */
     public boolean isVirtual() {
-        return parent != null;
+        return virtual;
+    }
+
+    private native static boolean isUp0(String name, int ind) throws SocketException;
+    private native static boolean isLoopback0(String name, int ind) throws SocketException;
+    private native static boolean supportsMulticast0(String name, int ind) throws SocketException;
+    private native static boolean isP2P0(String name, int ind) throws SocketException;
+    private native static int getMTU0(String name, int ind) throws SocketException;
+
+    /**
+     * Compares this object against the specified object.
+     * The result is <code>true</code> if and only if the argument is
+     * not <code>null</code> and it represents the same NetworkInterface
+     * as this object.
+     * <p>
+     * Two instances of <code>NetworkInterface</code> represent the same
+     * NetworkInterface if both name and addrs are the same for both.
+     *
+     * @param   obj   the object to compare against.
+     * @return  <code>true</code> if the objects are the same;
+     *          <code>false</code> otherwise.
+     * @see     java.net.InetAddress#getAddress()
+     */
+    public boolean equals(Object obj) {
+        if (!(obj instanceof NetworkInterface)) {
+            return false;
+        }
+        NetworkInterface that = (NetworkInterface)obj;
+        if (this.name != null ) {
+            if (!this.name.equals(that.name)) {
+                return false;
+            }
+        } else {
+            if (that.name != null) {
+                return false;
+            }
+        }
+
+        if (this.addrs == null) {
+            return that.addrs == null;
+        } else if (that.addrs == null) {
+            return false;
+        }
+
+        /* Both addrs not null. Compare number of addresses */
+
+        if (this.addrs.length != that.addrs.length) {
+            return false;
+        }
+
+        InetAddress[] thatAddrs = that.addrs;
+        int count = thatAddrs.length;
+
+        for (int i=0; i<count; i++) {
+            boolean found = false;
+            for (int j=0; j<count; j++) {
+                if (addrs[i].equals(thatAddrs[j])) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public int hashCode() {
+        return name == null? 0: name.hashCode();
+    }
+
+    public String toString() {
+        String result = "name:";
+        result += name == null? "null": name;
+        if (displayName != null) {
+            result += " (" + displayName + ")";
+        }
+        return result;
+    }
+
+    /**
+     * Returns the default network interface of this system
+     *
+     * @return the default interface
+     */
+    static NetworkInterface getDefault() {
+        return defaultInterface;
     }
 }

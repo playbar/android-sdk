@@ -120,7 +120,8 @@ public class MediaRouteButton extends View {
     }
 
     public MediaRouteButton(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(MediaRouterThemeHelper.createThemedContext(context), attrs, defStyleAttr);
+        super(MediaRouterThemeHelper.createThemedContext(context, defStyleAttr), attrs,
+                defStyleAttr);
         context = getContext();
 
         mRouter = MediaRouter.getInstance(context);
@@ -136,6 +137,7 @@ public class MediaRouteButton extends View {
                 R.styleable.MediaRouteButton_android_minHeight, 0);
         a.recycle();
 
+        updateContentDescription();
         setClickable(true);
         setLongClickable(true);
     }
@@ -230,7 +232,7 @@ public class MediaRouteButton extends View {
         }
 
         MediaRouter.RouteInfo route = mRouter.getSelectedRoute();
-        if (route.isDefault() || !route.matchesSelector(mSelector)) {
+        if (route.isDefaultOrBluetooth() || !route.matchesSelector(mSelector)) {
             if (fm.findFragmentByTag(CHOOSER_FRAGMENT_TAG) != null) {
                 Log.w(TAG, "showDialog(): Route chooser dialog already showing!");
                 return false;
@@ -299,12 +301,6 @@ public class MediaRouteButton extends View {
             return false;
         }
 
-        final CharSequence contentDesc = getContentDescription();
-        if (TextUtils.isEmpty(contentDesc)) {
-            // Don't show the cheat sheet if we have no description
-            return false;
-        }
-
         final int[] screenPos = new int[2];
         final Rect displayFrame = new Rect();
         getLocationOnScreen(screenPos);
@@ -316,7 +312,8 @@ public class MediaRouteButton extends View {
         final int midy = screenPos[1] + height / 2;
         final int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
 
-        Toast cheatSheet = Toast.makeText(context, contentDesc, Toast.LENGTH_SHORT);
+        Toast cheatSheet = Toast.makeText(context, R.string.mr_button_content_description,
+                Toast.LENGTH_SHORT);
         if (midy < displayFrame.height()) {
             // Show along the top; follow action buttons
             cheatSheet.setGravity(Gravity.TOP | GravityCompat.END,
@@ -431,40 +428,40 @@ public class MediaRouteButton extends View {
         final int widthMode = MeasureSpec.getMode(widthMeasureSpec);
         final int heightMode = MeasureSpec.getMode(heightMeasureSpec);
 
-        final int minWidth = Math.max(mMinWidth,
-                mRemoteIndicator != null ? mRemoteIndicator.getIntrinsicWidth() : 0);
-        final int minHeight = Math.max(mMinHeight,
-                mRemoteIndicator != null ? mRemoteIndicator.getIntrinsicHeight() : 0);
+        final int width = Math.max(mMinWidth, mRemoteIndicator != null ?
+                mRemoteIndicator.getIntrinsicWidth() + getPaddingLeft() + getPaddingRight() : 0);
+        final int height = Math.max(mMinHeight, mRemoteIndicator != null ?
+                mRemoteIndicator.getIntrinsicHeight() + getPaddingTop() + getPaddingBottom() : 0);
 
-        int width;
+        int measuredWidth;
         switch (widthMode) {
             case MeasureSpec.EXACTLY:
-                width = widthSize;
+                measuredWidth = widthSize;
                 break;
             case MeasureSpec.AT_MOST:
-                width = Math.min(widthSize, minWidth + getPaddingLeft() + getPaddingRight());
+                measuredWidth = Math.min(widthSize, width);
                 break;
             default:
             case MeasureSpec.UNSPECIFIED:
-                width = minWidth + getPaddingLeft() + getPaddingRight();
+                measuredWidth = width;
                 break;
         }
 
-        int height;
+        int measuredHeight;
         switch (heightMode) {
             case MeasureSpec.EXACTLY:
-                height = heightSize;
+                measuredHeight = heightSize;
                 break;
             case MeasureSpec.AT_MOST:
-                height = Math.min(heightSize, minHeight + getPaddingTop() + getPaddingBottom());
+                measuredHeight = Math.min(heightSize, height);
                 break;
             default:
             case MeasureSpec.UNSPECIFIED:
-                height = minHeight + getPaddingTop() + getPaddingBottom();
+                measuredHeight = height;
                 break;
         }
 
-        setMeasuredDimension(width, height);
+        setMeasuredDimension(measuredWidth, measuredHeight);
     }
 
     @Override
@@ -488,10 +485,11 @@ public class MediaRouteButton extends View {
         }
     }
 
-    private void refreshRoute() {
+    void refreshRoute() {
         if (mAttachedToWindow) {
             final MediaRouter.RouteInfo route = mRouter.getSelectedRoute();
-            final boolean isRemote = !route.isDefault() && route.matchesSelector(mSelector);
+            final boolean isRemote = !route.isDefaultOrBluetooth()
+                    && route.matchesSelector(mSelector);
             final boolean isConnecting = isRemote && route.isConnecting();
 
             boolean needsRefresh = false;
@@ -505,8 +503,9 @@ public class MediaRouteButton extends View {
             }
 
             if (needsRefresh) {
+                updateContentDescription();
                 refreshDrawableState();
-                if (mIsConnecting && mRemoteIndicator.getCurrent() instanceof AnimationDrawable) {
+                if (mRemoteIndicator.getCurrent() instanceof AnimationDrawable) {
                     AnimationDrawable curDrawable =
                             (AnimationDrawable) mRemoteIndicator.getCurrent();
                     if (!curDrawable.isRunning()) {
@@ -520,7 +519,22 @@ public class MediaRouteButton extends View {
         }
     }
 
+    private void updateContentDescription() {
+        int resId;
+        if (mIsConnecting) {
+            resId = R.string.mr_cast_button_connecting;
+        } else if (mRemoteActive) {
+            resId = R.string.mr_cast_button_connected;
+        } else {
+            resId = R.string.mr_cast_button_disconnected;
+        }
+        setContentDescription(getContext().getString(resId));
+    }
+
     private final class MediaRouterCallback extends MediaRouter.Callback {
+        MediaRouterCallback() {
+        }
+
         @Override
         public void onRouteAdded(MediaRouter router, MediaRouter.RouteInfo info) {
             refreshRoute();

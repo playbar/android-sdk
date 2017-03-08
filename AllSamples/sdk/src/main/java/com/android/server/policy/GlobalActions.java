@@ -18,6 +18,9 @@ package com.android.server.policy;
 
 import com.android.internal.app.AlertController;
 import com.android.internal.app.AlertController.AlertParams;
+import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.policy.EmergencyAffordanceManager;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.R;
@@ -25,7 +28,6 @@ import com.android.internal.widget.LockPatternUtils;
 
 import android.app.ActivityManager;
 import android.app.ActivityManagerNative;
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -101,6 +103,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     private static final String GLOBAL_ACTION_KEY_LOCKDOWN = "lockdown";
     private static final String GLOBAL_ACTION_KEY_VOICEASSIST = "voiceassist";
     private static final String GLOBAL_ACTION_KEY_ASSIST = "assist";
+    private static final String GLOBAL_ACTION_KEY_RESTART = "restart";
 
     private final Context mContext;
     private final WindowManagerFuncs mWindowManagerFuncs;
@@ -122,6 +125,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     private boolean mHasTelephony;
     private boolean mHasVibrator;
     private final boolean mShowSilentToggle;
+    private final EmergencyAffordanceManager mEmergencyAffordanceManager;
 
     /**
      * @param context everything needs a context :(
@@ -156,6 +160,8 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
         mShowSilentToggle = SHOW_SILENT_TOGGLE && !mContext.getResources().getBoolean(
                 com.android.internal.R.bool.config_useFixedVolume);
+
+        mEmergencyAffordanceManager = new EmergencyAffordanceManager(context);
     }
 
     /**
@@ -278,7 +284,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
             } else if (GLOBAL_ACTION_KEY_BUGREPORT.equals(actionKey)) {
                 if (Settings.Global.getInt(mContext.getContentResolver(),
                         Settings.Global.BUGREPORT_IN_POWER_MENU, 0) != 0 && isCurrentUserOwner()) {
-                    mItems.add(getBugReportAction());
+                    mItems.add(new BugReportAction());
                 }
             } else if (GLOBAL_ACTION_KEY_SILENT.equals(actionKey)) {
                 if (mShowSilentToggle) {
@@ -296,11 +302,17 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
                 mItems.add(getVoiceAssistAction());
             } else if (GLOBAL_ACTION_KEY_ASSIST.equals(actionKey)) {
                 mItems.add(getAssistAction());
+            } else if (GLOBAL_ACTION_KEY_RESTART.equals(actionKey)) {
+                mItems.add(new RestartAction());
             } else {
                 Log.e(TAG, "Invalid global action key " + actionKey);
             }
             // Add here so we don't add more than one.
             addedKeys.add(actionKey);
+        }
+
+        if (mEmergencyAffordanceManager.needsEmergencyAffordance()) {
+            mItems.add(getEmergencyAction());
         }
 
         mAdapter = new MyAdapter();
@@ -367,59 +379,102 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         }
     }
 
-    private Action getBugReportAction() {
-        return new SinglePressAction(com.android.internal.R.drawable.ic_lock_bugreport,
-                R.string.bugreport_title) {
+    private final class RestartAction extends SinglePressAction implements LongPressAction {
+        private RestartAction() {
+            super(R.drawable.ic_restart, R.string.global_action_restart);
+        }
 
-            public void onPress() {
-                AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
-                builder.setTitle(com.android.internal.R.string.bugreport_title);
-                builder.setMessage(com.android.internal.R.string.bugreport_message);
-                builder.setNegativeButton(com.android.internal.R.string.cancel, null);
-                builder.setPositiveButton(com.android.internal.R.string.report,
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                // don't actually trigger the bugreport if we are running stability
-                                // tests via monkey
-                                if (ActivityManager.isUserAMonkey()) {
-                                    return;
-                                }
-                                // Add a little delay before executing, to give the
-                                // dialog a chance to go away before it takes a
-                                // screenshot.
-                                mHandler.postDelayed(new Runnable() {
-                                    @Override public void run() {
-                                        try {
-                                            ActivityManagerNative.getDefault()
-                                                    .requestBugReport();
-                                        } catch (RemoteException e) {
-                                        }
-                                    }
-                                }, 500);
-                            }
-                        });
-                AlertDialog dialog = builder.create();
-                dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG);
-                dialog.show();
-            }
-
-            public boolean showDuringKeyguard() {
+        @Override
+        public boolean onLongPress() {
+            UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
+            if (!um.hasUserRestriction(UserManager.DISALLOW_SAFE_BOOT)) {
+                mWindowManagerFuncs.rebootSafeMode(true);
                 return true;
             }
+            return false;
+        }
 
-            public boolean showBeforeProvisioning() {
+        @Override
+        public boolean showDuringKeyguard() {
+            return true;
+        }
+
+        @Override
+        public boolean showBeforeProvisioning() {
+            return true;
+        }
+
+        @Override
+        public void onPress() {
+            mWindowManagerFuncs.reboot(false /* confirm */);
+        }
+    }
+
+
+    private class BugReportAction extends SinglePressAction implements LongPressAction {
+
+        public BugReportAction() {
+            super(com.android.internal.R.drawable.ic_lock_bugreport, R.string.bugreport_title);
+        }
+
+        @Override
+        public void onPress() {
+            // don't actually trigger the bugreport if we are running stability
+            // tests via monkey
+            if (ActivityManager.isUserAMonkey()) {
+                return;
+            }
+            // Add a little delay before executing, to give the
+            // dialog a chance to go away before it takes a
+            // screenshot.
+            mHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        // Take an "interactive" bugreport.
+                        MetricsLogger.action(mContext,
+                                MetricsEvent.ACTION_BUGREPORT_FROM_POWER_MENU_INTERACTIVE);
+                        ActivityManagerNative.getDefault().requestBugReport(
+                                ActivityManager.BUGREPORT_OPTION_INTERACTIVE);
+                    } catch (RemoteException e) {
+                    }
+                }
+            }, 500);
+        }
+
+        @Override
+        public boolean onLongPress() {
+            // don't actually trigger the bugreport if we are running stability
+            // tests via monkey
+            if (ActivityManager.isUserAMonkey()) {
                 return false;
             }
-
-            @Override
-            public String getStatus() {
-                return mContext.getString(
-                        com.android.internal.R.string.bugreport_status,
-                        Build.VERSION.RELEASE,
-                        Build.ID);
+            try {
+                // Take a "full" bugreport.
+                MetricsLogger.action(mContext, MetricsEvent.ACTION_BUGREPORT_FROM_POWER_MENU_FULL);
+                ActivityManagerNative.getDefault().requestBugReport(
+                        ActivityManager.BUGREPORT_OPTION_FULL);
+            } catch (RemoteException e) {
             }
-        };
+            return false;
+        }
+
+        public boolean showDuringKeyguard() {
+            return true;
+        }
+
+        @Override
+        public boolean showBeforeProvisioning() {
+            return false;
+        }
+
+        @Override
+        public String getStatus() {
+            return mContext.getString(
+                    com.android.internal.R.string.bugreport_status,
+                    Build.VERSION.RELEASE,
+                    Build.ID);
+        }
     }
 
     private Action getSettingsAction() {
@@ -431,6 +486,26 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
                 Intent intent = new Intent(Settings.ACTION_SETTINGS);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 mContext.startActivity(intent);
+            }
+
+            @Override
+            public boolean showDuringKeyguard() {
+                return true;
+            }
+
+            @Override
+            public boolean showBeforeProvisioning() {
+                return true;
+            }
+        };
+    }
+
+    private Action getEmergencyAction() {
+        return new SinglePressAction(com.android.internal.R.drawable.emergency_icon,
+                R.string.global_action_emergency) {
+            @Override
+            public void onPress() {
+                mEmergencyAffordanceManager.performEmergencyCall();
             }
 
             @Override
@@ -534,7 +609,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
             List<UserInfo> users = um.getUsers();
             UserInfo currentUser = getCurrentUser();
             for (final UserInfo user : users) {
-                if (user.supportsSwitchTo()) {
+                if (user.supportsSwitchToByUser()) {
                     boolean isCurrentUser = currentUser == null
                             ? user.id == 0 : (currentUser.id == user.id);
                     Drawable icon = user.iconPath != null ? Drawable.createFromPath(user.iconPath)
@@ -739,13 +814,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
             mMessageResId = 0;
             mMessage = message;
             mIcon = icon;
-        }
-
-        protected SinglePressAction(int iconResId, CharSequence message) {
-            mIconResId = iconResId;
-            mMessageResId = 0;
-            mMessage = message;
-            mIcon = null;
         }
 
         public boolean isEnabled() {
@@ -1139,7 +1207,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         public GlobalActionsDialog(Context context, AlertParams params) {
             super(context, getDialogTheme(context));
             mContext = getContext();
-            mAlert = new AlertController(mContext, this, getWindow());
+            mAlert = AlertController.create(mContext, this, getWindow());
             mAdapter = (MyAdapter) params.mAdapter;
             mWindowTouchSlop = ViewConfiguration.get(context).getScaledWindowTouchSlop();
             params.apply(mAlert);

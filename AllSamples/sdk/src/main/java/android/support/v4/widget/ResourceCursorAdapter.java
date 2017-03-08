@@ -33,9 +33,9 @@ public abstract class ResourceCursorAdapter extends CursorAdapter {
     private int mLayout;
 
     private int mDropDownLayout;
-    
+
     private LayoutInflater mInflater;
-    
+
     /**
      * Constructor the enables auto-requery.
      *
@@ -55,13 +55,18 @@ public abstract class ResourceCursorAdapter extends CursorAdapter {
         mLayout = mDropDownLayout = layout;
         mInflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
     }
-    
+
     /**
      * Constructor with default behavior as per
      * {@link CursorAdapter#CursorAdapter(Context, Cursor, boolean)}; it is recommended
      * you not use this, but instead {@link #ResourceCursorAdapter(Context, int, Cursor, int)}.
      * When using this constructor, {@link #FLAG_REGISTER_CONTENT_OBSERVER}
      * will always be set.
+     *
+     * @deprecated This option is discouraged, as it results in Cursor queries
+     * being performed on the application's UI thread and thus can cause poor
+     * responsiveness or even Application Not Responding errors.  As an alternative,
+     * use {@link android.app.LoaderManager} with a {@link android.content.CursorLoader}.
      *
      * @param context The context where the ListView associated with this adapter is running
      * @param layout resource identifier of a layout file that defines the views
@@ -72,6 +77,7 @@ public abstract class ResourceCursorAdapter extends CursorAdapter {
      *                    cursor whenever it changes so the most recent
      *                    data is always displayed.  Using true here is discouraged.
      */
+    @Deprecated
     public ResourceCursorAdapter(Context context, int layout, Cursor c, boolean autoRequery) {
         super(context, c, autoRequery);
         mLayout = mDropDownLayout = layout;
@@ -97,7 +103,7 @@ public abstract class ResourceCursorAdapter extends CursorAdapter {
 
     /**
      * Inflates view(s) from the specified XML file.
-     * 
+     *
      * @see android.widget.CursorAdapter#newView(android.content.Context,
      *      android.database.Cursor, ViewGroup)
      */
@@ -119,7 +125,7 @@ public abstract class ResourceCursorAdapter extends CursorAdapter {
     public void setViewResource(int layout) {
         mLayout = layout;
     }
-    
+
     /**
      * <p>Sets the layout resource of the drop down views.</p>
      *

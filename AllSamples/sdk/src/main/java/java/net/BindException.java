@@ -1,51 +1,60 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (c) 1996, 2008, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.net;
 
 /**
- * A {@code BindException} is thrown when a process cannot bind a local
- * address/port, either because it is already bound or reserved by the OS.
+ * Signals that an error occurred while attempting to bind a
+ * socket to a local address and port.  Typically, the port is
+ * in use, or the requested local address could not be assigned.
  *
- * <p>Most applications <strong>should not</strong> catch this exception; it is
- * more robust to catch the superclass {@code SocketException}.
+ * @since   JDK1.1
  */
-public class BindException extends SocketException {
 
+public class BindException extends SocketException {
     private static final long serialVersionUID = -5945005768251722951L;
 
     /**
-     * Constructs a new instance.
+     * Constructs a new BindException with the specified detail
+     * message as to why the bind error occurred.
+     * A detail message is a String that gives a specific
+     * description of this error.
+     * @param msg the detail message
      */
-    public BindException() {
+    public BindException(String msg) {
+        super(msg);
     }
 
     /**
-     * Constructs a new instance with the given detail message.
+     * Construct a new BindException with no detailed message.
      */
-    public BindException(String detailMessage) {
-        super(detailMessage);
-    }
+    public BindException() {}
 
-    /**
-     * Constructs a new instance with the given detail message and cause.
-     * @hide
-     */
-    public BindException(String detailMessage, Throwable cause) {
-        super(detailMessage, cause);
+    /** @hide */
+    public BindException(String msg, Throwable cause) {
+        super(msg, cause);
     }
 }

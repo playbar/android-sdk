@@ -84,7 +84,8 @@ public class KernelUidCpuTimeReader {
                     powerMaUs = 0;
                 }
 
-                if (callback != null) {
+                // Only report if there is a callback and if this is not the first read.
+                if (callback != null && mLastTimeReadUs != 0) {
                     long userTimeDeltaUs = userTimeUs;
                     long systemTimeDeltaUs = systemTimeUs;
                     long powerDeltaMaUs = powerMaUs;
@@ -119,7 +120,7 @@ public class KernelUidCpuTimeReader {
                             sb.append(" s=");
                             TimeUtils.formatDuration(systemTimeDeltaUs / 1000, sb);
                             sb.append(" p=").append(powerDeltaMaUs / 1000).append("mAms");
-                            Slog.wtf(TAG, sb.toString());
+                            Slog.e(TAG, sb.toString());
 
                             userTimeDeltaUs = 0;
                             systemTimeDeltaUs = 0;
@@ -137,7 +138,7 @@ public class KernelUidCpuTimeReader {
                 mLastPowerMaUs.put(uid, powerMaUs);
             }
         } catch (IOException e) {
-            Slog.e(TAG, "Failed to read uid_cputime", e);
+            Slog.e(TAG, "Failed to read uid_cputime: " + e.getMessage());
         }
         mLastTimeReadUs = nowUs;
     }

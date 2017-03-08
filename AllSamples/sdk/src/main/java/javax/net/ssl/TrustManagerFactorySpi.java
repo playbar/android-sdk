@@ -1,66 +1,82 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1999, 2008, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package javax.net.ssl;
 
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
+import java.security.*;
 
 /**
- * The <i>Service Provider Interface</i> (SPI) for the
- * {@code TrustManagerFactory} class.
+ * This class defines the <i>Service Provider Interface</i> (<b>SPI</b>)
+ * for the <code>TrustManagerFactory</code> class.
+ *
+ * <p> All the abstract methods in this class must be implemented by each
+ * cryptographic service provider who wishes to supply the implementation
+ * of a particular trust manager factory.
+ *
+ * @since 1.4
+ * @see TrustManagerFactory
+ * @see TrustManager
  */
 public abstract class TrustManagerFactorySpi {
-
     /**
-     * Creates a new {@code TrustManagerFactorySpi} instance.
-     */
-    public TrustManagerFactorySpi() {
-    }
-
-    /**
-     * Initializes this factory instance with the specified keystore as source
-     * of certificate authorities and trust material.
+     * Initializes this factory with a source of certificate
+     * authorities and related trust material.
      *
-     * @param ks
-     *            the keystore or {@code null}.
-     * @throws KeyStoreException
-     *             if the initialization fails.
+     * @param ks the key store or null
+     * @throws KeyStoreException if this operation fails
+     * @see TrustManagerFactory#init(KeyStore)
      */
     protected abstract void engineInit(KeyStore ks) throws KeyStoreException;
 
     /**
-     * Initializes this factory instance with the specified provider-specific
-     * parameters for a source of trust material.
+     * Initializes this factory with a source of provider-specific
+     * key material.
+     * <P>
+     * In some cases, initialization parameters other than a keystore
+     * may be needed by a provider.  Users of that
+     * particular provider are expected to pass an implementation of
+     * the appropriate <CODE>ManagerFactoryParameters</CODE> as
+     * defined by the provider.  The provider can then call the
+     * specified methods in the <CODE>ManagerFactoryParameters</CODE>
+     * implementation to obtain the needed information.
      *
-     * @param spec
-     *            the provider-specific parameters.
-     * @throws InvalidAlgorithmParameterException
-     *             if the initialization fails.
+     * @param spec an implementation of a provider-specific parameter
+     *          specification
+     * @throws InvalidAlgorithmParameterException if there is problem
+     *          with the parameters
+     * @see TrustManagerFactory#init(ManagerFactoryParameters spec)
      */
     protected abstract void engineInit(ManagerFactoryParameters spec)
-            throws InvalidAlgorithmParameterException;
+        throws InvalidAlgorithmParameterException;
 
     /**
-     * Returns the list of {@code TrustManager}s with one entry for each type
-     * of trust material.
+     * Returns one trust manager for each type of trust material.
      *
-     * @return the list of {@code TrustManager}s
+     * @throws IllegalStateException if the factory is not initialized.
+     *
+     * @return the trust managers
      */
     protected abstract TrustManager[] engineGetTrustManagers();
 }

@@ -18,7 +18,6 @@ package android.support.design.widget;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Parcel;
@@ -28,22 +27,31 @@ import android.support.annotation.IdRes;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StyleRes;
 import android.support.design.R;
 import android.support.design.internal.NavigationMenu;
 import android.support.design.internal.NavigationMenuPresenter;
 import android.support.design.internal.ScrimInsetsFrameLayout;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.os.ParcelableCompat;
+import android.support.v4.os.ParcelableCompatCreatorCallbacks;
+import android.support.v4.view.AbsSavedState;
 import android.support.v4.view.ViewCompat;
-import android.support.v7.internal.view.SupportMenuInflater;
-import android.support.v7.internal.view.menu.MenuBuilder;
-import android.support.v7.internal.view.menu.MenuItemImpl;
+import android.support.v4.view.WindowInsetsCompat;
+import android.support.v7.content.res.AppCompatResources;
+import android.support.v7.view.SupportMenuInflater;
+import android.support.v7.view.menu.MenuBuilder;
+import android.support.v7.view.menu.MenuItemImpl;
+import android.support.v7.widget.TintTypedArray;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Represents a standard navigation menu for application. The menu contents can be populated
@@ -79,7 +87,7 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     private final NavigationMenu mMenu;
     private final NavigationMenuPresenter mPresenter = new NavigationMenuPresenter();
 
-    private OnNavigationItemSelectedListener mListener;
+    OnNavigationItemSelectedListener mListener;
     private int mMaxWidth;
 
     private MenuInflater mMenuInflater;
@@ -95,16 +103,18 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     public NavigationView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
+        ThemeUtils.checkAppCompatTheme(context);
+
         // Create the menu
         mMenu = new NavigationMenu(context);
 
         // Custom attributes
-        TypedArray a = context.obtainStyledAttributes(attrs,
+        TintTypedArray a = TintTypedArray.obtainStyledAttributes(context, attrs,
                 R.styleable.NavigationView, defStyleAttr,
                 R.style.Widget_Design_NavigationView);
 
-        //noinspection deprecation
-        setBackgroundDrawable(a.getDrawable(R.styleable.NavigationView_android_background));
+        ViewCompat.setBackground(
+                this, a.getDrawable(R.styleable.NavigationView_android_background));
         if (a.hasValue(R.styleable.NavigationView_elevation)) {
             ViewCompat.setElevation(this, a.getDimensionPixelSize(
                     R.styleable.NavigationView_elevation, 0));
@@ -182,17 +192,22 @@ public class NavigationView extends ScrimInsetsFrameLayout {
 
     @Override
     protected void onRestoreInstanceState(Parcelable savedState) {
+        if (!(savedState instanceof SavedState)) {
+            super.onRestoreInstanceState(savedState);
+            return;
+        }
         SavedState state = (SavedState) savedState;
         super.onRestoreInstanceState(state.getSuperState());
         mMenu.restorePresenterStates(state.menuState);
     }
 
     /**
-     * Set a listener that will be notified when a menu item is clicked.
+     * Set a listener that will be notified when a menu item is selected.
      *
      * @param listener The listener to notify
      */
-    public void setNavigationItemSelectedListener(OnNavigationItemSelectedListener listener) {
+    public void setNavigationItemSelectedListener(
+            @Nullable OnNavigationItemSelectedListener listener) {
         mListener = listener;
     }
 
@@ -214,6 +229,14 @@ public class NavigationView extends ScrimInsetsFrameLayout {
         super.onMeasure(widthSpec, heightSpec);
     }
 
+    /**
+     * @hide
+     */
+    @RestrictTo(GROUP_ID)
+    @Override
+    protected void onInsetsChanged(WindowInsetsCompat insets) {
+        mPresenter.dispatchApplyWindowInsets(insets);
+    }
 
     /**
      * Inflate a menu resource into this navigation view.
@@ -265,7 +288,27 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     }
 
     /**
-     * Returns the tint which is applied to our item's icons.
+     * Gets the number of headers in this NavigationView.
+     *
+     * @return A positive integer representing the number of headers.
+     */
+    public int getHeaderCount() {
+        return mPresenter.getHeaderCount();
+    }
+
+    /**
+     * Gets the header view at the specified position.
+     *
+     * @param index The position at which to get the view from.
+     * @return The header view the specified position or null if the position does not exist in this
+     * NavigationView.
+     */
+    public View getHeaderView(int index) {
+        return mPresenter.getHeaderView(index);
+    }
+
+    /**
+     * Returns the tint which is applied to our menu items' icons.
      *
      * @see #setItemIconTintList(ColorStateList)
      *
@@ -277,7 +320,7 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     }
 
     /**
-     * Set the tint which is applied to our item's icons.
+     * Set the tint which is applied to our menu items' icons.
      *
      * @param tint the tint to apply.
      *
@@ -288,7 +331,7 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     }
 
     /**
-     * Returns the tint which is applied to our item's icons.
+     * Returns the tint which is applied to our menu items' icons.
      *
      * @see #setItemTextColor(ColorStateList)
      *
@@ -300,7 +343,7 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     }
 
     /**
-     * Set the text color which is text to our items.
+     * Set the text color to be used on our menu items.
      *
      * @see #getItemTextColor()
      *
@@ -311,18 +354,19 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     }
 
     /**
-     * Returns the background drawable for the menu items.
+     * Returns the background drawable for our menu items.
      *
      * @see #setItemBackgroundResource(int)
      *
      * @attr ref R.styleable#NavigationView_itemBackground
      */
+    @Nullable
     public Drawable getItemBackground() {
         return mPresenter.getItemBackground();
     }
 
     /**
-     * Set the background of the menu items to the given resource.
+     * Set the background of our menu items to the given resource.
      *
      * @param resId The identifier of the resource.
      *
@@ -333,12 +377,12 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     }
 
     /**
-     * Set the background of the menu items to a given resource. The resource should refer to
-     * a Drawable object or 0 to use the background background.
+     * Set the background of our menu items to a given resource. The resource should refer to
+     * a Drawable object or null to use the default background set on this navigation menu.
      *
      * @attr ref R.styleable#NavigationView_itemBackground
      */
-    public void setItemBackground(Drawable itemBackground) {
+    public void setItemBackground(@Nullable Drawable itemBackground) {
         mPresenter.setItemBackground(itemBackground);
     }
 
@@ -371,12 +415,14 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     }
 
     private ColorStateList createDefaultColorStateList(int baseColorThemeAttr) {
-        TypedValue value = new TypedValue();
+        final TypedValue value = new TypedValue();
         if (!getContext().getTheme().resolveAttribute(baseColorThemeAttr, value, true)) {
             return null;
         }
-        ColorStateList baseColor = getResources().getColorStateList(value.resourceId);
-        if (!getContext().getTheme().resolveAttribute(R.attr.colorPrimary, value, true)) {
+        ColorStateList baseColor = AppCompatResources.getColorStateList(
+                getContext(), value.resourceId);
+        if (!getContext().getTheme().resolveAttribute(
+                    android.support.v7.appcompat.R.attr.colorPrimary, value, true)) {
             return null;
         }
         int colorPrimary = value.data;
@@ -404,19 +450,19 @@ public class NavigationView extends ScrimInsetsFrameLayout {
          *
          * @return true to display the item as the selected item
          */
-        public boolean onNavigationItemSelected(MenuItem item);
+        public boolean onNavigationItemSelected(@NonNull MenuItem item);
     }
 
     /**
      * User interface state that is stored by NavigationView for implementing
      * onSaveInstanceState().
      */
-    public static class SavedState extends BaseSavedState {
+    public static class SavedState extends AbsSavedState {
         public Bundle menuState;
 
-        public SavedState(Parcel in) {
-            super(in);
-            menuState = in.readBundle();
+        public SavedState(Parcel in, ClassLoader loader) {
+            super(in, loader);
+            menuState = in.readBundle(loader);
         }
 
         public SavedState(Parcelable superState) {
@@ -430,17 +476,17 @@ public class NavigationView extends ScrimInsetsFrameLayout {
         }
 
         public static final Parcelable.Creator<SavedState> CREATOR
-                = new Parcelable.Creator<SavedState>() {
+                = ParcelableCompat.newCreator(new ParcelableCompatCreatorCallbacks<SavedState>() {
             @Override
-            public SavedState createFromParcel(Parcel parcel) {
-                return new SavedState(parcel);
+            public SavedState createFromParcel(Parcel parcel, ClassLoader loader) {
+                return new SavedState(parcel, loader);
             }
 
             @Override
             public SavedState[] newArray(int size) {
                 return new SavedState[size];
             }
-        };
+        });
     }
 
 }

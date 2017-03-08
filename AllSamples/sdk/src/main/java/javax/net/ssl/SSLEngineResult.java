@@ -1,126 +1,189 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2003, 2004, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package javax.net.ssl;
 
 /**
- * The result object describing the state of the {@code SSLEngine} produced
- * by the {@code wrap()} and {@code unwrap()} operations.
+ * An encapsulation of the result state produced by
+ * <code>SSLEngine</code> I/O calls.
+ *
+ * <p> A <code>SSLEngine</code> provides a means for establishing
+ * secure communication sessions between two peers.  <code>SSLEngine</code>
+ * operations typically consume bytes from an input buffer and produce
+ * bytes in an output buffer.  This class provides operational result
+ * values describing the state of the <code>SSLEngine</code>, including
+ * indications of what operations are needed to finish an
+ * ongoing handshake.  Lastly, it reports the number of bytes consumed
+ * and produced as a result of this operation.
+ *
+ * @see SSLEngine
+ * @see SSLEngine#wrap(ByteBuffer, ByteBuffer)
+ * @see SSLEngine#unwrap(ByteBuffer, ByteBuffer)
+ *
+ * @author Brad R. Wetmore
+ * @since 1.5
  */
+
 public class SSLEngineResult {
 
     /**
-     * The {@code enum} describing the state of the current handshake.
+     * An <code>SSLEngineResult</code> enum describing the overall result
+     * of the <code>SSLEngine</code> operation.
+     *
+     * The <code>Status</code> value does not reflect the
+     * state of a <code>SSLEngine</code> handshake currently
+     * in progress.  The <code>SSLEngineResult's HandshakeStatus</code>
+     * should be consulted for that information.
+     *
+     * @author Brad R. Wetmore
+     * @since 1.5
      */
-    public enum HandshakeStatus {
+    public static enum Status {
+
         /**
-         * No handshake in progress.
+         * The <code>SSLEngine</code> was not able to unwrap the
+         * incoming data because there were not enough source bytes
+         * available to make a complete packet.
+         *
+         * <P>
+         * Repeat the call once more bytes are available.
          */
-        NOT_HANDSHAKING,
+        BUFFER_UNDERFLOW,
+
         /**
-         * The handshake is finished.
+         * The <code>SSLEngine</code> was not able to process the
+         * operation because there are not enough bytes available in the
+         * destination buffer to hold the result.
+         * <P>
+         * Repeat the call once more bytes are available.
+         *
+         * @see SSLSession#getPacketBufferSize()
+         * @see SSLSession#getApplicationBufferSize()
          */
-        FINISHED,
+        BUFFER_OVERFLOW,
+
         /**
-         * The results of one (or more) delegated tasks are needed to continue
-         * the handshake.
+         * The <code>SSLEngine</code> completed the operation, and
+         * is available to process similar calls.
          */
-        NEED_TASK,
+        OK,
+
         /**
-         * The engine must send data to the remote side to continue the
-         * handshake.
+         * The operation just closed this side of the
+         * <code>SSLEngine</code>, or the operation
+         * could not be completed because it was already closed.
          */
-        NEED_WRAP,
-        /**
-         * The engine needs to receive data from the remote side to continue the
-         * handshake.
-         */
-        NEED_UNWRAP
+        CLOSED;
     }
 
     /**
-     * The {@code enum} describing the result of the {@code SSLEngine}
-     * operation.
+     * An <code>SSLEngineResult</code> enum describing the current
+     * handshaking state of this <code>SSLEngine</code>.
+     *
+     * @author Brad R. Wetmore
+     * @since 1.5
      */
-    public static enum Status {
+    public static enum HandshakeStatus {
+
         /**
-         * The size of the destination buffer is too small to hold the result of
-         * the current operation.
+         * The <code>SSLEngine</code> is not currently handshaking.
          */
-        BUFFER_OVERFLOW,
+        NOT_HANDSHAKING,
+
         /**
-         * There were not enough bytes available in the source buffer to
-         * complete the current operation.
+         * The <code>SSLEngine</code> has just finished handshaking.
+         * <P>
+         * This value is only generated by a call to
+         * <code>SSLEngine.wrap()/unwrap()</code> when that call
+         * finishes a handshake.  It is never generated by
+         * <code>SSLEngine.getHandshakeStatus()</code>.
+         *
+         * @see SSLEngine#wrap(ByteBuffer, ByteBuffer)
+         * @see SSLEngine#unwrap(ByteBuffer, ByteBuffer)
+         * @see SSLEngine#getHandshakeStatus()
          */
-        BUFFER_UNDERFLOW,
+        FINISHED,
+
         /**
-         * The operation closed this side of the communication or was already
-         * closed.
+         * The <code>SSLEngine</code> needs the results of one (or more)
+         * delegated tasks before handshaking can continue.
+         *
+         * @see SSLEngine#getDelegatedTask()
          */
-        CLOSED,
+        NEED_TASK,
+
         /**
-         * The operation completed successfully.
+         * The <code>SSLEngine</code> must send data to the remote side
+         * before handshaking can continue, so <code>SSLEngine.wrap()</code>
+         * should be called.
+         *
+         * @see SSLEngine#wrap(ByteBuffer, ByteBuffer)
          */
-        OK
+        NEED_WRAP,
+
+        /**
+         * The <code>SSLEngine</code> needs to receive data from the
+         * remote side before handshaking can continue.
+         */
+        NEED_UNWRAP;
     }
 
-    // Store Status object
-    private final SSLEngineResult.Status status;
 
-    // Store HandshakeStatus object
-    private final SSLEngineResult.HandshakeStatus handshakeStatus;
-
-    // Store bytesConsumed
+    private final Status status;
+    private final HandshakeStatus handshakeStatus;
     private final int bytesConsumed;
-
-    // Store bytesProduced
     private final int bytesProduced;
 
     /**
-     * Creates a new {@code SSLEngineResult} instance with the specified state
-     * values.
+     * Initializes a new instance of this class.
      *
-     * @param status
-     *            the return value of the {@code SSLEngine} operation.
-     * @param handshakeStatus
-     *            the status of the current handshake
-     * @param bytesConsumed
-     *            the number of bytes retrieved from the source buffer(s).
-     * @param bytesProduced
-     *            the number of bytes transferred to the destination buffer(s).
-     * @throws IllegalArgumentException
-     *             if {@code status} or {@code handshakeStatus} is {@code null},
-     *             or if {@code bytesConsumed} or {@code bytesProduces} are
-     *             negative.
+     * @param   status
+     *          the return value of the operation.
+     *
+     * @param   handshakeStatus
+     *          the current handshaking status.
+     *
+     * @param   bytesConsumed
+     *          the number of bytes consumed from the source ByteBuffer
+     *
+     * @param   bytesProduced
+     *          the number of bytes placed into the destination ByteBuffer
+     *
+     * @throws  IllegalArgumentException
+     *          if the <code>status</code> or <code>handshakeStatus</code>
+     *          arguments are null, or if <<code>bytesConsumed</code> or
+     *          <code>bytesProduced</code> is negative.
      */
-    public SSLEngineResult(SSLEngineResult.Status status,
-            SSLEngineResult.HandshakeStatus handshakeStatus, int bytesConsumed, int bytesProduced) {
-        if (status == null) {
-            throw new IllegalArgumentException("status == null");
+    public SSLEngineResult(Status status, HandshakeStatus handshakeStatus,
+            int bytesConsumed, int bytesProduced) {
+
+        if ((status == null) || (handshakeStatus == null) ||
+                (bytesConsumed < 0) || (bytesProduced < 0)) {
+            throw new IllegalArgumentException("Invalid Parameter(s)");
         }
-        if (handshakeStatus == null) {
-            throw new IllegalArgumentException("handshakeStatus == null");
-        }
-        if (bytesConsumed < 0) {
-            throw new IllegalArgumentException("bytesConsumed < 0: " + bytesConsumed);
-        }
-        if (bytesProduced < 0) {
-            throw new IllegalArgumentException("bytesProduced < 0: " + bytesProduced);
-        }
+
         this.status = status;
         this.handshakeStatus = handshakeStatus;
         this.bytesConsumed = bytesConsumed;
@@ -128,45 +191,49 @@ public class SSLEngineResult {
     }
 
     /**
-     * Returns the return value of the {@code SSLEngine} operation.
+     * Gets the return value of this <code>SSLEngine</code> operation.
      *
-     * @return the return value of the {@code SSLEngine} operation.
+     * @return  the return value
      */
-    public final Status getStatus() {
+    final public Status getStatus() {
         return status;
     }
 
     /**
-     * Returns the status of the current handshake.
+     * Gets the handshake status of this <code>SSLEngine</code>
+     * operation.
      *
-     * @return the status of the current handshake.
+     * @return  the handshake status
      */
-    public final HandshakeStatus getHandshakeStatus() {
+    final public HandshakeStatus getHandshakeStatus() {
         return handshakeStatus;
     }
 
     /**
-     * Returns the number of bytes retrieved from the source buffer(s).
+     * Returns the number of bytes consumed from the input buffer.
      *
-     * @return the number of bytes retrieved from the source buffer(s).
+     * @return  the number of bytes consumed.
      */
-    public final int bytesConsumed() {
+    final public int bytesConsumed() {
         return bytesConsumed;
     }
 
     /**
-     * Returns the number of bytes transferred to the destination buffer(s).
+     * Returns the number of bytes written to the output buffer.
      *
-     * @return the number of bytes transferred to the destination buffer(s).
+     * @return  the number of bytes produced
      */
-    public final int bytesProduced() {
+    final public int bytesProduced() {
         return bytesProduced;
     }
 
-    @Override
+    /**
+     * Returns a String representation of this object.
+     */
     public String toString() {
-        return "SSLEngineReport: Status = " + status + "  HandshakeStatus = " + handshakeStatus
-                + "\n                 bytesConsumed = " + bytesConsumed + " bytesProduced = "
-                + bytesProduced;
+        return ("Status = " + status +
+            " HandshakeStatus = " + handshakeStatus +
+            "\nbytesConsumed = " + bytesConsumed +
+            " bytesProduced = " + bytesProduced);
     }
 }

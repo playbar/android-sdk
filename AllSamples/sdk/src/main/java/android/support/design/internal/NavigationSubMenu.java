@@ -17,10 +17,12 @@
 package android.support.design.internal;
 
 import android.content.Context;
-import android.support.v7.internal.view.menu.MenuBuilder;
-import android.support.v7.internal.view.menu.MenuItemImpl;
-import android.support.v7.internal.view.menu.SubMenuBuilder;
-import android.view.MenuItem;
+import android.support.annotation.RestrictTo;
+import android.support.v7.view.menu.MenuBuilder;
+import android.support.v7.view.menu.MenuItemImpl;
+import android.support.v7.view.menu.SubMenuBuilder;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * This is a {@link SubMenuBuilder} that it notifies the parent {@link NavigationMenu} of its menu
@@ -28,6 +30,7 @@ import android.view.MenuItem;
  *
  * @hide
  */
+@RestrictTo(GROUP_ID)
 public class NavigationSubMenu extends SubMenuBuilder {
 
     public NavigationSubMenu(Context context, NavigationMenu menu, MenuItemImpl item) {
@@ -35,35 +38,9 @@ public class NavigationSubMenu extends SubMenuBuilder {
     }
 
     @Override
-    public MenuItem add(CharSequence title) {
-        MenuItem item = super.add(title);
-        notifyParent();
-        return item;
-    }
-
-    @Override
-    public MenuItem add(int titleRes) {
-        MenuItem item = super.add(titleRes);
-        notifyParent();
-        return item;
-    }
-
-    @Override
-    public MenuItem add(int groupId, int itemId, int order, CharSequence title) {
-        MenuItem item = super.add(groupId, itemId, order, title);
-        notifyParent();
-        return item;
-    }
-
-    @Override
-    public MenuItem add(int groupId, int itemId, int order, int titleRes) {
-        MenuItem item = super.add(groupId, itemId, order, titleRes);
-        notifyParent();
-        return item;
-    }
-
-    private void notifyParent() {
-        ((MenuBuilder) getParentMenu()).onItemsChanged(true);
+    public void onItemsChanged(boolean structureChanged) {
+        super.onItemsChanged(structureChanged);
+        ((MenuBuilder) getParentMenu()).onItemsChanged(structureChanged);
     }
 
 }

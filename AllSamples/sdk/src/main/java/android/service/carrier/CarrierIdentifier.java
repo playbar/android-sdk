@@ -105,6 +105,18 @@ public class CarrierIdentifier implements Parcelable {
         out.writeString(mGid2);
     }
 
+    @Override
+    public String toString() {
+      return "CarrierIdentifier{"
+          + "mcc=" + mMcc
+          + ",mnc=" + mMnc
+          + ",spn=" + mSpn
+          + ",imsi=" + mImsi
+          + ",gid1=" + mGid1
+          + ",gid2=" + mGid2
+          + "}";
+    }
+
     /** @hide */
     public void readFromParcel(Parcel in) {
         mMcc = in.readString();
@@ -113,5 +125,14 @@ public class CarrierIdentifier implements Parcelable {
         mImsi = in.readString();
         mGid1 = in.readString();
         mGid2 = in.readString();
+    }
+
+    /** @hide */
+    public interface MatchType {
+        int ALL = 0;
+        int SPN = 1;
+        int IMSI_PREFIX = 2;
+        int GID1 = 3;
+        int GID2 = 4;
     }
 }

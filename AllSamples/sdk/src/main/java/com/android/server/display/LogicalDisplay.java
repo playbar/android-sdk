@@ -74,6 +74,7 @@ final class LogicalDisplay {
     private boolean mHasContent;
 
     private int mRequestedModeId;
+    private int mRequestedColorMode;
 
     // The display offsets to apply to the display projection.
     private int mDisplayOffsetX;
@@ -235,6 +236,11 @@ final class LogicalDisplay {
             mBaseDisplayInfo.defaultModeId = deviceInfo.defaultModeId;
             mBaseDisplayInfo.supportedModes = Arrays.copyOf(
                     deviceInfo.supportedModes, deviceInfo.supportedModes.length);
+            mBaseDisplayInfo.colorMode = deviceInfo.colorMode;
+            mBaseDisplayInfo.supportedColorModes = Arrays.copyOf(
+                    deviceInfo.supportedColorModes,
+                    deviceInfo.supportedColorModes.length);
+            mBaseDisplayInfo.hdrCapabilities = deviceInfo.hdrCapabilities;
             mBaseDisplayInfo.logicalDensityDpi = deviceInfo.densityDpi;
             mBaseDisplayInfo.physicalXDpi = deviceInfo.xDpi;
             mBaseDisplayInfo.physicalYDpi = deviceInfo.yDpi;
@@ -275,11 +281,12 @@ final class LogicalDisplay {
         // Set the layer stack.
         device.setLayerStackInTransactionLocked(isBlanked ? BLANK_LAYER_STACK : mLayerStack);
 
-        // Set the mode.
+        // Set the color mode and mode.
         if (device == mPrimaryDisplayDevice) {
-            device.requestModeInTransactionLocked(mRequestedModeId);
+            device.requestDisplayModesInTransactionLocked(
+                    mRequestedColorMode, mRequestedModeId);
         } else {
-            device.requestModeInTransactionLocked(0);  // Revert to default.
+            device.requestDisplayModesInTransactionLocked(0, 0);  // Revert to default.
         }
 
         // Only grab the display info now as it may have been changed based on the requests above.
@@ -383,6 +390,18 @@ final class LogicalDisplay {
     }
 
     /**
+     * Requests the given color mode.
+     */
+    public void setRequestedColorModeLocked(int colorMode) {
+        mRequestedColorMode = colorMode;
+    }
+
+    /** Returns the pending requested color mode. */
+    public int getRequestedColorModeLocked() {
+        return mRequestedColorMode;
+    }
+
+    /**
      * Gets the burn-in offset in X.
      */
     public int getDisplayOffsetXLocked() {
@@ -409,6 +428,7 @@ final class LogicalDisplay {
         pw.println("mLayerStack=" + mLayerStack);
         pw.println("mHasContent=" + mHasContent);
         pw.println("mRequestedMode=" + mRequestedModeId);
+        pw.println("mRequestedColorMode=" + mRequestedColorMode);
         pw.println("mDisplayOffset=(" + mDisplayOffsetX + ", " + mDisplayOffsetY + ")");
         pw.println("mPrimaryDisplayDevice=" + (mPrimaryDisplayDevice != null ?
                 mPrimaryDisplayDevice.getNameLocked() : "null"));

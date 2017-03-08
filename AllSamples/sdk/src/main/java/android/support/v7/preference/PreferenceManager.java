@@ -18,7 +18,12 @@ package android.support.v7.preference;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.support.annotation.RestrictTo;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.content.SharedPreferencesCompat;
+import android.support.v4.os.BuildCompat;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Used to help create {@link Preference} hierarchies
@@ -76,6 +81,11 @@ public class PreferenceManager {
      */
     private int mSharedPreferencesMode;
 
+    private static final int STORAGE_DEFAULT = 0;
+    private static final int STORAGE_DEVICE_PROTECTED = 1;
+
+    private int mStorage = STORAGE_DEFAULT;
+
     /**
      * The {@link PreferenceScreen} at the root of the preference hierarchy.
      */
@@ -88,6 +98,7 @@ public class PreferenceManager {
     /**
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     public PreferenceManager(Context context) {
         mContext = context;
 
@@ -106,6 +117,7 @@ public class PreferenceManager {
      *         root).
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     public PreferenceScreen inflateFromResource(Context context, int resId,
             PreferenceScreen rootPreferences) {
         // Block commits
@@ -185,6 +197,83 @@ public class PreferenceManager {
     }
 
     /**
+     * Sets the storage location used internally by this class to be the default
+     * provided by the hosting {@link Context}.
+     */
+    public void setStorageDefault() {
+        if (BuildCompat.isAtLeastN()) {
+            mStorage = STORAGE_DEFAULT;
+            mSharedPreferences = null;
+        }
+    }
+
+    /**
+     * Explicitly set the storage location used internally by this class to be
+     * device-protected storage.
+     * <p>
+     * On devices with direct boot, data stored in this location is encrypted
+     * with a key tied to the physical device, and it can be accessed
+     * immediately after the device has booted successfully, both
+     * <em>before and after</em> the user has authenticated with their
+     * credentials (such as a lock pattern or PIN).
+     * <p>
+     * Because device-protected data is available without user authentication,
+     * you should carefully limit the data you store using this Context. For
+     * example, storing sensitive authentication tokens or passwords in the
+     * device-protected area is strongly discouraged.
+     * <p>
+     * Prior to {@link BuildCompat#isAtLeastN()} this method has no effect,
+     * since device-protected storage is not available.
+     *
+     * @see Context#createDeviceProtectedStorageContext()
+     */
+    public void setStorageDeviceProtected() {
+        if (BuildCompat.isAtLeastN()) {
+            mStorage = STORAGE_DEVICE_PROTECTED;
+            mSharedPreferences = null;
+        }
+    }
+
+    /**
+     * @removed
+     * @deprecated
+     */
+    @Deprecated
+    public void setStorageDeviceEncrypted() {
+        setStorageDeviceProtected();
+    }
+
+    /**
+     * Indicates if the storage location used internally by this class is the
+     * default provided by the hosting {@link Context}.
+     *
+     * @see #setStorageDefault()
+     * @see #setStorageDeviceProtected()
+     */
+    public boolean isStorageDefault() {
+        if (BuildCompat.isAtLeastN()) {
+            return mStorage == STORAGE_DEFAULT;
+        } else {
+            return true;
+        }
+    }
+
+    /**
+     * Indicates if the storage location used internally by this class is backed
+     * by device-protected storage.
+     *
+     * @see #setStorageDefault()
+     * @see #setStorageDeviceProtected()
+     */
+    public boolean isStorageDeviceProtected() {
+        if (BuildCompat.isAtLeastN()) {
+            return mStorage == STORAGE_DEVICE_PROTECTED;
+        } else {
+            return false;
+        }
+    }
+
+    /**
      * Gets a SharedPreferences instance that preferences managed by this will
      * use.
      *
@@ -193,7 +282,17 @@ public class PreferenceManager {
      */
     public SharedPreferences getSharedPreferences() {
         if (mSharedPreferences == null) {
-            mSharedPreferences = mContext.getSharedPreferences(mSharedPreferencesName,
+            final Context storageContext;
+            switch (mStorage) {
+                case STORAGE_DEVICE_PROTECTED:
+                    storageContext = ContextCompat.createDeviceProtectedStorageContext(mContext);
+                    break;
+                default:
+                    storageContext = mContext;
+                    break;
+            }
+
+            mSharedPreferences = storageContext.getSharedPreferences(mSharedPreferencesName,
                     mSharedPreferencesMode);
         }
 
@@ -238,6 +337,9 @@ public class PreferenceManager {
      */
     public boolean setPreferences(PreferenceScreen preferenceScreen) {
         if (preferenceScreen != mPreferenceScreen) {
+            if (mPreferenceScreen != null) {
+                mPreferenceScreen.onDetached();
+            }
             mPreferenceScreen = preferenceScreen;
             return true;
         }

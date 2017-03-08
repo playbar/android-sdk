@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package android.support.v4.view;
 
 import android.graphics.Rect;
+import android.os.Build;
 
 /**
  * Describes a set of insets for window content.
@@ -26,9 +27,254 @@ import android.graphics.Rect;
  * WindowInsetsCompat instance with the adjusted properties.</p>
  */
 public class WindowInsetsCompat {
+    private interface WindowInsetsCompatImpl {
+        int getSystemWindowInsetLeft(Object insets);
+        int getSystemWindowInsetTop(Object insets);
+        int getSystemWindowInsetRight(Object insets);
+        int getSystemWindowInsetBottom(Object insets);
+        boolean hasSystemWindowInsets(Object insets);
+        boolean hasInsets(Object insets);
+        boolean isConsumed(Object insets);
+        boolean isRound(Object insets);
+        WindowInsetsCompat consumeSystemWindowInsets(Object insets);
+        WindowInsetsCompat replaceSystemWindowInsets(Object insets,
+                int left, int top, int right, int bottom);
+        WindowInsetsCompat replaceSystemWindowInsets(Object insets, Rect systemWindowInsets);
+        int getStableInsetTop(Object insets);
+        int getStableInsetLeft(Object insets);
+        int getStableInsetRight(Object insets);
+        int getStableInsetBottom(Object insets);
+        boolean hasStableInsets(Object insets);
+        WindowInsetsCompat consumeStableInsets(Object insets);
+        Object getSourceWindowInsets(Object src);
+    }
 
-    /** Private ctor */
-    WindowInsetsCompat() {}
+    private static class WindowInsetsCompatBaseImpl implements WindowInsetsCompatImpl {
+        WindowInsetsCompatBaseImpl() {
+        }
+
+        @Override
+        public int getSystemWindowInsetLeft(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public int getSystemWindowInsetTop(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public int getSystemWindowInsetRight(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public int getSystemWindowInsetBottom(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public boolean hasSystemWindowInsets(Object insets) {
+            return false;
+        }
+
+        @Override
+        public boolean hasInsets(Object insets) {
+            return false;
+        }
+
+        @Override
+        public boolean isConsumed(Object insets) {
+            return false;
+        }
+
+        @Override
+        public boolean isRound(Object insets) {
+            return false;
+        }
+
+        @Override
+        public WindowInsetsCompat consumeSystemWindowInsets(Object insets) {
+            return null;
+        }
+
+        @Override
+        public WindowInsetsCompat replaceSystemWindowInsets(Object insets, int left, int top, int right, int bottom) {
+            return null;
+        }
+
+        @Override
+        public WindowInsetsCompat replaceSystemWindowInsets(Object insets, Rect systemWindowInsets) {
+            return null;
+        }
+
+        @Override
+        public int getStableInsetTop(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public int getStableInsetLeft(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public int getStableInsetRight(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public int getStableInsetBottom(Object insets) {
+            return 0;
+        }
+
+        @Override
+        public boolean hasStableInsets(Object insets) {
+            return false;
+        }
+
+        @Override
+        public WindowInsetsCompat consumeStableInsets(Object insets) {
+            return null;
+        }
+
+        @Override
+        public Object getSourceWindowInsets(Object src) {
+            return null;
+        }
+    }
+
+    private static class WindowInsetsCompatApi20Impl extends WindowInsetsCompatBaseImpl {
+        WindowInsetsCompatApi20Impl() {
+        }
+
+        @Override
+        public WindowInsetsCompat consumeSystemWindowInsets(Object insets) {
+            return new WindowInsetsCompat(
+                    WindowInsetsCompatApi20.consumeSystemWindowInsets(insets));
+        }
+
+        @Override
+        public int getSystemWindowInsetBottom(Object insets) {
+            return WindowInsetsCompatApi20.getSystemWindowInsetBottom(insets);
+        }
+
+        @Override
+        public int getSystemWindowInsetLeft(Object insets) {
+            return WindowInsetsCompatApi20.getSystemWindowInsetLeft(insets);
+        }
+
+        @Override
+        public int getSystemWindowInsetRight(Object insets) {
+            return WindowInsetsCompatApi20.getSystemWindowInsetRight(insets);
+        }
+
+        @Override
+        public int getSystemWindowInsetTop(Object insets) {
+            return WindowInsetsCompatApi20.getSystemWindowInsetTop(insets);
+        }
+
+        @Override
+        public boolean hasInsets(Object insets) {
+            return WindowInsetsCompatApi20.hasInsets(insets);
+        }
+
+        @Override
+        public boolean hasSystemWindowInsets(Object insets) {
+            return WindowInsetsCompatApi20.hasSystemWindowInsets(insets);
+        }
+
+        @Override
+        public boolean isRound(Object insets) {
+            return WindowInsetsCompatApi20.isRound(insets);
+        }
+
+        @Override
+        public WindowInsetsCompat replaceSystemWindowInsets(Object insets, int left, int top,
+                int right, int bottom) {
+            return new WindowInsetsCompat(WindowInsetsCompatApi20.replaceSystemWindowInsets(insets,
+                    left, top, right, bottom));
+        }
+
+        @Override
+        public Object getSourceWindowInsets(Object src) {
+            return WindowInsetsCompatApi20.getSourceWindowInsets(src);
+        }
+    }
+
+    private static class WindowInsetsCompatApi21Impl extends WindowInsetsCompatApi20Impl {
+        WindowInsetsCompatApi21Impl() {
+        }
+
+        @Override
+        public WindowInsetsCompat consumeStableInsets(Object insets) {
+            return new WindowInsetsCompat(WindowInsetsCompatApi21.consumeStableInsets(insets));
+        }
+
+        @Override
+        public int getStableInsetBottom(Object insets) {
+            return WindowInsetsCompatApi21.getStableInsetBottom(insets);
+        }
+
+        @Override
+        public int getStableInsetLeft(Object insets) {
+            return WindowInsetsCompatApi21.getStableInsetLeft(insets);
+        }
+
+        @Override
+        public int getStableInsetRight(Object insets) {
+            return WindowInsetsCompatApi21.getStableInsetRight(insets);
+        }
+
+        @Override
+        public int getStableInsetTop(Object insets) {
+            return WindowInsetsCompatApi21.getStableInsetTop(insets);
+        }
+
+        @Override
+        public boolean hasStableInsets(Object insets) {
+            return WindowInsetsCompatApi21.hasStableInsets(insets);
+        }
+
+        @Override
+        public boolean isConsumed(Object insets) {
+            return WindowInsetsCompatApi21.isConsumed(insets);
+        }
+
+        @Override
+        public WindowInsetsCompat replaceSystemWindowInsets(Object insets,
+                Rect systemWindowInsets) {
+            return new WindowInsetsCompat(WindowInsetsCompatApi21.replaceSystemWindowInsets(insets,
+                    systemWindowInsets));
+        }
+    }
+
+    private static final WindowInsetsCompatImpl IMPL;
+    static {
+        final int version = Build.VERSION.SDK_INT;
+        if (version >= 21) {
+            IMPL = new WindowInsetsCompatApi21Impl();
+        } else if (version >= 20) {
+            IMPL = new WindowInsetsCompatApi20Impl();
+        } else {
+            IMPL = new WindowInsetsCompatBaseImpl();
+        }
+    }
+
+    private final Object mInsets;
+
+    WindowInsetsCompat(Object insets) {
+        mInsets = insets;
+    }
+
+    /**
+     * Constructs a new WindowInsetsCompat, copying all values from a source WindowInsetsCompat.
+     *
+     * @param src source from which values are copied
+     */
+    public WindowInsetsCompat(WindowInsetsCompat src) {
+        mInsets = src == null ? null : IMPL.getSourceWindowInsets(src.mInsets);
+    }
 
     /**
      * Returns the left system window inset in pixels.
@@ -40,7 +286,7 @@ public class WindowInsetsCompat {
      * @return The left system window inset
      */
     public int getSystemWindowInsetLeft() {
-        return 0;
+        return IMPL.getSystemWindowInsetLeft(mInsets);
     }
 
     /**
@@ -53,7 +299,7 @@ public class WindowInsetsCompat {
      * @return The top system window inset
      */
     public int getSystemWindowInsetTop() {
-        return 0;
+        return IMPL.getSystemWindowInsetTop(mInsets);
     }
 
     /**
@@ -66,7 +312,7 @@ public class WindowInsetsCompat {
      * @return The right system window inset
      */
     public int getSystemWindowInsetRight() {
-        return 0;
+        return IMPL.getSystemWindowInsetRight(mInsets);
     }
 
     /**
@@ -79,7 +325,7 @@ public class WindowInsetsCompat {
      * @return The bottom system window inset
      */
     public int getSystemWindowInsetBottom() {
-        return 0;
+        return IMPL.getSystemWindowInsetBottom(mInsets);
     }
 
     /**
@@ -92,7 +338,7 @@ public class WindowInsetsCompat {
      * @return true if any of the system window inset values are nonzero
      */
     public boolean hasSystemWindowInsets() {
-        return false;
+        return IMPL.hasSystemWindowInsets(mInsets);
     }
 
     /**
@@ -101,7 +347,7 @@ public class WindowInsetsCompat {
      * @return true if any inset values are nonzero
      */
     public boolean hasInsets() {
-        return false;
+        return IMPL.hasInsets(mInsets);
     }
 
     /**
@@ -118,7 +364,7 @@ public class WindowInsetsCompat {
      * @return true if the insets have been fully consumed.
      */
     public boolean isConsumed() {
-        return false;
+        return IMPL.isConsumed(mInsets);
     }
 
     /**
@@ -132,7 +378,7 @@ public class WindowInsetsCompat {
      * @return True if the window is round
      */
     public boolean isRound() {
-        return false;
+        return IMPL.isRound(mInsets);
     }
 
     /**
@@ -141,7 +387,7 @@ public class WindowInsetsCompat {
      * @return A modified copy of this WindowInsets
      */
     public WindowInsetsCompat consumeSystemWindowInsets() {
-        return this;
+        return IMPL.consumeSystemWindowInsets(mInsets);
     }
 
     /**
@@ -155,7 +401,7 @@ public class WindowInsetsCompat {
      * @return A modified copy of this WindowInsets
      */
     public WindowInsetsCompat replaceSystemWindowInsets(int left, int top, int right, int bottom) {
-        return this;
+        return IMPL.replaceSystemWindowInsets(mInsets, left, top, right, bottom);
     }
 
     /**
@@ -167,7 +413,7 @@ public class WindowInsetsCompat {
      * @return A modified copy of this WindowInsets
      */
     public WindowInsetsCompat replaceSystemWindowInsets(Rect systemWindowInsets) {
-        return this;
+        return IMPL.replaceSystemWindowInsets(mInsets, systemWindowInsets);
     }
 
     /**
@@ -182,7 +428,7 @@ public class WindowInsetsCompat {
      * @return The top stable inset
      */
     public int getStableInsetTop() {
-        return 0;
+        return IMPL.getStableInsetTop(mInsets);
     }
 
 
@@ -198,7 +444,7 @@ public class WindowInsetsCompat {
      * @return The left stable inset
      */
     public int getStableInsetLeft() {
-        return 0;
+        return IMPL.getStableInsetLeft(mInsets);
     }
 
     /**
@@ -213,7 +459,7 @@ public class WindowInsetsCompat {
      * @return The right stable inset
      */
     public int getStableInsetRight() {
-        return 0;
+        return IMPL.getStableInsetRight(mInsets);
     }
 
 
@@ -229,7 +475,7 @@ public class WindowInsetsCompat {
      * @return The bottom stable inset
      */
     public int getStableInsetBottom() {
-        return 0;
+        return IMPL.getStableInsetBottom(mInsets);
     }
 
     /**
@@ -244,7 +490,7 @@ public class WindowInsetsCompat {
      * @return true if any of the stable inset values are nonzero
      */
     public boolean hasStableInsets() {
-        return false;
+        return IMPL.hasStableInsets(mInsets);
     }
 
     /**
@@ -253,7 +499,31 @@ public class WindowInsetsCompat {
      * @return A modified copy of this WindowInsetsCompat
      */
     public WindowInsetsCompat consumeStableInsets() {
-        return this;
+        return IMPL.consumeStableInsets(mInsets);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        WindowInsetsCompat other = (WindowInsetsCompat) o;
+        return mInsets == null ? other.mInsets == null : mInsets.equals(other.mInsets);
+    }
+
+    @Override
+    public int hashCode() {
+        return mInsets == null ? 0 : mInsets.hashCode();
+    }
+
+    static WindowInsetsCompat wrap(Object insets) {
+        return insets == null ? null : new WindowInsetsCompat(insets);
+    }
+
+    static Object unwrap(WindowInsetsCompat insets) {
+        return insets == null ? null : insets.mInsets;
+    }
 }

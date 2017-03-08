@@ -1,103 +1,127 @@
-/* Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+/*
+ * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.net;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * A CookieStore object is a repository for cookies.
+ * A CookieStore object represents a storage for cookie. Can store and retrieve
+ * cookies.
  *
- * CookieManager will store cookies of every incoming HTTP response into
- * CookieStore, and retrieve cookies for every outgoing HTTP request.Expired
- * HttpCookies should be removed from this store by themselves.
+ * <p>{@link CookieManager} will call <tt>CookieStore.add</tt> to save cookies
+ * for every incoming HTTP response, and call <tt>CookieStore.get</tt> to
+ * retrieve cookie for every outgoing HTTP request. A CookieStore
+ * is responsible for removing HttpCookie instances which have expired.
  *
+ * @author Edward Wang
  * @since 1.6
  */
 public interface CookieStore {
+    /**
+     * Adds one HTTP cookie to the store. This is called for every
+     * incoming HTTP response.
+     *
+     * <p>A cookie to store may or may not be associated with an URI. If it
+     * is not associated with an URI, the cookie's domain and path attribute
+     * will indicate where it comes from. If it is associated with an URI and
+     * its domain and path attribute are not speicifed, given URI will indicate
+     * where this cookie comes from.
+     *
+     * <p>If a cookie corresponding to the given URI already exists,
+     * then it is replaced with the new one.
+     *
+     * @param uri       the uri this cookie associated with.
+     *                  if <tt>null</tt>, this cookie will not be associated
+     *                  with an URI
+     * @param cookie    the cookie to store
+     *
+     * @throws NullPointerException if <tt>cookie</tt> is <tt>null</tt>
+     *
+     * @see #get
+     *
+     */
+    public void add(URI uri, HttpCookie cookie);
+
 
     /**
-     * Saves a HTTP cookie to this store. This is called for every incoming HTTP
-     * response.
+     * Retrieve cookies associated with given URI, or whose domain matches the
+     * given URI. Only cookies that have not expired are returned.
+     * This is called for every outgoing HTTP request.
      *
-     * A cookie may or may not has an associated URI. If not, the cookie's
-     * domain and path attribute will show cradleland. If there is an
-     * associated URI and no domain and path attribute are speicifed for the
-     * cookie, the given URI will indicate where this cookie comes from.
+     * @return          an immutable list of HttpCookie,
+     *                  return empty list if no cookies match the given URI
      *
-     * If a cookie corresponding to the given URI already exists, then it is
-     * replaced with the new one.
+     * @throws NullPointerException if <tt>uri</tt> is <tt>null</tt>
      *
-     * @param uri
-     *            the uri associated with the specified cookie. A null value
-     *            indicates the cookie is not associated with a URI
-     * @param cookie
-     *            the cookie to be stored
+     * @see #add
+     *
      */
-    void add(URI uri, HttpCookie cookie);
+    public List<HttpCookie> get(URI uri);
+
 
     /**
-     * Retrieves cookies that match the specified URI. Return not expired cookies.
-     * For every outgoing HTTP request, this method will be called.
+     * Get all not-expired cookies in cookie store.
      *
-     * @param uri
-     *            the uri this cookie associated with. If null, this cookie will
-     *            not be associated with an URI
-     * @return an immutable list of HttpCookies, return empty list if no cookies
-     *         match the given URI
-     * @throws NullPointerException
-     *             if uri is null
+     * @return          an immutable list of http cookies;
+     *                  return empty list if there's no http cookie in store
      */
-    List<HttpCookie> get(URI uri);
+    public List<HttpCookie> getCookies();
+
 
     /**
-     * Get all cookies in cookie store which are not expired.
+     * Get all URIs which identify the cookies in this cookie store.
      *
-     * @return an empty list if there's no http cookie in store, or an immutable
-     *         list of cookies
+     * @return          an immutable list of URIs;
+     *                  return empty list if no cookie in this cookie store
+     *                  is associated with an URI
      */
-    List<HttpCookie> getCookies();
+    public List<URI> getURIs();
+
 
     /**
-     * Get a set of URIs, which is composed of associated URI with all the
-     * cookies in the store.
+     * Remove a cookie from store.
      *
-     * @return zero-length list if no cookie in the store is associated with any
-     *         URIs, otherwise an immutable list of URIs.
+     * @param uri       the uri this cookie associated with.
+     *                  if <tt>null</tt>, the cookie to be removed is not associated
+     *                  with an URI when added; if not <tt>null</tt>, the cookie
+     *                  to be removed is associated with the given URI when added.
+     * @param cookie    the cookie to remove
+     *
+     * @return          <tt>true</tt> if this store contained the specified cookie
+     *
+     * @throws NullPointerException if <tt>cookie</tt> is <tt>null</tt>
      */
-    List<URI> getURIs();
+    public boolean remove(URI uri, HttpCookie cookie);
+
 
     /**
-     * Remove the specified cookie from the store.
+     * Remove all cookies in this cookie store.
      *
-     * @param uri
-     *            the uri associated with the specified cookie. If the cookie is
-     *            not associated with an URI when added, uri should be null;
-     *            otherwise the uri should be non-null.
-     * @param cookie
-     *            the cookie to be removed
-     * @return true if the specified cookie is contained in this store and
-     *         removed successfully
+     * @return          <tt>true</tt> if this store changed as a result of the call
      */
-    boolean remove(URI uri, HttpCookie cookie);
-
-    /**
-     * Clear this cookie store.
-     *
-     * @return true if any cookies were removed as a result of this call.
-     */
-    boolean removeAll();
+    public boolean removeAll();
 }

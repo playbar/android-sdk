@@ -1,81 +1,141 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1997, 2005, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
+
 
 package javax.net.ssl;
 
 import java.util.Enumeration;
 
+
 /**
- * A collection of {@code SSLSession}s.
+ * A <code>SSLSessionContext</code> represents a set of
+ * <code>SSLSession</code>s associated with a single entity. For example,
+ * it could be associated with a server or client who participates in many
+ * sessions concurrently.
+ * <p>
+ * Not all environments will contain session contexts.
+ * <p>
+ * There are <code>SSLSessionContext</code> parameters that affect how
+ * sessions are stored:
+ * <UL>
+ *      <LI>Sessions can be set to expire after a specified
+ *      time limit.
+ *      <LI>The number of sessions that can be stored in context
+ *      can be limited.
+ * </UL>
+ * A session can be retrieved based on its session id, and all session id's
+ * in a <code>SSLSessionContext</code> can be listed.
+ *
+ * @see SSLSession
+ *
+ * @since 1.4
+ * @author Nathan Abramson
+ * @author David Brownell
  */
 public interface SSLSessionContext {
-    /**
-     * Returns an iterable of all session identifiers in this session context.
-     *
-     * @return an iterable of all session identifiers in this session context.
-     */
-    public Enumeration<byte[]> getIds();
 
     /**
-     * Returns the session for the specified session identifier.
+     * Returns the <code>SSLSession</code> bound to the specified session id.
      *
-     * @param sessionId
-     *            the session identifier of the session to look up.
-     * @return the session for the specified session identifier, or {@code null}
-     *         if the specified session identifier does not refer to a session
-     *         in this context.
+     * @param sessionId the Session identifier
+     * @return the <code>SSLSession</code> or null if
+     * the specified session id does not refer to a valid SSLSession.
+     *
+     * @throws NullPointerException if <code>sessionId</code> is null.
      */
     public SSLSession getSession(byte[] sessionId);
 
     /**
-     * Returns the size of the session cache for this session context.
+     * Returns an Enumeration of all session id's grouped under this
+     * <code>SSLSessionContext</code>.
      *
-     * @return the size of the session cache for this session context, or
-     *         {@code zero} if unlimited.
+     * @return an enumeration of all the Session id's
      */
-    public int getSessionCacheSize();
+    public Enumeration<byte[]> getIds();
 
     /**
-     * Returns the timeout for sessions in this session context. Sessions
-     * exceeding the timeout are invalidated.
+     * Sets the timeout limit for <code>SSLSession</code> objects grouped
+     * under this <code>SSLSessionContext</code>.
+     * <p>
+     * If the timeout limit is set to 't' seconds, a session exceeds the
+     * timeout limit 't' seconds after its creation time.
+     * When the timeout limit is exceeded for a session, the
+     * <code>SSLSession</code> object is invalidated and future connections
+     * cannot resume or rejoin the session.
+     * A check for sessions exceeding the timeout is made immediately whenever
+     * the timeout limit is changed for this <code>SSLSessionContext</code>.
      *
-     * @return the timeout in seconds, or {@code zero} if unlimited.
+     * @param seconds the new session timeout limit in seconds; zero means
+     *          there is no limit.
+     *
+     * @exception IllegalArgumentException if the timeout specified is < 0.
+     * @see #getSessionTimeout
+     */
+    public void setSessionTimeout(int seconds)
+                 throws IllegalArgumentException;
+
+    /**
+     * Returns the timeout limit of <code>SSLSession</code> objects grouped
+     * under this <code>SSLSessionContext</code>.
+     * <p>
+     * If the timeout limit is set to 't' seconds, a session exceeds the
+     * timeout limit 't' seconds after its creation time.
+     * When the timeout limit is exceeded for a session, the
+     * <code>SSLSession</code> object is invalidated and future connections
+     * cannot resume or rejoin the session.
+     * A check for sessions exceeding the timeout limit is made immediately
+     * whenever the timeout limit is changed for this
+     * <code>SSLSessionContext</code>.
+     *
+     * @return the session timeout limit in seconds; zero means there is no
+     * limit.
+     * @see #setSessionTimeout
      */
     public int getSessionTimeout();
 
     /**
-     * Sets the size of the session cache for this session context.
+     * Sets the size of the cache used for storing
+     * <code>SSLSession</code> objects grouped under this
+     * <code>SSLSessionContext</code>.
      *
-     * @param size
-     *            the size of the session cache, or {@code zero} for unlimited
-     *            cache size.
-     * @throws IllegalArgumentException
-     *             if {@code size} is negative.
+     * @param size the new session cache size limit; zero means there is no
+     * limit.
+     * @exception IllegalArgumentException if the specified size is < 0.
+     * @see #getSessionCacheSize
      */
-    public void setSessionCacheSize(int size) throws IllegalArgumentException;
+    public void setSessionCacheSize(int size)
+                 throws IllegalArgumentException;
 
     /**
-     * Sets the timeout for sessions in this context. Sessions exceeding the
-     * timeout are invalidated.
+     * Returns the size of the cache used for storing
+     * <code>SSLSession</code> objects grouped under this
+     * <code>SSLSessionContext</code>.
      *
-     * @param seconds
-     *            the timeout in seconds, or {@code zero} if unlimited.
-     * @throws IllegalArgumentException
-     *             if {@code seconds} is negative.
+     * @return size of the session cache; zero means there is no size limit.
+     * @see #setSessionCacheSize
      */
-    public void setSessionTimeout(int seconds) throws IllegalArgumentException;
+    public int getSessionCacheSize();
+
 }

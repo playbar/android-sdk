@@ -23,6 +23,13 @@ import android.view.accessibility.AccessibilityNodeInfo;
  * KitKat-specific AccessibilityNodeInfo API implementation.
  */
 class AccessibilityNodeInfoCompatKitKat {
+    private static final byte TRAIT_UNSET = -1;
+    private static final String TRAITS_KEY =
+            "android.view.accessibility.AccessibilityNodeInfo.traits";
+    private static final long TRAIT_HAS_IMAGE = 0x00000001;
+    private static final String ROLE_DESCRIPTION_KEY =
+            "AccessibilityNodeInfo.roleDescription";
+
     static int getLiveRegion(Object info) {
         return ((AccessibilityNodeInfo) info).getLiveRegion();
     }
@@ -62,6 +69,10 @@ class AccessibilityNodeInfoCompatKitKat {
         return AccessibilityNodeInfo.CollectionInfo.obtain(rowCount, columnCount, hierarchical);
     }
 
+    public static Object obtainCollectionInfo(int rowCount, int columnCount, boolean hierarchical) {
+        return AccessibilityNodeInfo.CollectionInfo.obtain(rowCount, columnCount, hierarchical);
+    }
+
     public static Object obtainCollectionItemInfo(int rowIndex, int rowSpan, int columnIndex,
             int columnSpan, boolean heading) {
         return AccessibilityNodeInfo.CollectionItemInfo.obtain(rowIndex, rowSpan, columnIndex,
@@ -88,6 +99,16 @@ class AccessibilityNodeInfoCompatKitKat {
         return ((AccessibilityNodeInfo) info).getExtras();
     }
 
+    private static long getTraits(Object info) {
+        return getExtras(info).getLong(TRAITS_KEY, TRAIT_UNSET);
+    }
+
+    private static void setTrait(Object info, long trait) {
+        Bundle extras = getExtras(info);
+        long traits = extras.getLong(TRAITS_KEY, 0);
+        extras.putLong(TRAITS_KEY, traits | trait);
+    }
+
     public static int getInputType(Object info) {
         return ((AccessibilityNodeInfo) info).getInputType();
     }
@@ -110,6 +131,20 @@ class AccessibilityNodeInfoCompatKitKat {
 
     public static void setMultiLine(Object info, boolean multiLine) {
         ((AccessibilityNodeInfo) info).setMultiLine(multiLine);
+    }
+
+    public static CharSequence getRoleDescription(Object info) {
+        Bundle extras = getExtras(info);
+        return extras.getCharSequence(ROLE_DESCRIPTION_KEY);
+    }
+
+    public static void setRoleDescription(Object info, CharSequence roleDescription) {
+        Bundle extras = getExtras(info);
+        extras.putCharSequence(ROLE_DESCRIPTION_KEY, roleDescription);
+    }
+
+    public static Object obtainRangeInfo(int type, float min, float max, float current) {
+        return AccessibilityNodeInfo.RangeInfo.obtain(type, min, max, current);
     }
 
     static class CollectionInfo {

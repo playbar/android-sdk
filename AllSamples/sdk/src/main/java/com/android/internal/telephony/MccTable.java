@@ -124,10 +124,17 @@ public final class MccTable {
             return null;
         }
 
+        final String country = entry.mIso;
+
+        // Choose English as the default language for India.
+        if ("in".equals(country)) {
+            return "en";
+        }
+
         // Ask CLDR for the language this country uses...
-        Locale likelyLocale = ICU.addLikelySubtags(new Locale("und", entry.mIso));
+        Locale likelyLocale = ICU.addLikelySubtags(new Locale("und", country));
         String likelyLanguage = likelyLocale.getLanguage();
-        Slog.d(LOG_TAG, "defaultLanguageForMcc(" + mcc + "): country " + entry.mIso + " uses " +
+        Slog.d(LOG_TAG, "defaultLanguageForMcc(" + mcc + "): country " + country + " uses " +
                likelyLanguage);
         return likelyLanguage;
     }
@@ -226,6 +233,8 @@ public final class MccTable {
     private static final Map<Locale, Locale> FALLBACKS = new HashMap<Locale, Locale>();
 
     static {
+        // If we have English (without a country) explicitly prioritize en_US. http://b/28998094
+        FALLBACKS.put(Locale.ENGLISH, Locale.US);
         FALLBACKS.put(Locale.CANADA, Locale.US);
     }
 
@@ -378,8 +387,7 @@ public final class MccTable {
         String country = MccTable.countryCodeForMcc(mcc);
         Slog.d(LOG_TAG, "WIFI_COUNTRY_CODE set to " + country);
         WifiManager wM = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-        //persist
-        wM.setCountryCode(country, true);
+        wM.setCountryCode(country, false);
     }
 
     static {
@@ -529,7 +537,7 @@ public final class MccTable {
 		sTable.add(new MccEntry(457,"la",2));	//Lao People's Democratic Republic
 		sTable.add(new MccEntry(460,"cn",2));	//China (People's Republic of)
 		sTable.add(new MccEntry(461,"cn",2));	//China (People's Republic of)
-		sTable.add(new MccEntry(466,"tw",2));	//"Taiwan, China"
+		sTable.add(new MccEntry(466,"tw",2));	//Taiwan
 		sTable.add(new MccEntry(467,"kp",2));	//Democratic People's Republic of Korea
 		sTable.add(new MccEntry(470,"bd",2));	//Bangladesh (People's Republic of)
 		sTable.add(new MccEntry(472,"mv",2));	//Maldives (Republic of)
@@ -590,7 +598,7 @@ public final class MccTable {
 		sTable.add(new MccEntry(627,"gq",2));	//Equatorial Guinea (Republic of)
 		sTable.add(new MccEntry(628,"ga",2));	//Gabonese Republic
 		sTable.add(new MccEntry(629,"cg",2));	//Congo (Republic of the)
-		sTable.add(new MccEntry(630,"cg",2));	//Democratic Republic of the Congo
+		sTable.add(new MccEntry(630,"cd",2));	//Democratic Republic of the Congo
 		sTable.add(new MccEntry(631,"ao",2));	//Angola (Republic of)
 		sTable.add(new MccEntry(632,"gw",2));	//Guinea-Bissau (Republic of)
 		sTable.add(new MccEntry(633,"sc",2));	//Seychelles (Republic of)

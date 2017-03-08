@@ -1,18 +1,26 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1997, 1999, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security;
@@ -20,50 +28,79 @@ package java.security;
 import java.security.spec.AlgorithmParameterSpec;
 
 /**
- * {@code KeyPairGeneratorSpi} is the Service Provider Interface (SPI)
- * definition for {@link KeyPairGenerator}.
+ * <p> This class defines the <i>Service Provider Interface</i> (<b>SPI</b>)
+ * for the <code>KeyPairGenerator</code> class, which is used to generate
+ * pairs of public and private keys.
+ *
+ * <p> All the abstract methods in this class must be implemented by each
+ * cryptographic service provider who wishes to supply the implementation
+ * of a key pair generator for a particular algorithm.
+ *
+ * <p> In case the client does not explicitly initialize the KeyPairGenerator
+ * (via a call to an <code>initialize</code> method), each provider must
+ * supply (and document) a default initialization.
+ * For example, the <i>Sun</i> provider uses a default modulus size (keysize)
+ * of 1024 bits.
+ *
+ * @author Benjamin Renaud
+ *
  *
  * @see KeyPairGenerator
+ * @see java.security.spec.AlgorithmParameterSpec
  */
+
 public abstract class KeyPairGeneratorSpi {
-    /**
-     * Constructs a new instance of {@code KeyPairGeneratorSpi}.
-     */
-    public KeyPairGeneratorSpi() {
-    }
 
     /**
-     * Computes and returns a new unique {@code KeyPair} each time this method
-     * is called.
+     * Initializes the key pair generator for a certain keysize, using
+     * the default parameter set.
      *
-     * @return a new unique {@code KeyPair} each time this method is called.
-     */
-    public abstract KeyPair generateKeyPair();
-
-    /**
-     * Initializes this {@code KeyPairGeneratorSpi} with the given key size and
-     * the given {@code SecureRandom}. The default parameter set will be used.
+     * @param keysize the keysize. This is an
+     * algorithm-specific metric, such as modulus length, specified in
+     * number of bits.
      *
-     * @param keysize
-     *            the key size (number of bits).
-     * @param random
-     *            the source of randomness.
+     * @param random the source of randomness for this generator.
+     *
+     * @exception InvalidParameterException if the <code>keysize</code> is not
+     * supported by this KeyPairGeneratorSpi object.
      */
     public abstract void initialize(int keysize, SecureRandom random);
 
     /**
-     * Initializes this {@code KeyPairGeneratorSpi} with the given {@code
-     * AlgorithmParameterSpec} and the given {@code SecureRandom}.
+     * Initializes the key pair generator using the specified parameter
+     * set and user-provided source of randomness.
      *
-     * @param params
-     *            the parameters to use.
-     * @param random
-     *            the source of randomness.
-     * @throws InvalidAlgorithmParameterException
-     *             if the specified parameters are not supported.
+     * <p>This concrete method has been added to this previously-defined
+     * abstract class. (For backwards compatibility, it cannot be abstract.)
+     * It may be overridden by a provider to initialize the key pair
+     * generator. Such an override
+     * is expected to throw an InvalidAlgorithmParameterException if
+     * a parameter is inappropriate for this key pair generator.
+     * If this method is not overridden, it always throws an
+     * UnsupportedOperationException.
+     *
+     * @param params the parameter set used to generate the keys.
+     *
+     * @param random the source of randomness for this generator.
+     *
+     * @exception InvalidAlgorithmParameterException if the given parameters
+     * are inappropriate for this key pair generator.
+     *
+     * @since 1.2
      */
-    public void initialize(AlgorithmParameterSpec params, SecureRandom random)
-            throws InvalidAlgorithmParameterException {
-        throw new UnsupportedOperationException();
+    public void initialize(AlgorithmParameterSpec params,
+                           SecureRandom random)
+        throws InvalidAlgorithmParameterException {
+            throw new UnsupportedOperationException();
     }
+
+    /**
+     * Generates a key pair. Unless an initialization method is called
+     * using a KeyPairGenerator interface, algorithm-specific defaults
+     * will be used. This will generate a new key pair every time it
+     * is called.
+     *
+     * @return the newly generated <tt>KeyPair</tt>
+     */
+    public abstract KeyPair generateKeyPair();
 }

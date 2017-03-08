@@ -16,8 +16,10 @@
 
 package android.support.v4.app;
 
-import android.app.ActivityOptions;
 import android.app.Activity;
+import android.app.ActivityOptions;
+import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Pair;
 import android.view.View;
@@ -25,6 +27,24 @@ import android.view.View;
 class ActivityOptionsCompat21 {
 
     private final ActivityOptions mActivityOptions;
+
+    public static ActivityOptionsCompat21 makeCustomAnimation(Context context,
+            int enterResId, int exitResId) {
+        return new ActivityOptionsCompat21(
+            ActivityOptions.makeCustomAnimation(context, enterResId, exitResId));
+    }
+
+    public static ActivityOptionsCompat21 makeScaleUpAnimation(View source,
+            int startX, int startY, int startWidth, int startHeight) {
+        return new ActivityOptionsCompat21(
+            ActivityOptions.makeScaleUpAnimation(source, startX, startY, startWidth, startHeight));
+    }
+
+    public static ActivityOptionsCompat21 makeThumbnailScaleUpAnimation(View source,
+            Bitmap thumbnail, int startX, int startY) {
+        return new ActivityOptionsCompat21(
+            ActivityOptions.makeThumbnailScaleUpAnimation(source, thumbnail, startX, startY));
+    }
 
     public static ActivityOptionsCompat21 makeSceneTransitionAnimation(Activity activity,
             View sharedElement, String sharedElementName) {
@@ -44,6 +64,11 @@ class ActivityOptionsCompat21 {
         }
         return new ActivityOptionsCompat21(
                 ActivityOptions.makeSceneTransitionAnimation(activity, pairs));
+    }
+
+    public static ActivityOptionsCompat21 makeTaskLaunchBehind() {
+        return new ActivityOptionsCompat21(
+                ActivityOptions.makeTaskLaunchBehind());
     }
 
     private ActivityOptionsCompat21(ActivityOptions activityOptions) {

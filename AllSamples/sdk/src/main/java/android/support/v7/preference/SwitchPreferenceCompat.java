@@ -18,6 +18,7 @@ package android.support.v7.preference;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.support.annotation.RestrictTo;
 import android.support.v4.content.res.TypedArrayUtils;
 import android.support.v7.widget.SwitchCompat;
 import android.util.AttributeSet;
@@ -26,16 +27,18 @@ import android.view.accessibility.AccessibilityManager;
 import android.widget.Checkable;
 import android.widget.CompoundButton;
 
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+
 /**
 * A {@link Preference} that provides a two-state toggleable option.
 * <p>
 * This preference will store a boolean into the SharedPreferences.
 *
-* @attr ref android.R.styleable#SwitchPreference_summaryOff
-* @attr ref android.R.styleable#SwitchPreference_summaryOn
-* @attr ref android.R.styleable#SwitchPreference_switchTextOff
-* @attr ref android.R.styleable#SwitchPreference_switchTextOn
-* @attr ref android.R.styleable#SwitchPreference_disableDependentsState
+* @attr name android:summaryOff
+* @attr name android:summaryOn
+* @attr name android:switchTextOff
+* @attr name android:switchTextOn
+* @attr name android:disableDependentsState
 */
 public class SwitchPreferenceCompat extends TwoStatePreference {
     private final Listener mListener = new Listener();
@@ -198,6 +201,7 @@ public class SwitchPreferenceCompat extends TwoStatePreference {
     /**
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     @Override
     protected void performClick(View view) {
         super.performClick(view);

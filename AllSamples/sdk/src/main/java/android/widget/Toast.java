@@ -25,6 +25,8 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.PixelFormat;
 import android.os.Handler;
+import android.os.IBinder;
+import android.os.Message;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Log;
@@ -163,6 +165,7 @@ public class Toast {
      */
     public void setDuration(@Duration int duration) {
         mDuration = duration;
+        mTN.mDuration = duration;
     }
 
     /**
@@ -325,13 +328,6 @@ public class Toast {
     }
 
     private static class TN extends ITransientNotification.Stub {
-        final Runnable mShow = new Runnable() {
-            @Override
-            public void run() {
-                handleShow();
-            }
-        };
-
         final Runnable mHide = new Runnable() {
             @Override
             public void run() {
@@ -342,7 +338,13 @@ public class Toast {
         };
 
         private final WindowManager.LayoutParams mParams = new WindowManager.LayoutParams();
-        final Handler mHandler = new Handler();    
+        final Handler mHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                IBinder token = (IBinder) msg.obj;
+                handleShow(token);
+            }
+        };
 
         int mGravity;
         int mX, mY;
@@ -352,8 +354,12 @@ public class Toast {
 
         View mView;
         View mNextView;
+        int mDuration;
 
         WindowManager mWM;
+
+        static final long SHORT_DURATION_TIMEOUT = 5000;
+        static final long LONG_DURATION_TIMEOUT = 1000;
 
         TN() {
             // XXX This should be changed to use a Dialog, with a Theme.Toast
@@ -374,9 +380,9 @@ public class Toast {
          * schedule handleShow into the right thread
          */
         @Override
-        public void show() {
+        public void show(IBinder windowToken) {
             if (localLOGV) Log.v(TAG, "SHOW: " + this);
-            mHandler.post(mShow);
+            mHandler.obtainMessage(0, windowToken).sendToTarget();
         }
 
         /**
@@ -388,7 +394,7 @@ public class Toast {
             mHandler.post(mHide);
         }
 
-        public void handleShow() {
+        public void handleShow(IBinder windowToken) {
             if (localLOGV) Log.v(TAG, "HANDLE SHOW: " + this + " mView=" + mView
                     + " mNextView=" + mNextView);
             if (mView != mNextView) {
@@ -417,6 +423,9 @@ public class Toast {
                 mParams.verticalMargin = mVerticalMargin;
                 mParams.horizontalMargin = mHorizontalMargin;
                 mParams.packageName = packageName;
+                mParams.hideTimeoutMilliseconds = mDuration ==
+                    Toast.LENGTH_LONG ? LONG_DURATION_TIMEOUT : SHORT_DURATION_TIMEOUT;
+                mParams.token = windowToken;
                 if (mView.getParent() != null) {
                     if (localLOGV) Log.v(TAG, "REMOVE! " + mView + " in " + this);
                     mWM.removeView(mView);
@@ -451,7 +460,7 @@ public class Toast {
                 // the view isn't yet added, so let's try not to crash.
                 if (mView.getParent() != null) {
                     if (localLOGV) Log.v(TAG, "REMOVE! " + mView + " in " + this);
-                    mWM.removeView(mView);
+                    mWM.removeViewImmediate(mView);
                 }
 
                 mView = null;

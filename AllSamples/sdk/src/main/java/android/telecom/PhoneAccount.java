@@ -28,6 +28,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
@@ -49,6 +50,32 @@ import java.util.MissingResourceException;
  * implementation Telecom will use to interact with the app.
  */
 public final class PhoneAccount implements Parcelable {
+
+    /**
+     * {@link PhoneAccount} extras key (see {@link PhoneAccount#getExtras()}) which determines the
+     * maximum permitted length of a call subject specified via the
+     * {@link TelecomManager#EXTRA_CALL_SUBJECT} extra on an
+     * {@link android.content.Intent#ACTION_CALL} intent.  Ultimately a {@link ConnectionService} is
+     * responsible for enforcing the maximum call subject length when sending the message, however
+     * this extra is provided so that the user interface can proactively limit the length of the
+     * call subject as the user types it.
+     */
+    public static final String EXTRA_CALL_SUBJECT_MAX_LENGTH =
+            "android.telecom.extra.CALL_SUBJECT_MAX_LENGTH";
+
+    /**
+     * {@link PhoneAccount} extras key (see {@link PhoneAccount#getExtras()}) which determines the
+     * character encoding to be used when determining the length of messages.
+     * The user interface can use this when determining the number of characters the user may type
+     * in a call subject.  If empty-string, the call subject message size limit will be enforced on
+     * a 1:1 basis.  That is, each character will count towards the messages size limit as a single
+     * character.  If a character encoding is specified, the message size limit will be based on the
+     * number of bytes in the message per the specified encoding.  See
+     * {@link #EXTRA_CALL_SUBJECT_MAX_LENGTH} for more information on the call subject maximum
+     * length.
+     */
+    public static final String EXTRA_CALL_SUBJECT_CHARACTER_ENCODING =
+            "android.telecom.extra.CALL_SUBJECT_CHARACTER_ENCODING";
 
     /**
      * Flag indicating that this {@code PhoneAccount} can act as a connection manager for
@@ -121,6 +148,37 @@ public final class PhoneAccount implements Parcelable {
     public static final int CAPABILITY_CALL_SUBJECT = 0x40;
 
     /**
+     * Flag indicating that this {@code PhoneAccount} should only be used for emergency calls.
+     * <p>
+     * See {@link #getCapabilities}
+     * @hide
+     */
+    public static final int CAPABILITY_EMERGENCY_CALLS_ONLY = 0x80;
+
+    /**
+     * Flag indicating that for this {@code PhoneAccount}, the ability to make a video call to a
+     * number relies on presence.  Should only be set if the {@code PhoneAccount} also has
+     * {@link #CAPABILITY_VIDEO_CALLING}.
+     * <p>
+     * When set, the {@link ConnectionService} is responsible for toggling the
+     * {@link android.provider.ContactsContract.Data#CARRIER_PRESENCE_VT_CAPABLE} bit on the
+     * {@link android.provider.ContactsContract.Data#CARRIER_PRESENCE} column to indicate whether
+     * a contact's phone number supports video calling.
+     * <p>
+     * See {@link #getCapabilities}
+     */
+    public static final int CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE = 0x100;
+
+    /**
+     * Flag indicating that for this {@link PhoneAccount}, emergency video calling is allowed.
+     * <p>
+     * When set, Telecom will allow emergency video calls to be placed.  When not set, Telecom will
+     * convert all outgoing video calls to emergency numbers to audio-only.
+     * @hide
+     */
+    public static final int CAPABILITY_EMERGENCY_VIDEO_CALLING = 0x200;
+
+    /**
      * URI scheme for telephone number URIs.
      */
     public static final String SCHEME_TEL = "tel";
@@ -160,7 +218,9 @@ public final class PhoneAccount implements Parcelable {
     private final CharSequence mShortDescription;
     private final List<String> mSupportedUriSchemes;
     private final Icon mIcon;
+    private final Bundle mExtras;
     private boolean mIsEnabled;
+    private String mGroupId;
 
     /**
      * Helper class for creating a {@link PhoneAccount}.
@@ -175,7 +235,9 @@ public final class PhoneAccount implements Parcelable {
         private CharSequence mShortDescription;
         private List<String> mSupportedUriSchemes = new ArrayList<String>();
         private Icon mIcon;
+        private Bundle mExtras;
         private boolean mIsEnabled = false;
+        private String mGroupId = "";
 
         /**
          * Creates a builder with the specified {@link PhoneAccountHandle} and label.
@@ -202,6 +264,8 @@ public final class PhoneAccount implements Parcelable {
             mSupportedUriSchemes.addAll(phoneAccount.getSupportedUriSchemes());
             mIcon = phoneAccount.getIcon();
             mIsEnabled = phoneAccount.isEnabled();
+            mExtras = phoneAccount.getExtras();
+            mGroupId = phoneAccount.getGroupId();
         }
 
         /**
@@ -300,6 +364,20 @@ public final class PhoneAccount implements Parcelable {
         }
 
         /**
+         * Specifies the extras associated with the {@link PhoneAccount}.
+         * <p>
+         * {@code PhoneAccount}s only support extra values of type: {@link String}, {@link Integer},
+         * and {@link Boolean}.  Extras which are not of these types are ignored.
+         *
+         * @param extras
+         * @return
+         */
+        public Builder setExtras(Bundle extras) {
+            mExtras = extras;
+            return this;
+        }
+
+        /**
          * Sets the enabled state of the phone account.
          *
          * @param isEnabled The enabled state.
@@ -308,6 +386,27 @@ public final class PhoneAccount implements Parcelable {
          */
         public Builder setIsEnabled(boolean isEnabled) {
             mIsEnabled = isEnabled;
+            return this;
+        }
+
+        /**
+         * Sets the group Id of the {@link PhoneAccount}. When a new {@link PhoneAccount} is
+         * registered to Telecom, it will replace another {@link PhoneAccount} that is already
+         * registered in Telecom and take on the current user defaults and enabled status. There can
+         * only be one {@link PhoneAccount} with a non-empty group number registered to Telecom at a
+         * time. By default, there is no group Id for a {@link PhoneAccount} (an empty String). Only
+         * grouped {@link PhoneAccount}s with the same {@link ConnectionService} can be replaced.
+         * @param groupId The group Id of the {@link PhoneAccount} that will replace any other
+         * registered {@link PhoneAccount} in Telecom with the same Group Id.
+         * @return The builder
+         * @hide
+         */
+        public Builder setGroupId(String groupId) {
+            if (groupId != null) {
+                mGroupId = groupId;
+            } else {
+                mGroupId = "";
+            }
             return this;
         }
 
@@ -332,7 +431,9 @@ public final class PhoneAccount implements Parcelable {
                     mLabel,
                     mShortDescription,
                     mSupportedUriSchemes,
-                    mIsEnabled);
+                    mExtras,
+                    mIsEnabled,
+                    mGroupId);
         }
     }
 
@@ -346,7 +447,9 @@ public final class PhoneAccount implements Parcelable {
             CharSequence label,
             CharSequence shortDescription,
             List<String> supportedUriSchemes,
-            boolean isEnabled) {
+            Bundle extras,
+            boolean isEnabled,
+            String groupId) {
         mAccountHandle = account;
         mAddress = address;
         mSubscriptionAddress = subscriptionAddress;
@@ -356,7 +459,9 @@ public final class PhoneAccount implements Parcelable {
         mLabel = label;
         mShortDescription = shortDescription;
         mSupportedUriSchemes = Collections.unmodifiableList(supportedUriSchemes);
+        mExtras = extras;
         mIsEnabled = isEnabled;
+        mGroupId = groupId;
     }
 
     public static Builder builder(
@@ -455,6 +560,18 @@ public final class PhoneAccount implements Parcelable {
     }
 
     /**
+     * The extras associated with this {@code PhoneAccount}.
+     * <p>
+     * A {@link ConnectionService} may provide implementation specific information about the
+     * {@link PhoneAccount} via the extras.
+     *
+     * @return The extras.
+     */
+    public Bundle getExtras() {
+        return mExtras;
+    }
+
+    /**
      * The icon to represent this {@code PhoneAccount}.
      *
      * @return The icon.
@@ -471,6 +588,21 @@ public final class PhoneAccount implements Parcelable {
      */
     public boolean isEnabled() {
         return mIsEnabled;
+    }
+
+    /**
+     * A non-empty {@link String} representing the group that A {@link PhoneAccount} is in or an
+     * empty {@link String} if the {@link PhoneAccount} is not in a group. If this
+     * {@link PhoneAccount} is in a group, this new {@link PhoneAccount} will replace a registered
+     * {@link PhoneAccount} that is in the same group. When the {@link PhoneAccount} is replaced,
+     * its user defined defaults and enabled status will also pass to this new {@link PhoneAccount}.
+     * Only {@link PhoneAccount}s that share the same {@link ConnectionService} can be replaced.
+     *
+     * @return A non-empty String Id if this {@link PhoneAccount} belongs to a group.
+     * @hide
+     */
+    public String getGroupId() {
+        return mGroupId;
     }
 
     /**
@@ -553,6 +685,8 @@ public final class PhoneAccount implements Parcelable {
             mIcon.writeToParcel(out, flags);
         }
         out.writeByte((byte) (mIsEnabled ? 1 : 0));
+        out.writeBundle(mExtras);
+        out.writeString(mGroupId);
     }
 
     public static final Creator<PhoneAccount> CREATOR
@@ -595,6 +729,8 @@ public final class PhoneAccount implements Parcelable {
             mIcon = null;
         }
         mIsEnabled = in.readByte() == 1;
+        mExtras = in.readBundle();
+        mGroupId = in.readString();
     }
 
     @Override
@@ -604,13 +740,58 @@ public final class PhoneAccount implements Parcelable {
                 .append("] PhoneAccount: ")
                 .append(mAccountHandle)
                 .append(" Capabilities: ")
-                .append(mCapabilities)
+                .append(capabilitiesToString(mCapabilities))
                 .append(" Schemes: ");
         for (String scheme : mSupportedUriSchemes) {
             sb.append(scheme)
                     .append(" ");
         }
+        sb.append(" Extras: ");
+        sb.append(mExtras);
+        sb.append(" GroupId: ");
+        sb.append(Log.pii(mGroupId));
         sb.append("]");
+        return sb.toString();
+    }
+
+    /**
+     * Generates a string representation of a capabilities bitmask.
+     *
+     * @param capabilities The capabilities bitmask.
+     * @return String representation of the capabilities bitmask.
+     */
+    private String capabilitiesToString(int capabilities) {
+        StringBuilder sb = new StringBuilder();
+        if (hasCapabilities(CAPABILITY_VIDEO_CALLING)) {
+            sb.append("Video ");
+        }
+        if (hasCapabilities(CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE)) {
+            sb.append("Presence ");
+        }
+        if (hasCapabilities(CAPABILITY_CALL_PROVIDER)) {
+            sb.append("CallProvider ");
+        }
+        if (hasCapabilities(CAPABILITY_CALL_SUBJECT)) {
+            sb.append("CallSubject ");
+        }
+        if (hasCapabilities(CAPABILITY_CONNECTION_MANAGER)) {
+            sb.append("ConnectionMgr ");
+        }
+        if (hasCapabilities(CAPABILITY_EMERGENCY_CALLS_ONLY)) {
+            sb.append("EmergOnly ");
+        }
+        if (hasCapabilities(CAPABILITY_MULTI_USER)) {
+            sb.append("MultiUser ");
+        }
+        if (hasCapabilities(CAPABILITY_PLACE_EMERGENCY_CALLS)) {
+            sb.append("PlaceEmerg ");
+        }
+        if (hasCapabilities(CAPABILITY_EMERGENCY_VIDEO_CALLING)) {
+            sb.append("EmergVideo ");
+        }
+        if (hasCapabilities(CAPABILITY_SIM_SUBSCRIPTION)) {
+            sb.append("SimSub ");
+        }
         return sb.toString();
     }
 }

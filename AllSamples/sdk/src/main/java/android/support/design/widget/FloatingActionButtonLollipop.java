@@ -17,44 +17,38 @@
 package android.support.design.widget;
 
 import android.animation.Animator;
+import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.StateListAnimator;
 import android.annotation.TargetApi;
 import android.content.res.ColorStateList;
 import android.graphics.PorterDuff;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-class FloatingActionButtonLollipop extends FloatingActionButtonHoneycombMr1 {
+class FloatingActionButtonLollipop extends FloatingActionButtonIcs {
 
-    private Drawable mShapeDrawable;
-    private RippleDrawable mRippleDrawable;
-    private Drawable mBorderDrawable;
+    private InsetDrawable mInsetDrawable;
 
-    private Interpolator mInterpolator;
-
-    FloatingActionButtonLollipop(View view, ShadowViewDelegate shadowViewDelegate) {
-        super(view, shadowViewDelegate);
-
-        if (!view.isInEditMode()) {
-            mInterpolator = AnimationUtils.loadInterpolator(mView.getContext(),
-                    android.R.interpolator.fast_out_slow_in);
-        }
+    FloatingActionButtonLollipop(VisibilityAwareImageButton view,
+            ShadowViewDelegate shadowViewDelegate, ValueAnimatorCompat.Creator animatorCreator) {
+        super(view, shadowViewDelegate, animatorCreator);
     }
 
     @Override
-    void setBackgroundDrawable(Drawable originalBackground, ColorStateList backgroundTint,
+    void setBackgroundDrawable(ColorStateList backgroundTint,
             PorterDuff.Mode backgroundTintMode, int rippleColor, int borderWidth) {
-        // Now we need to tint the original background with the tint
-        mShapeDrawable = DrawableCompat.wrap(originalBackground.mutate());
+        // Now we need to tint the shape background with the tint
+        mShapeDrawable = DrawableCompat.wrap(createShapeDrawable());
         DrawableCompat.setTintList(mShapeDrawable, backgroundTint);
         if (backgroundTintMode != null) {
             DrawableCompat.setTintMode(mShapeDrawable, backgroundTintMode);
@@ -72,47 +66,86 @@ class FloatingActionButtonLollipop extends FloatingActionButtonHoneycombMr1 {
         mRippleDrawable = new RippleDrawable(ColorStateList.valueOf(rippleColor),
                 rippleContent, null);
 
+        mContentBackground = mRippleDrawable;
+
         mShadowViewDelegate.setBackgroundDrawable(mRippleDrawable);
-        mShadowViewDelegate.setShadowPadding(0, 0, 0, 0);
-    }
-
-    @Override
-    void setBackgroundTintList(ColorStateList tint) {
-        DrawableCompat.setTintList(mShapeDrawable, tint);
-        if (mBorderDrawable != null) {
-            DrawableCompat.setTintList(mBorderDrawable, tint);
-        }
-    }
-
-    @Override
-    void setBackgroundTintMode(PorterDuff.Mode tintMode) {
-        DrawableCompat.setTintMode(mShapeDrawable, tintMode);
     }
 
     @Override
     void setRippleColor(int rippleColor) {
-        mRippleDrawable.setColor(ColorStateList.valueOf(rippleColor));
+        if (mRippleDrawable instanceof RippleDrawable) {
+            ((RippleDrawable) mRippleDrawable).setColor(ColorStateList.valueOf(rippleColor));
+        } else {
+            super.setRippleColor(rippleColor);
+        }
     }
 
     @Override
-    public void setElevation(float elevation) {
-        ViewCompat.setElevation(mView, elevation);
-    }
+    void onElevationsChanged(final float elevation, final float pressedTranslationZ) {
+        final StateListAnimator stateListAnimator = new StateListAnimator();
 
-    @Override
-    void setPressedTranslationZ(float translationZ) {
-        StateListAnimator stateListAnimator = new StateListAnimator();
+        // Animate elevation and translationZ to our values when pressed
+        AnimatorSet set = new AnimatorSet();
+        set.play(ObjectAnimator.ofFloat(mView, "elevation", elevation).setDuration(0))
+                .with(ObjectAnimator.ofFloat(mView, View.TRANSLATION_Z, pressedTranslationZ)
+                        .setDuration(PRESSED_ANIM_DURATION));
+        set.setInterpolator(ANIM_INTERPOLATOR);
+        stateListAnimator.addState(PRESSED_ENABLED_STATE_SET, set);
 
-        // Animate translationZ to our value when pressed or focused
-        stateListAnimator.addState(PRESSED_ENABLED_STATE_SET,
-                setupAnimator(ObjectAnimator.ofFloat(mView, "translationZ", translationZ)));
-        stateListAnimator.addState(FOCUSED_ENABLED_STATE_SET,
-                setupAnimator(ObjectAnimator.ofFloat(mView, "translationZ", translationZ)));
-        // Animate translationZ to 0 otherwise
-        stateListAnimator.addState(EMPTY_STATE_SET,
-                setupAnimator(ObjectAnimator.ofFloat(mView, "translationZ", 0f)));
+        // Same deal for when we're focused
+        set = new AnimatorSet();
+        set.play(ObjectAnimator.ofFloat(mView, "elevation", elevation).setDuration(0))
+                .with(ObjectAnimator.ofFloat(mView, View.TRANSLATION_Z, pressedTranslationZ)
+                        .setDuration(PRESSED_ANIM_DURATION));
+        set.setInterpolator(ANIM_INTERPOLATOR);
+        stateListAnimator.addState(FOCUSED_ENABLED_STATE_SET, set);
+
+        // Animate translationZ to 0 if not pressed
+        set = new AnimatorSet();
+        // Use an AnimatorSet to set a start delay since there is a bug with ValueAnimator that
+        // prevents it from being cancelled properly when used with a StateListAnimator.
+        AnimatorSet anim = new AnimatorSet();
+        anim.play(ObjectAnimator.ofFloat(mView, View.TRANSLATION_Z, 0f)
+                        .setDuration(PRESSED_ANIM_DURATION))
+                .after(PRESSED_ANIM_DURATION);
+        set.play(ObjectAnimator.ofFloat(mView, "elevation", elevation).setDuration(0))
+                .with(anim);
+        set.setInterpolator(ANIM_INTERPOLATOR);
+        stateListAnimator.addState(ENABLED_STATE_SET, set);
+
+        // Animate everything to 0 when disabled
+        set = new AnimatorSet();
+        set.play(ObjectAnimator.ofFloat(mView, "elevation", 0f).setDuration(0))
+                .with(ObjectAnimator.ofFloat(mView, View.TRANSLATION_Z, 0f).setDuration(0));
+        set.setInterpolator(ANIM_INTERPOLATOR);
+        stateListAnimator.addState(EMPTY_STATE_SET, set);
 
         mView.setStateListAnimator(stateListAnimator);
+
+        if (mShadowViewDelegate.isCompatPaddingEnabled()) {
+            updatePadding();
+        }
+    }
+
+    @Override
+    public float getElevation() {
+        return mView.getElevation();
+    }
+
+    @Override
+    void onCompatShadowChanged() {
+        updatePadding();
+    }
+
+    @Override
+    void onPaddingUpdated(Rect padding) {
+        if (mShadowViewDelegate.isCompatPaddingEnabled()) {
+            mInsetDrawable = new InsetDrawable(mRippleDrawable,
+                    padding.left, padding.top, padding.right, padding.bottom);
+            mShadowViewDelegate.setBackgroundDrawable(mInsetDrawable);
+        } else {
+            mShadowViewDelegate.setBackgroundDrawable(mRippleDrawable);
+        }
     }
 
     @Override
@@ -125,13 +158,28 @@ class FloatingActionButtonLollipop extends FloatingActionButtonHoneycombMr1 {
         // no-op
     }
 
-    private Animator setupAnimator(Animator animator) {
-        animator.setInterpolator(mInterpolator);
-        return animator;
+    @Override
+    boolean requirePreDrawListener() {
+        return false;
     }
 
     @Override
     CircularBorderDrawable newCircularDrawable() {
         return new CircularBorderDrawableLollipop();
+    }
+
+    @Override
+    void getPadding(Rect rect) {
+        if (mShadowViewDelegate.isCompatPaddingEnabled()) {
+            final float radius = mShadowViewDelegate.getRadius();
+            final float maxShadowSize = getElevation() + mPressedTranslationZ;
+            final int hPadding = (int) Math.ceil(
+                    ShadowDrawableWrapper.calculateHorizontalPadding(maxShadowSize, radius, false));
+            final int vPadding = (int) Math.ceil(
+                    ShadowDrawableWrapper.calculateVerticalPadding(maxShadowSize, radius, false));
+            rect.set(hPadding, vPadding, hPadding, vPadding);
+        } else {
+            rect.set(0, 0, 0, 0);
+        }
     }
 }

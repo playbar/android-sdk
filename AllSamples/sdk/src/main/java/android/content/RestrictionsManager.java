@@ -422,7 +422,7 @@ public class RestrictionsManager {
                 return mService.getApplicationRestrictions(mContext.getPackageName());
             }
         } catch (RemoteException re) {
-            Log.w(TAG, "Couldn't reach service");
+            throw re.rethrowFromSystemServer();
         }
         return null;
     }
@@ -439,7 +439,7 @@ public class RestrictionsManager {
                 return mService.hasRestrictionsProvider();
             }
         } catch (RemoteException re) {
-            Log.w(TAG, "Couldn't reach service");
+            throw re.rethrowFromSystemServer();
         }
         return false;
     }
@@ -477,7 +477,7 @@ public class RestrictionsManager {
                         request);
             }
         } catch (RemoteException re) {
-            Log.w(TAG, "Couldn't reach service");
+            throw re.rethrowFromSystemServer();
         }
     }
 
@@ -487,7 +487,7 @@ public class RestrictionsManager {
                 return mService.createLocalApprovalIntent();
             }
         } catch (RemoteException re) {
-            Log.w(TAG, "Couldn't reach service");
+            throw re.rethrowFromSystemServer();
         }
         return null;
     }
@@ -519,7 +519,7 @@ public class RestrictionsManager {
                 mService.notifyPermissionResponse(packageName, response);
             }
         } catch (RemoteException re) {
-            Log.w(TAG, "Couldn't reach service");
+            throw re.rethrowFromSystemServer();
         }
     }
 
@@ -677,7 +677,8 @@ public class RestrictionsManager {
      * <table>
      *     <tr><th>RestrictionEntry</th><th>Bundle</th></tr>
      *     <tr><td>{@link RestrictionEntry#TYPE_BOOLEAN}</td><td>{@link Bundle#putBoolean}</td></tr>
-     *     <tr><td>{@link RestrictionEntry#TYPE_CHOICE}, {@link RestrictionEntry#TYPE_CHOICE}</td>
+     *     <tr><td>{@link RestrictionEntry#TYPE_CHOICE},
+     *     {@link RestrictionEntry#TYPE_MULTI_SELECT}</td>
      *     <td>{@link Bundle#putStringArray}</td></tr>
      *     <tr><td>{@link RestrictionEntry#TYPE_INTEGER}</td><td>{@link Bundle#putInt}</td></tr>
      *     <tr><td>{@link RestrictionEntry#TYPE_STRING}</td><td>{@link Bundle#putString}</td></tr>

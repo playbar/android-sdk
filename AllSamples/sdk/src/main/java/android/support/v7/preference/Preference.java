@@ -24,10 +24,13 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.annotation.CallSuper;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.SharedPreferencesCompat;
 import android.support.v4.content.res.TypedArrayUtils;
+import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.AbsSavedState;
@@ -38,6 +41,8 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Represents the basic Preference UI building
@@ -61,20 +66,20 @@ import java.util.List;
  * guide.</p>
  * </div>
  *
- * @attr ref android.R.styleable#Preference_icon
- * @attr ref android.R.styleable#Preference_key
- * @attr ref android.R.styleable#Preference_title
- * @attr ref android.R.styleable#Preference_summary
- * @attr ref android.R.styleable#Preference_order
- * @attr ref android.R.styleable#Preference_fragment
- * @attr ref android.R.styleable#Preference_layout
- * @attr ref android.R.styleable#Preference_widgetLayout
- * @attr ref android.R.styleable#Preference_enabled
- * @attr ref android.R.styleable#Preference_selectable
- * @attr ref android.R.styleable#Preference_dependency
- * @attr ref android.R.styleable#Preference_persistent
- * @attr ref android.R.styleable#Preference_defaultValue
- * @attr ref android.R.styleable#Preference_shouldDisableView
+ * @attr name android:icon
+ * @attr name android:key
+ * @attr name android:title
+ * @attr name android:summary
+ * @attr name android:order
+ * @attr name android:fragment
+ * @attr name android:layout
+ * @attr name android:widgetLayout
+ * @attr name android:enabled
+ * @attr name android:selectable
+ * @attr name android:dependency
+ * @attr name android:persistent
+ * @attr name android:defaultValue
+ * @attr name android:shouldDisableView
  */
 public class Preference implements Comparable<Preference> {
     /**
@@ -91,10 +96,17 @@ public class Preference implements Comparable<Preference> {
      */
     private long mId;
 
+    /**
+     * Set true temporarily to keep {@link #onAttachedToHierarchy(PreferenceManager)} from
+     * overwriting mId
+     */
+    private boolean mHasId;
+
     private OnPreferenceChangeListener mOnChangeListener;
     private OnPreferenceClickListener mOnClickListener;
 
     private int mOrder = DEFAULT_ORDER;
+    private int mViewId = 0;
     private CharSequence mTitle;
     private CharSequence mSummary;
     /**
@@ -272,7 +284,7 @@ public class Preference implements Comparable<Preference> {
 
         mShouldDisableView =
                 TypedArrayUtils.getBoolean(a, R.styleable.Preference_shouldDisableView,
-                        R.styleable.Preference_shouldDisableView, true);
+                        R.styleable.Preference_android_shouldDisableView, true);
 
         a.recycle();
     }
@@ -316,7 +328,8 @@ public class Preference implements Comparable<Preference> {
      * @see #Preference(Context, AttributeSet, int)
      */
     public Preference(Context context, AttributeSet attrs) {
-        this(context, attrs, R.attr.preferenceStyle);
+        this(context, attrs, TypedArrayUtils.getAttr(context, R.attr.preferenceStyle,
+                android.R.attr.preferenceStyle));
     }
 
     /**
@@ -470,6 +483,7 @@ public class Preference implements Comparable<Preference> {
      */
     public void onBindViewHolder(PreferenceViewHolder holder) {
         holder.itemView.setOnClickListener(mClickListener);
+        holder.itemView.setId(mViewId);
 
         final TextView titleView = (TextView) holder.findViewById(android.R.id.title);
         if (titleView != null) {
@@ -506,7 +520,10 @@ public class Preference implements Comparable<Preference> {
             imageView.setVisibility(mIcon != null ? View.VISIBLE : View.GONE);
         }
 
-        final View imageFrame = holder.findViewById(R.id.icon_frame);
+        View imageFrame = holder.findViewById(R.id.icon_frame);
+        if (imageFrame == null) {
+            imageFrame = holder.findViewById(AndroidResources.ANDROID_R_ICON_FRAME);
+        }
         if (imageFrame != null) {
             imageFrame.setVisibility(mIcon != null ? View.VISIBLE : View.GONE);
         }
@@ -516,6 +533,13 @@ public class Preference implements Comparable<Preference> {
         } else {
             setEnabledStateOnViews(holder.itemView, true);
         }
+
+        final boolean selectable = isSelectable();
+        holder.itemView.setFocusable(selectable);
+        holder.itemView.setClickable(selectable);
+
+        holder.setDividerAllowedAbove(selectable);
+        holder.setDividerAllowedBelow(selectable);
     }
 
     /**
@@ -563,6 +587,16 @@ public class Preference implements Comparable<Preference> {
      */
     public int getOrder() {
         return mOrder;
+    }
+
+    /**
+     * Set the ID that will be assigned to the overall View representing this
+     * preference, once bound.
+     *
+     * @see View#setId(int)
+     */
+    public void setViewId(int viewId) {
+        mViewId = viewId;
     }
 
     /**
@@ -749,9 +783,11 @@ public class Preference implements Comparable<Preference> {
      * @param visible Set false if this preference should be hidden from the list.
      */
     public final void setVisible(boolean visible) {
-        mVisible = visible;
-        if (mListener != null) {
-            mListener.onPreferenceVisibilityChange(this);
+        if (mVisible != visible) {
+            mVisible = visible;
+            if (mListener != null) {
+                mListener.onPreferenceVisibilityChange(this);
+            }
         }
     }
 
@@ -920,6 +956,7 @@ public class Preference implements Comparable<Preference> {
     /**
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     protected void performClick(View view) {
         performClick();
     }
@@ -929,6 +966,7 @@ public class Preference implements Comparable<Preference> {
      *
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     public void performClick() {
 
         if (!isEnabled()) {
@@ -1058,9 +1096,26 @@ public class Preference implements Comparable<Preference> {
     protected void onAttachedToHierarchy(PreferenceManager preferenceManager) {
         mPreferenceManager = preferenceManager;
 
-        mId = preferenceManager.getNextId();
+        if (!mHasId) {
+            mId = preferenceManager.getNextId();
+        }
 
         dispatchSetInitialValue();
+    }
+
+    /**
+     * Called from {@link PreferenceGroup} to pass in an ID for reuse
+     * @hide
+     */
+    @RestrictTo(GROUP_ID)
+    protected void onAttachedToHierarchy(PreferenceManager preferenceManager, long id) {
+        mId = id;
+        mHasId = true;
+        try {
+            onAttachedToHierarchy(preferenceManager);
+        } finally {
+            mHasId = false;
+        }
     }
 
     /**
@@ -1073,6 +1128,16 @@ public class Preference implements Comparable<Preference> {
         // At this point, the hierarchy that this preference is in is connected
         // with all other preferences.
         registerDependency();
+    }
+
+    /**
+     * Called when the Preference hierarchy has been detached from the
+     * list of preferences. This can also be called when this
+     * Preference has been removed from a group that was attached
+     * to the list of preferences.
+     */
+    public void onDetached() {
+        unregisterDependency();
     }
 
     private void registerDependency() {
@@ -1661,6 +1726,14 @@ public class Preference implements Comparable<Preference> {
     }
 
     /**
+     * Initializes an {@link android.view.accessibility.AccessibilityNodeInfo} with information
+     * about the View for this Preference.
+     */
+    @CallSuper
+    public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfoCompat info) {
+    }
+
+    /**
      * A base class for managing the instance state of a {@link Preference}.
      */
     public static class BaseSavedState extends AbsSavedState {
@@ -1674,10 +1747,12 @@ public class Preference implements Comparable<Preference> {
 
         public static final Parcelable.Creator<BaseSavedState> CREATOR =
                 new Parcelable.Creator<BaseSavedState>() {
+                    @Override
                     public BaseSavedState createFromParcel(Parcel in) {
                         return new BaseSavedState(in);
                     }
 
+                    @Override
                     public BaseSavedState[] newArray(int size) {
                         return new BaseSavedState[size];
                     }

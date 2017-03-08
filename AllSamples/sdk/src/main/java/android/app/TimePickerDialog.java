@@ -16,6 +16,7 @@
 
 package android.app;
 
+import android.annotation.TestApi;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
@@ -23,10 +24,8 @@ import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TimePicker;
 import android.widget.TimePicker.OnTimeChangedListener;
-import android.widget.TimePicker.ValidationCallback;
 
 import com.android.internal.R;
 
@@ -64,7 +63,7 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
          * @param hourOfDay the hour that was set
          * @param minute the minute that was set
          */
-        public void onTimeSet(TimePicker view, int hourOfDay, int minute);
+        void onTimeSet(TimePicker view, int hourOfDay, int minute);
     }
 
     /**
@@ -93,6 +92,12 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
 
     /**
      * Creates a new time picker dialog with the specified theme.
+     * <p>
+     * The theme is overlaid on top of the theme of the parent {@code context}.
+     * If {@code themeResId} is 0, the dialog will be inflated using the theme
+     * specified by the
+     * {@link android.R.attr#timePickerDialogTheme android:timePickerDialogTheme}
+     * attribute on the parent {@code context}'s theme.
      *
      * @param context the parent context
      * @param themeResId the resource ID of the theme to apply to this dialog
@@ -111,12 +116,6 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
         mIs24HourView = is24HourView;
 
         final Context themeContext = getContext();
-
-
-        final TypedValue outValue = new TypedValue();
-        context.getTheme().resolveAttribute(R.attr.timePickerDialogTheme, outValue, true);
-        final int layoutResId = outValue.resourceId;
-
         final LayoutInflater inflater = LayoutInflater.from(themeContext);
         final View view = inflater.inflate(R.layout.time_picker_dialog, null);
         setView(view);
@@ -129,7 +128,15 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
         mTimePicker.setCurrentHour(mInitialHourOfDay);
         mTimePicker.setCurrentMinute(mInitialMinute);
         mTimePicker.setOnTimeChangedListener(this);
-        mTimePicker.setValidationCallback(mValidationCallback);
+    }
+
+    /**
+     * @return the time picker displayed in the dialog
+     * @hide For testing only.
+     */
+    @TestApi
+    public TimePicker getTimePicker() {
+        return mTimePicker;
     }
 
     @Override
@@ -181,14 +188,4 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
         mTimePicker.setCurrentHour(hour);
         mTimePicker.setCurrentMinute(minute);
     }
-
-    private final ValidationCallback mValidationCallback = new ValidationCallback() {
-        @Override
-        public void onValidationChanged(boolean valid) {
-            final Button positive = getButton(BUTTON_POSITIVE);
-            if (positive != null) {
-                positive.setEnabled(valid);
-            }
-        }
-    };
 }

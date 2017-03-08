@@ -25,8 +25,8 @@ import java.util.ArrayList;
  * party Presenters.
  */
 public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProviderAdapter {
-    private static final String TAG = "ItemBridgeAdapter";
-    private static final boolean DEBUG = false;
+    static final String TAG = "ItemBridgeAdapter";
+    static final boolean DEBUG = false;
 
     /**
      * Interface for listening to ViewHolder operations.
@@ -56,9 +56,9 @@ public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProv
     }
 
     private ObjectAdapter mAdapter;
-    private Wrapper mWrapper;
+    Wrapper mWrapper;
     private PresenterSelector mPresenterSelector;
-    private FocusHighlightHandler mFocusHighlight;
+    FocusHighlightHandler mFocusHighlight;
     private AdapterListener mAdapterListener;
     private ArrayList<Presenter> mPresenters = new ArrayList<Presenter>();
 
@@ -177,11 +177,15 @@ public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProv
      * Sets the {@link ObjectAdapter}.
      */
     public void setAdapter(ObjectAdapter adapter) {
+        if (adapter == mAdapter) {
+            return;
+        }
         if (mAdapter != null) {
             mAdapter.unregisterObserver(mDataObserver);
         }
         mAdapter = adapter;
         if (mAdapter == null) {
+            notifyDataSetChanged();
             return;
         }
 
@@ -189,6 +193,7 @@ public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProv
         if (hasStableIds() != mAdapter.hasStableIds()) {
             setHasStableIds(mAdapter.hasStableIds());
         }
+        notifyDataSetChanged();
     }
 
     /**
@@ -233,7 +238,7 @@ public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProv
 
     @Override
     public int getItemCount() {
-        return mAdapter.size();
+        return mAdapter != null ? mAdapter.size() : 0;
     }
 
     @Override

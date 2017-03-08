@@ -1,129 +1,126 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1998, 2007, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package javax.crypto.spec;
 
 import java.security.spec.AlgorithmParameterSpec;
-import java.util.Arrays;
 
 /**
- * The algorithm parameter specification for the <a
- * href="http://www.ietf.org/rfc/rfc2040.txt">RC5</a> algorithm.
+ * This class specifies the parameters used with the
+ * <a href="http://www.ietf.org/rfc/rfc2040.txt"><i>RC5</i></a>
+ * algorithm.
+ *
+ * <p> The parameters consist of a version number, a rounds count, a word
+ * size, and optionally an initialization vector (IV) (only in feedback mode).
+ *
+ * <p> This class can be used to initialize a <code>Cipher</code> object that
+ * implements the <i>RC5</i> algorithm as supplied by
+ * <a href="http://www.rsasecurity.com">RSA Security Inc.</a>,
+ * or any parties authorized by RSA Security.
+ *
+ * @author Jan Luehe
+ *
+ * @since 1.4
  */
 public class RC5ParameterSpec implements AlgorithmParameterSpec {
 
-    private final int version;
-    private final int rounds;
-    private final int wordSize;
-    private final byte[] iv;
+    private byte[] iv = null;
+    private int version;
+    private int rounds;
+    private int wordSize; // the word size in bits
 
     /**
-     * Creates a new <code>RC5ParameterSpec</code> instance with the specified
-     * version, round count an word size (in bits).
+     * Constructs a parameter set for RC5 from the given version, number of
+     * rounds and word size (in bits).
      *
-     * @param version
-     *            the version.
-     * @param rounds
-     *            the round count.
-     * @param wordSize
-     *            the word size (in bits).
+     * @param version the version.
+     * @param rounds the number of rounds.
+     * @param wordSize the word size in bits.
      */
     public RC5ParameterSpec(int version, int rounds, int wordSize) {
         this.version = version;
         this.rounds = rounds;
         this.wordSize = wordSize;
-        this.iv = null;
     }
 
     /**
-     * Creates a new <code>RC5ParameterSpec</code> instance with the specified
-     * version, round count, word size (in bits) and an <i>initialization
-     * vector</i>.
-     * <p>
-     * The size of the <i>initialization vector</i> must be at least
-     * <code>2 * (wordSize / 8)</code> bytes which are copied to protect them
-     * against modification.
+     * Constructs a parameter set for RC5 from the given version, number of
+     * rounds, word size (in bits), and IV.
      *
-     * @param version
-     *            the version.
-     * @param rounds
-     *            the round count.
-     * @param wordSize
-     *            the word size (in bits).
-     * @param iv
-     *            the initialization vector.
-     * @throws IllegalArgumentException
-     *             if the initialization vector is null or shorter than <code>2
-     *             * (wordSize / 8)</code>.
+     * <p> Note that the size of the IV (block size) must be twice the word
+     * size. The bytes that constitute the IV are those between
+     * <code>iv[0]</code> and <code>iv[2*(wordSize/8)-1]</code> inclusive.
+     *
+     * @param version the version.
+     * @param rounds the number of rounds.
+     * @param wordSize the word size in bits.
+     * @param iv the buffer with the IV. The first <code>2*(wordSize/8)
+     * </code> bytes of the buffer are copied to protect against subsequent
+     * modification.
+     * @exception IllegalArgumentException if <code>iv</code> is
+     * <code>null</code> or <code>(iv.length < 2 * (wordSize / 8))</code>
      */
     public RC5ParameterSpec(int version, int rounds, int wordSize, byte[] iv) {
-        if (iv == null) {
-            throw new IllegalArgumentException("iv == null");
-        }
-        if (iv.length < 2 * (wordSize / 8)) {
-            throw new IllegalArgumentException("iv.length < 2 * (wordSize / 8)");
-        }
-        this.version = version;
-        this.rounds = rounds;
-        this.wordSize = wordSize;
-        this.iv = new byte[2*(wordSize/8)];
-        System.arraycopy(iv, 0, this.iv, 0, 2*(wordSize/8));
+        this(version, rounds, wordSize, iv, 0);
     }
 
     /**
-     * Creates a new <code>RC5ParameterSpec</code> instance with the specified
-     * version, round count, wordSize (in bits), an <i>initialization vector</i>
-     * and an offset.
-     * <p>
-     * The size of the <i>initialization vector</i> must be at least
-     * <code>offset + (2 * (wordSize / 8))</code> bytes. The bytes starting at
-     * <code>offset</code> are copied to protect them against modification.
+     * Constructs a parameter set for RC5 from the given version, number of
+     * rounds, word size (in bits), and IV.
      *
-     * @param version
-     *            the version.
-     * @param rounds
-     *            the round count.
-     * @param wordSize
-     *            the word size (in bits).
-     * @param iv
-     *            the initialization vector.
-     * @param offset
-     *            the offset in the initialization vector.
-     * @throws IllegalArgumentException
-     *             if the initialization vector is null of shorter than
-     *             <code>offset + (2 * (wordSize / 8))</code>.
-     * @throws ArrayIndexOutOfBoundsException
-     *             if <code>offset</code> is negative.
+     * <p> The IV is taken from <code>iv</code>, starting at
+     * <code>offset</code> inclusive.
+     * Note that the size of the IV (block size), starting at
+     * <code>offset</code> inclusive, must be twice the word size.
+     * The bytes that constitute the IV are those between
+     * <code>iv[offset]</code> and <code>iv[offset+2*(wordSize/8)-1]</code>
+     * inclusive.
+     *
+     * @param version the version.
+     * @param rounds the number of rounds.
+     * @param wordSize the word size in bits.
+     * @param iv the buffer with the IV. The first <code>2*(wordSize/8)
+     * </code> bytes of the buffer beginning at <code>offset</code>
+     * inclusive are copied to protect against subsequent modification.
+     * @param offset the offset in <code>iv</code> where the IV starts.
+     * @exception IllegalArgumentException if <code>iv</code> is
+     * <code>null</code> or
+     * <code>(iv.length - offset < 2 * (wordSize / 8))</code>
      */
-    public RC5ParameterSpec(int version, int rounds, int wordSize, byte[] iv, int offset) {
-        if (iv == null) {
-            throw new IllegalArgumentException("iv == null");
-        }
-        if (offset < 0) {
-            throw new ArrayIndexOutOfBoundsException("offset < 0: " + offset);
-        }
-        if (iv.length - offset < 2 * (wordSize / 8)) {
-            throw new IllegalArgumentException("iv.length - offset < 2 * (wordSize / 8)");
-        }
+    public RC5ParameterSpec(int version, int rounds, int wordSize,
+                            byte[] iv, int offset) {
         this.version = version;
         this.rounds = rounds;
         this.wordSize = wordSize;
-        this.iv = new byte[offset+2*(wordSize/8)];
-        System.arraycopy(iv, offset, this.iv, 0, 2*(wordSize/8));
+        if (iv == null) throw new IllegalArgumentException("IV missing");
+        int blockSize = (wordSize / 8) * 2;
+        if (iv.length - offset < blockSize) {
+            throw new IllegalArgumentException("IV too short");
+        }
+        this.iv = new byte[blockSize];
+        System.arraycopy(iv, offset, this.iv, 0, blockSize);
     }
 
     /**
@@ -132,51 +129,48 @@ public class RC5ParameterSpec implements AlgorithmParameterSpec {
      * @return the version.
      */
     public int getVersion() {
-        return version;
+        return this.version;
     }
 
     /**
-     * Returns the round count.
+     * Returns the number of rounds.
      *
-     * @return the round count.
+     * @return the number of rounds.
      */
     public int getRounds() {
-        return rounds;
+        return this.rounds;
     }
 
     /**
-     * Returns the word size (in bits).
+     * Returns the word size in bits.
      *
-     * @return the word size (in bits).
+     * @return the word size in bits.
      */
     public int getWordSize() {
-        return wordSize;
+        return this.wordSize;
     }
 
     /**
-     * Returns a copy of the initialization vector.
+     * Returns the IV or null if this parameter set does not contain an IV.
      *
-     * @return a copy of the initialization vector, or null if none specified.
+     * @return the IV or null if this parameter set does not contain an IV.
+     * Returns a new array each time this method is called.
      */
     public byte[] getIV() {
-        if (iv == null) {
-            return null;
-        }
-        byte[] result = new byte[iv.length];
-        System.arraycopy(iv, 0, result, 0, iv.length);
-        return result;
+        return (iv == null? null:(byte[])iv.clone());
     }
 
-    /**
-     * Compares the specified object with this <code>RC5ParameterSpec</code>
-     * instance.
+   /**
+     * Tests for equality between the specified object and this
+     * object. Two RC5ParameterSpec objects are considered equal if their
+     * version numbers, number of rounds, word sizes, and IVs are equal.
+     * (Two IV references are considered equal if both are <tt>null</tt>.)
      *
-     * @param obj
-     *            the object to compare.
-     * @return true if version, round count, word size and initializaion vector
-     *         of both objects are equal, otherwise false.
+     * @param obj the object to test for equality with this object.
+     *
+     * @return true if the objects are considered equal, false if
+     * <code>obj</code> is null or otherwise.
      */
-    @Override
     public boolean equals(Object obj) {
         if (obj == this) {
             return true;
@@ -184,27 +178,26 @@ public class RC5ParameterSpec implements AlgorithmParameterSpec {
         if (!(obj instanceof RC5ParameterSpec)) {
             return false;
         }
-        RC5ParameterSpec ps = (RC5ParameterSpec) obj;
-        return (version == ps.version)
-            && (rounds == ps.rounds)
-            && (wordSize == ps.wordSize)
-            && (Arrays.equals(iv, ps.iv));
+        RC5ParameterSpec other = (RC5ParameterSpec) obj;
+
+        return ((version == other.version) &&
+                (rounds == other.rounds) &&
+                (wordSize == other.wordSize) &&
+                java.util.Arrays.equals(iv, other.iv));
     }
 
     /**
-     * Returns the hash code of this <code>RC5ParameterSpec</code> instance.
-     *
-     * @return the hash code.
+     * Calculates a hash code value for the object.
+     * Objects that are equal will also have the same hashcode.
      */
-    @Override
     public int hashCode() {
-        int result = version + rounds + wordSize;
-        if (iv == null) {
-            return result;
+        int retval = 0;
+        if (iv != null) {
+            for (int i = 1; i < iv.length; i++) {
+                retval += iv[i] * i;
+            }
         }
-        for (byte element : iv) {
-            result += element & 0xFF;
-        }
-        return result;
+        retval += (version + rounds + wordSize);
+        return retval;
     }
 }

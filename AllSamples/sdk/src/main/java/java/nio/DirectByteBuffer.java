@@ -1,561 +1,818 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.nio;
 
-import java.nio.channels.FileChannel.MapMode;
+import java.io.FileDescriptor;
 
+import dalvik.system.VMRuntime;
 import libcore.io.Memory;
 import libcore.io.SizeOf;
+import sun.misc.Cleaner;
+import sun.nio.ch.DirectBuffer;
 
-class DirectByteBuffer extends MappedByteBuffer {
-  // This is the offset into {@code Buffer.block} at which this buffer logically starts.
-  // TODO: rewrite this so we set 'block' to an OffsetMemoryBlock?
-  protected final int offset;
+/** @hide */
+public class DirectByteBuffer extends MappedByteBuffer implements DirectBuffer {
 
-  private final boolean isReadOnly;
+    /**
+     * Stores the details of the memory backing a DirectByteBuffer. This could be a pointer
+     * (passed through from JNI or resulting from a mapping) or a non-movable byte array allocated
+     * from Java. Each MemoryRef also has an isAccessible associated with it, which determines
+     * whether the underlying memory is "accessible". The notion of "accessibility" is usually
+     * defined by the allocator of the reference, and is separate from the accessibility of the
+     * memory as defined by the underlying system.
+     *
+     * A single MemoryRef instance is shared across all slices and duplicates of a given buffer.
+     */
+    static class MemoryRef {
+        byte[] buffer;
+        long allocatedAddress;
+        final int offset;
+        boolean isAccessible;
 
-  protected DirectByteBuffer(MemoryBlock block, int capacity, int offset, boolean isReadOnly, MapMode mapMode) {
-    super(block, capacity, mapMode, block.toLong() + offset);
+        MemoryRef(int capacity) {
+            VMRuntime runtime = VMRuntime.getRuntime();
+            buffer = (byte[]) runtime.newNonMovableArray(byte.class, capacity + 7);
+            allocatedAddress = runtime.addressOf(buffer);
+            // Offset is set to handle the alignment: http://b/16449607
+            offset = (int) (((allocatedAddress + 7) & ~(long) 7) - allocatedAddress);
+            isAccessible = true;
+        }
 
-    long baseSize = block.getSize();
-    // We're throwing this exception after we passed a bogus value
-    // to the superclass constructor, but it doesn't make any
-    // difference in this case.
-    if (baseSize >= 0 && (capacity + offset) > baseSize) {
-      throw new IllegalArgumentException("capacity + offset > baseSize");
+        MemoryRef(long allocatedAddress) {
+            buffer = null;
+            this.allocatedAddress = allocatedAddress;
+            this.offset = 0;
+            isAccessible = true;
+        }
+
+        void free() {
+            buffer = null;
+            allocatedAddress = 0;
+            isAccessible = false;
+        }
     }
 
-    this.offset = offset;
-    this.isReadOnly = isReadOnly;
-  }
+    final Cleaner cleaner;
+    final MemoryRef memoryRef;
 
-  // Used by the JNI NewDirectByteBuffer function.
-  DirectByteBuffer(long address, int capacity) {
-    this(MemoryBlock.wrapFromJni(address, capacity), capacity, 0, false, null);
-  }
-
-  private static DirectByteBuffer copy(DirectByteBuffer other, int markOfOther, boolean isReadOnly) {
-    other.checkNotFreed();
-    DirectByteBuffer buf = new DirectByteBuffer(other.block, other.capacity(), other.offset, isReadOnly, other.mapMode);
-    buf.limit = other.limit;
-    buf.position = other.position();
-    buf.mark = markOfOther;
-    return buf;
-  }
-
-  @Override public ByteBuffer asReadOnlyBuffer() {
-    return copy(this, mark, true);
-  }
-
-  @Override public ByteBuffer compact() {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    DirectByteBuffer(int capacity, MemoryRef memoryRef) {
+        super(-1, 0, capacity, capacity, memoryRef.buffer, memoryRef.offset);
+        // Only have references to java objects, no need for a cleaner since the GC will do all
+        // the work.
+        this.memoryRef = memoryRef;
+        this.address = memoryRef.allocatedAddress + memoryRef.offset;
+        cleaner = null;
+        this.isReadOnly = false;
     }
-    Memory.memmove(this, 0, this, position, remaining());
-    position = limit - position;
-    limit = capacity;
-    mark = UNSET_MARK;
-    return this;
-  }
 
-  @Override public ByteBuffer duplicate() {
-    return copy(this, mark, isReadOnly);
-  }
-
-  @Override public ByteBuffer slice() {
-    checkNotFreed();
-    return new DirectByteBuffer(block, remaining(), offset + position, isReadOnly, mapMode);
-  }
-
-  @Override public boolean isReadOnly() {
-    return isReadOnly;
-  }
-
-  @Override byte[] protectedArray() {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    // Invoked only by JNI: NewDirectByteBuffer(void*, long)
+    //
+    private DirectByteBuffer(long addr, int cap) {
+        super(-1, 0, cap, cap);
+        memoryRef = new MemoryRef(addr);
+        address = addr;
+        cleaner = null;
     }
-    byte[] array = this.block.array();
-    if (array == null) {
-      throw new UnsupportedOperationException();
+
+    /** @hide */
+    public DirectByteBuffer(int cap, long addr,
+                            FileDescriptor fd,
+                            Runnable unmapper,
+                            boolean isReadOnly) {
+        super(-1, 0, cap, cap, fd);
+        this.isReadOnly = isReadOnly;
+        memoryRef = new MemoryRef(addr);
+        address = addr;
+        cleaner = Cleaner.create(memoryRef, unmapper);
     }
-    return array;
-  }
 
-  @Override int protectedArrayOffset() {
-    protectedArray(); // Throw if we don't have an array or are read-only.
-    return offset;
-  }
-
-  @Override boolean protectedHasArray() {
-    return !isReadOnly && (block.array() != null);
-  }
-
-  @Override public final ByteBuffer get(byte[] dst, int dstOffset, int byteCount) {
-    checkIsAccessible();
-    checkGetBounds(1, dst.length, dstOffset, byteCount);
-    this.block.peekByteArray(offset + position, dst, dstOffset, byteCount);
-    position += byteCount;
-    return this;
-  }
-
-  final void get(char[] dst, int dstOffset, int charCount) {
-    checkIsAccessible();
-    int byteCount = checkGetBounds(SizeOf.CHAR, dst.length, dstOffset, charCount);
-    this.block.peekCharArray(offset + position, dst, dstOffset, charCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void get(double[] dst, int dstOffset, int doubleCount) {
-    checkIsAccessible();
-    int byteCount = checkGetBounds(SizeOf.DOUBLE, dst.length, dstOffset, doubleCount);
-    this.block.peekDoubleArray(offset + position, dst, dstOffset, doubleCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void get(float[] dst, int dstOffset, int floatCount) {
-    checkIsAccessible();
-    int byteCount = checkGetBounds(SizeOf.FLOAT, dst.length, dstOffset, floatCount);
-    this.block.peekFloatArray(offset + position, dst, dstOffset, floatCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void get(int[] dst, int dstOffset, int intCount) {
-    checkIsAccessible();
-    int byteCount = checkGetBounds(SizeOf.INT, dst.length, dstOffset, intCount);
-    this.block.peekIntArray(offset + position, dst, dstOffset, intCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void get(long[] dst, int dstOffset, int longCount) {
-    checkIsAccessible();
-    int byteCount = checkGetBounds(SizeOf.LONG, dst.length, dstOffset, longCount);
-    this.block.peekLongArray(offset + position, dst, dstOffset, longCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void get(short[] dst, int dstOffset, int shortCount) {
-    checkIsAccessible();
-    int byteCount = checkGetBounds(SizeOf.SHORT, dst.length, dstOffset, shortCount);
-    this.block.peekShortArray(offset + position, dst, dstOffset, shortCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  @Override public final byte get() {
-    checkIsAccessible();
-    if (position == limit) {
-      throw new BufferUnderflowException();
+    // For duplicates and slices
+    //
+    DirectByteBuffer(MemoryRef memoryRef,         // package-private
+                     int mark, int pos, int lim, int cap,
+                     int off) {
+        this(memoryRef, mark, pos, lim, cap, off, false);
     }
-    return this.block.peekByte(offset + position++);
-  }
 
-  @Override public final byte get(int index) {
-    checkIsAccessible();
-    checkIndex(index);
-    return this.block.peekByte(offset + index);
-  }
-
-  @Override public final char getChar() {
-    checkIsAccessible();
-    int newPosition = position + SizeOf.CHAR;
-    if (newPosition > limit) {
-      throw new BufferUnderflowException();
+    DirectByteBuffer(MemoryRef memoryRef,         // package-private
+                     int mark, int pos, int lim, int cap,
+                     int off, boolean isReadOnly) {
+        super(mark, pos, lim, cap, memoryRef.buffer, off);
+        this.isReadOnly = isReadOnly;
+        this.memoryRef = memoryRef;
+        address = memoryRef.allocatedAddress + off;
+        cleaner = null;
     }
-    char result = (char) this.block.peekShort(offset + position, order);
-    position = newPosition;
-    return result;
-  }
 
-  @Override public final char getChar(int index) {
-    checkIsAccessible();
-    checkIndex(index, SizeOf.CHAR);
-    return (char) this.block.peekShort(offset + index, order);
-  }
-
-  @Override public final double getDouble() {
-    checkIsAccessible();
-    int newPosition = position + SizeOf.DOUBLE;
-    if (newPosition > limit) {
-      throw new BufferUnderflowException();
+    @Override
+    public Object attachment() {
+        return memoryRef;
     }
-    double result = Double.longBitsToDouble(this.block.peekLong(offset + position, order));
-    position = newPosition;
-    return result;
-  }
 
-  @Override public final double getDouble(int index) {
-    checkIsAccessible();
-    checkIndex(index, SizeOf.DOUBLE);
-    return Double.longBitsToDouble(this.block.peekLong(offset + index, order));
-  }
-
-  @Override public final float getFloat() {
-    checkIsAccessible();
-    int newPosition = position + SizeOf.FLOAT;
-    if (newPosition > limit) {
-      throw new BufferUnderflowException();
+    @Override
+    public Cleaner cleaner() {
+        return cleaner;
     }
-    float result = Float.intBitsToFloat(this.block.peekInt(offset + position, order));
-    position = newPosition;
-    return result;
-  }
 
-  @Override public final float getFloat(int index) {
-    checkIsAccessible();
-    checkIndex(index, SizeOf.FLOAT);
-    return Float.intBitsToFloat(this.block.peekInt(offset + index, order));
-  }
-
-  @Override public final int getInt() {
-    checkIsAccessible();
-    int newPosition = position + SizeOf.INT;
-    if (newPosition > limit) {
-      throw new BufferUnderflowException();
+    public ByteBuffer slice() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int pos = position();
+        int lim = limit();
+        assert (pos <= lim);
+        int rem = (pos <= lim ? lim - pos : 0);
+        int off = pos + offset;
+        assert (off >= 0);
+        return new DirectByteBuffer(memoryRef, -1, 0, rem, rem, off, isReadOnly);
     }
-    int result = this.block.peekInt(offset + position, order);
-    position = newPosition;
-    return result;
-  }
 
-  @Override public final int getInt(int index) {
-    checkIsAccessible();
-    checkIndex(index, SizeOf.INT);
-    return this.block.peekInt(offset + index, order);
-  }
-
-  @Override public final long getLong() {
-    checkIsAccessible();
-    int newPosition = position + SizeOf.LONG;
-    if (newPosition > limit) {
-      throw new BufferUnderflowException();
+    public ByteBuffer duplicate() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return new DirectByteBuffer(memoryRef,
+                this.markValue(),
+                this.position(),
+                this.limit(),
+                this.capacity(),
+                offset,
+                isReadOnly);
     }
-    long result = this.block.peekLong(offset + position, order);
-    position = newPosition;
-    return result;
-  }
 
-  @Override public final long getLong(int index) {
-    checkIsAccessible();
-    checkIndex(index, SizeOf.LONG);
-    return this.block.peekLong(offset + index, order);
-  }
-
-  @Override public final short getShort() {
-    checkIsAccessible();
-    int newPosition = position + SizeOf.SHORT;
-    if (newPosition > limit) {
-      throw new BufferUnderflowException();
+    public ByteBuffer asReadOnlyBuffer() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return new DirectByteBuffer(memoryRef,
+                this.markValue(),
+                this.position(),
+                this.limit(),
+                this.capacity(),
+                offset,
+                true);
     }
-    short result = this.block.peekShort(offset + position, order);
-    position = newPosition;
-    return result;
-  }
 
-  @Override public final short getShort(int index) {
-    checkIsAccessible();
-    checkIndex(index, SizeOf.SHORT);
-    return this.block.peekShort(offset + index, order);
-  }
-
-  @Override public final boolean isDirect() {
-    return true;
-  }
-
-  /** @hide */
-  @Override public final boolean isAccessible() {
-    return block.isAccessible();
-  }
-
-  /** @hide */
-  @Override public void setAccessible(boolean accessible) {
-    block.setAccessible(accessible);
-  }
-
-  /**
-   * Invalidates the buffer. Subsequent operations which touch the inner
-   * buffer will throw {@link IllegalStateException}.
-   */
-  public final void free() {
-    block.free();
-  }
-
-  @Override public final CharBuffer asCharBuffer() {
-    checkNotFreed();
-    return ByteBufferAsCharBuffer.asCharBuffer(this);
-  }
-
-  @Override public final DoubleBuffer asDoubleBuffer() {
-    checkNotFreed();
-    return ByteBufferAsDoubleBuffer.asDoubleBuffer(this);
-  }
-
-  @Override public final FloatBuffer asFloatBuffer() {
-    checkNotFreed();
-    return ByteBufferAsFloatBuffer.asFloatBuffer(this);
-  }
-
-  @Override public final IntBuffer asIntBuffer() {
-    checkNotFreed();
-    return ByteBufferAsIntBuffer.asIntBuffer(this);
-  }
-
-  @Override public final LongBuffer asLongBuffer() {
-    checkNotFreed();
-    return ByteBufferAsLongBuffer.asLongBuffer(this);
-  }
-
-  @Override public final ShortBuffer asShortBuffer() {
-    checkNotFreed();
-    return ByteBufferAsShortBuffer.asShortBuffer(this);
-  }
-
-  @Override public ByteBuffer put(byte value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    @Override
+    public long address() {
+        return address;
     }
-    if (position == limit) {
-      throw new BufferOverflowException();
-    }
-    this.block.pokeByte(offset + position++, value);
-    return this;
-  }
 
-  @Override public ByteBuffer put(int index, byte value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    private long ix(int i) {
+        return address + i;
     }
-    checkIndex(index);
-    this.block.pokeByte(offset + index, value);
-    return this;
-  }
 
-  @Override public ByteBuffer put(byte[] src, int srcOffset, int byteCount) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    private byte get(long a) {
+        return Memory.peekByte(a);
     }
-    checkPutBounds(1, src.length, srcOffset, byteCount);
-    this.block.pokeByteArray(offset + position, src, srcOffset, byteCount);
-    position += byteCount;
-    return this;
-  }
 
-  final void put(char[] src, int srcOffset, int charCount) {
-    checkIsAccessible();
-    int byteCount = checkPutBounds(SizeOf.CHAR, src.length, srcOffset, charCount);
-    this.block.pokeCharArray(offset + position, src, srcOffset, charCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void put(double[] src, int srcOffset, int doubleCount) {
-    checkIsAccessible();
-    int byteCount = checkPutBounds(SizeOf.DOUBLE, src.length, srcOffset, doubleCount);
-    this.block.pokeDoubleArray(offset + position, src, srcOffset, doubleCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void put(float[] src, int srcOffset, int floatCount) {
-    checkIsAccessible();
-    int byteCount = checkPutBounds(SizeOf.FLOAT, src.length, srcOffset, floatCount);
-    this.block.pokeFloatArray(offset + position, src, srcOffset, floatCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void put(int[] src, int srcOffset, int intCount) {
-    checkIsAccessible();
-    int byteCount = checkPutBounds(SizeOf.INT, src.length, srcOffset, intCount);
-    this.block.pokeIntArray(offset + position, src, srcOffset, intCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void put(long[] src, int srcOffset, int longCount) {
-    checkIsAccessible();
-    int byteCount = checkPutBounds(SizeOf.LONG, src.length, srcOffset, longCount);
-    this.block.pokeLongArray(offset + position, src, srcOffset, longCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  final void put(short[] src, int srcOffset, int shortCount) {
-    checkIsAccessible();
-    int byteCount = checkPutBounds(SizeOf.SHORT, src.length, srcOffset, shortCount);
-    this.block.pokeShortArray(offset + position, src, srcOffset, shortCount, order.needsSwap);
-    position += byteCount;
-  }
-
-  @Override public ByteBuffer putChar(char value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public byte get() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return get(ix(nextGetIndex()));
     }
-    int newPosition = position + SizeOf.CHAR;
-    if (newPosition > limit) {
-      throw new BufferOverflowException();
-    }
-    this.block.pokeShort(offset + position, (short) value, order);
-    position = newPosition;
-    return this;
-  }
 
-  @Override public ByteBuffer putChar(int index, char value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public byte get(int i) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return get(ix(checkIndex(i)));
     }
-    checkIndex(index, SizeOf.CHAR);
-    this.block.pokeShort(offset + index, (short) value, order);
-    return this;
-  }
 
-  @Override public ByteBuffer putDouble(double value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public ByteBuffer get(byte[] dst, int dstOffset, int length) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        checkBounds(dstOffset, length, dst.length);
+        int pos = position();
+        int lim = limit();
+        assert (pos <= lim);
+        int rem = (pos <= lim ? lim - pos : 0);
+        if (length > rem)
+            throw new BufferUnderflowException();
+        Memory.peekByteArray(ix(pos),
+                dst, dstOffset, length);
+        position = pos + length;
+        return this;
     }
-    int newPosition = position + SizeOf.DOUBLE;
-    if (newPosition > limit) {
-      throw new BufferOverflowException();
-    }
-    this.block.pokeLong(offset + position, Double.doubleToRawLongBits(value), order);
-    position = newPosition;
-    return this;
-  }
 
-  @Override public ByteBuffer putDouble(int index, double value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public ByteBuffer put(long a, byte x) {
+        Memory.pokeByte(a, x);
+        return this;
     }
-    checkIndex(index, SizeOf.DOUBLE);
-    this.block.pokeLong(offset + index, Double.doubleToRawLongBits(value), order);
-    return this;
-  }
 
-  @Override public ByteBuffer putFloat(float value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public ByteBuffer put(byte x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        put(ix(nextPutIndex()), x);
+        return this;
     }
-    int newPosition = position + SizeOf.FLOAT;
-    if (newPosition > limit) {
-      throw new BufferOverflowException();
-    }
-    this.block.pokeInt(offset + position, Float.floatToRawIntBits(value), order);
-    position = newPosition;
-    return this;
-  }
 
-  @Override public ByteBuffer putFloat(int index, float value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public ByteBuffer put(int i, byte x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        put(ix(checkIndex(i)), x);
+        return this;
     }
-    checkIndex(index, SizeOf.FLOAT);
-    this.block.pokeInt(offset + index, Float.floatToRawIntBits(value), order);
-    return this;
-  }
 
-  @Override public ByteBuffer putInt(int value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public ByteBuffer put(byte[] src, int srcOffset, int length) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        checkBounds(srcOffset, length, src.length);
+        int pos = position();
+        int lim = limit();
+        assert (pos <= lim);
+        int rem = (pos <= lim ? lim - pos : 0);
+        if (length > rem)
+            throw new BufferOverflowException();
+        Memory.pokeByteArray(ix(pos),
+                src, srcOffset, length);
+        position = pos + length;
+        return this;
     }
-    int newPosition = position + SizeOf.INT;
-    if (newPosition > limit) {
-      throw new BufferOverflowException();
-    }
-    this.block.pokeInt(offset + position, value, order);
-    position = newPosition;
-    return this;
-  }
 
-  @Override public ByteBuffer putInt(int index, int value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public ByteBuffer compact() {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int pos = position();
+        int lim = limit();
+        assert (pos <= lim);
+        int rem = (pos <= lim ? lim - pos : 0);
+        System.arraycopy(hb, position + offset, hb, offset, remaining());
+        position(rem);
+        limit(capacity());
+        discardMark();
+        return this;
     }
-    checkIndex(index, SizeOf.INT);
-    this.block.pokeInt(offset + index, value, order);
-    return this;
-  }
 
-  @Override public ByteBuffer putLong(long value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public boolean isDirect() {
+        return true;
     }
-    int newPosition = position + SizeOf.LONG;
-    if (newPosition > limit) {
-      throw new BufferOverflowException();
-    }
-    this.block.pokeLong(offset + position, value, order);
-    position = newPosition;
-    return this;
-  }
 
-  @Override public ByteBuffer putLong(int index, long value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    public boolean isReadOnly() {
+        return isReadOnly;
     }
-    checkIndex(index, SizeOf.LONG);
-    this.block.pokeLong(offset + index, value, order);
-    return this;
-  }
 
-  @Override public ByteBuffer putShort(short value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    byte _get(int i) {                          // package-private
+        return get(i);
     }
-    int newPosition = position + SizeOf.SHORT;
-    if (newPosition > limit) {
-      throw new BufferOverflowException();
-    }
-    this.block.pokeShort(offset + position, value, order);
-    position = newPosition;
-    return this;
-  }
 
-  @Override public ByteBuffer putShort(int index, short value) {
-    checkIsAccessible();
-    if (isReadOnly) {
-      throw new ReadOnlyBufferException();
+    void _put(int i, byte b) {                  // package-private
+        put(i, b);
     }
-    checkIndex(index, SizeOf.SHORT);
-    this.block.pokeShort(offset + index, value, order);
-    return this;
-  }
 
-  private void checkIsAccessible() {
-    checkNotFreed();
-    if (!block.isAccessible()) {
-      throw new IllegalStateException("buffer is inaccessible");
+    private char getChar(long a) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return (char) Memory.peekShort(position, !nativeByteOrder);
     }
-  }
 
-  private void checkNotFreed() {
-    if (block.isFreed()) {
-      throw new IllegalStateException("buffer was freed");
+    public char getChar() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int newPosition = position + SizeOf.CHAR;
+        if (newPosition > limit()) {
+            throw new BufferUnderflowException();
+        }
+        char x = (char) Memory.peekShort(ix(position), !nativeByteOrder);
+        position = newPosition;
+        return x;
     }
-  }
 
+    public char getChar(int i) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        checkIndex(i, SizeOf.CHAR);
+        char x = (char) Memory.peekShort(ix(i), !nativeByteOrder);
+        return x;
+    }
+
+    char getCharUnchecked(int i) {
+        return (char) Memory.peekShort(ix(i), !nativeByteOrder);
+    }
+
+    void getUnchecked(int pos, char[] dst, int dstOffset, int length) {
+        Memory.peekCharArray(ix(pos),
+                dst, dstOffset, length, !nativeByteOrder);
+    }
+
+
+    private ByteBuffer putChar(long a, char x) {
+        Memory.pokeShort(a, (short) x, !nativeByteOrder);
+        return this;
+    }
+
+    public ByteBuffer putChar(char x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putChar(ix(nextPutIndex(SizeOf.CHAR)), x);
+        return this;
+    }
+
+    public ByteBuffer putChar(int i, char x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putChar(ix(checkIndex(i, SizeOf.CHAR)), x);
+        return this;
+    }
+
+    void putCharUnchecked(int i, char x) {
+        putChar(ix(i), x);
+    }
+
+    void putUnchecked(int pos, char[] src, int srcOffset, int length) {
+        Memory.pokeCharArray(ix(pos),
+                src, srcOffset, length, !nativeByteOrder);
+    }
+
+    public CharBuffer asCharBuffer() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int off = this.position();
+        int lim = this.limit();
+        assert (off <= lim);
+        int rem = (off <= lim ? lim - off : 0);
+        int size = rem >> 1;
+        return (CharBuffer) (new ByteBufferAsCharBuffer(this,
+                -1,
+                0,
+                size,
+                size,
+                off,
+                order()));
+    }
+
+    private short getShort(long a) {
+        return Memory.peekShort(a, !nativeByteOrder);
+    }
+
+    public short getShort() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getShort(ix(nextGetIndex(SizeOf.SHORT)));
+    }
+
+    public short getShort(int i) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getShort(ix(checkIndex(i, SizeOf.SHORT)));
+    }
+
+    short getShortUnchecked(int i) {
+        return getShort(ix(i));
+    }
+
+    void getUnchecked(int pos, short[] dst, int dstOffset, int length) {
+        Memory.peekShortArray(ix(pos),
+                dst, dstOffset, length, !nativeByteOrder);
+    }
+
+
+    private ByteBuffer putShort(long a, short x) {
+        Memory.pokeShort(a, x, !nativeByteOrder);
+        return this;
+    }
+
+    public ByteBuffer putShort(short x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putShort(ix(nextPutIndex(SizeOf.SHORT)), x);
+        return this;
+    }
+
+    public ByteBuffer putShort(int i, short x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putShort(ix(checkIndex(i, SizeOf.SHORT)), x);
+        return this;
+    }
+
+    void putShortUnchecked(int i, short x) {
+        putShort(ix(i), x);
+    }
+
+    void putUnchecked(int pos, short[] src, int srcOffset, int length) {
+        Memory.pokeShortArray(ix(pos),
+                src, srcOffset, length, !nativeByteOrder);
+    }
+
+    public ShortBuffer asShortBuffer() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int off = this.position();
+        int lim = this.limit();
+        assert (off <= lim);
+        int rem = (off <= lim ? lim - off : 0);
+        int size = rem >> 1;
+        return (ShortBuffer) (new ByteBufferAsShortBuffer(this,
+                -1,
+                0,
+                size,
+                size,
+                off,
+                order()));
+    }
+
+    private int getInt(long a) {
+        return Memory.peekInt(a, !nativeByteOrder);
+    }
+
+    public int getInt() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getInt(ix(nextGetIndex(SizeOf.INT)));
+    }
+
+    public int getInt(int i) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getInt(ix(checkIndex(i, (SizeOf.INT))));
+    }
+
+    int getIntUnchecked(int i) {
+        return getInt(ix(i));
+    }
+
+    void getUnchecked(int pos, int[] dst, int dstOffset, int length) {
+        Memory.peekIntArray(ix(pos),
+                dst, dstOffset, length, !nativeByteOrder);
+    }
+
+    private ByteBuffer putInt(long a, int x) {
+        Memory.pokeInt(a, x, !nativeByteOrder);
+        return this;
+    }
+
+    public ByteBuffer putInt(int x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putInt(ix(nextPutIndex(SizeOf.INT)), x);
+        return this;
+    }
+
+    public ByteBuffer putInt(int i, int x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putInt(ix(checkIndex(i, SizeOf.INT)), x);
+        return this;
+    }
+
+    void putIntUnchecked(int i, int x) {
+        putInt(ix(i), x);
+    }
+
+    void putUnchecked(int pos, int[] src, int srcOffset, int length) {
+        Memory.pokeIntArray(ix(pos),
+                src, srcOffset, length, !nativeByteOrder);
+    }
+
+
+    public IntBuffer asIntBuffer() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int off = this.position();
+        int lim = this.limit();
+        assert (off <= lim);
+        int rem = (off <= lim ? lim - off : 0);
+        int size = rem >> 2;
+        return (IntBuffer) (new ByteBufferAsIntBuffer(this,
+                -1,
+                0,
+                size,
+                size,
+                off,
+                order()));
+    }
+
+    private long getLong(long a) {
+        return Memory.peekLong(a, !nativeByteOrder);
+    }
+
+    public long getLong() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getLong(ix(nextGetIndex(SizeOf.LONG)));
+    }
+
+    public long getLong(int i) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getLong(ix(checkIndex(i, SizeOf.LONG)));
+    }
+
+    long getLongUnchecked(int i) {
+        return getLong(ix(i));
+    }
+
+    void getUnchecked(int pos, long[] dst, int dstOffset, int length) {
+        Memory.peekLongArray(ix(pos),
+                dst, dstOffset, length, !nativeByteOrder);
+    }
+
+    private ByteBuffer putLong(long a, long x) {
+        Memory.pokeLong(a, x, !nativeByteOrder);
+        return this;
+    }
+
+    public ByteBuffer putLong(long x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putLong(ix(nextPutIndex(SizeOf.LONG)), x);
+        return this;
+    }
+
+    public ByteBuffer putLong(int i, long x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putLong(ix(checkIndex(i, SizeOf.LONG)), x);
+        return this;
+    }
+
+    void putLongUnchecked(int i, long x) {
+        putLong(ix(i), x);
+    }
+
+    void putUnchecked(int pos, long[] src, int srcOffset, int length) {
+        Memory.pokeLongArray(ix(pos),
+                src, srcOffset, length, !nativeByteOrder);
+    }
+
+
+    public LongBuffer asLongBuffer() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int off = this.position();
+        int lim = this.limit();
+        assert (off <= lim);
+        int rem = (off <= lim ? lim - off : 0);
+        int size = rem >> 3;
+        return (LongBuffer) (new ByteBufferAsLongBuffer(this,
+                -1,
+                0,
+                size,
+                size,
+                off,
+                order()));
+    }
+
+    private float getFloat(long a) {
+        int x = Memory.peekInt(a, !nativeByteOrder);
+        return Float.intBitsToFloat(x);
+    }
+
+    public float getFloat() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getFloat(ix(nextGetIndex(SizeOf.FLOAT)));
+    }
+
+    public float getFloat(int i) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getFloat(ix(checkIndex(i, SizeOf.FLOAT)));
+    }
+
+    float getFloatUnchecked(int i) {
+        return getFloat(ix(i));
+    }
+
+    void getUnchecked(int pos, float[] dst, int dstOffset, int length) {
+        Memory.peekFloatArray(ix(pos),
+                dst, dstOffset, length, !nativeByteOrder);
+    }
+
+    private ByteBuffer putFloat(long a, float x) {
+        int y = Float.floatToRawIntBits(x);
+        Memory.pokeInt(a, y, !nativeByteOrder);
+        return this;
+    }
+
+    public ByteBuffer putFloat(float x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putFloat(ix(nextPutIndex(SizeOf.FLOAT)), x);
+        return this;
+    }
+
+    public ByteBuffer putFloat(int i, float x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putFloat(ix(checkIndex(i, SizeOf.FLOAT)), x);
+        return this;
+    }
+
+    void putFloatUnchecked(int i, float x) {
+        putFloat(ix(i), x);
+    }
+
+    void putUnchecked(int pos, float[] src, int srcOffset, int length) {
+        Memory.pokeFloatArray(ix(pos),
+                src, srcOffset, length, !nativeByteOrder);
+    }
+
+    public FloatBuffer asFloatBuffer() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int off = this.position();
+        int lim = this.limit();
+        assert (off <= lim);
+        int rem = (off <= lim ? lim - off : 0);
+        int size = rem >> 2;
+        return (FloatBuffer) (new ByteBufferAsFloatBuffer(this,
+                -1,
+                0,
+                size,
+                size,
+                off,
+                order()));
+    }
+
+    private double getDouble(long a) {
+        long x = Memory.peekLong(a, !nativeByteOrder);
+        return Double.longBitsToDouble(x);
+    }
+
+    public double getDouble() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getDouble(ix(nextGetIndex(SizeOf.DOUBLE)));
+    }
+
+    public double getDouble(int i) {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        return getDouble(ix(checkIndex(i, SizeOf.DOUBLE)));
+    }
+
+    double getDoubleUnchecked(int i) {
+        return getDouble(ix(i));
+    }
+
+    void getUnchecked(int pos, double[] dst, int dstOffset, int length) {
+        Memory.peekDoubleArray(ix(pos),
+                dst, dstOffset, length, !nativeByteOrder);
+    }
+
+    private ByteBuffer putDouble(long a, double x) {
+        long y = Double.doubleToRawLongBits(x);
+        Memory.pokeLong(a, y, !nativeByteOrder);
+        return this;
+    }
+
+    public ByteBuffer putDouble(double x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putDouble(ix(nextPutIndex(SizeOf.DOUBLE)), x);
+        return this;
+    }
+
+    public ByteBuffer putDouble(int i, double x) {
+        if (isReadOnly) {
+            throw new ReadOnlyBufferException();
+        }
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        putDouble(ix(checkIndex(i, SizeOf.DOUBLE)), x);
+        return this;
+    }
+
+    void putDoubleUnchecked(int i, double x) {
+        putDouble(ix(i), x);
+    }
+
+    void putUnchecked(int pos, double[] src, int srcOffset, int length) {
+        Memory.pokeDoubleArray(ix(pos),
+                src, srcOffset, length, !nativeByteOrder);
+    }
+
+    public DoubleBuffer asDoubleBuffer() {
+        if (!memoryRef.isAccessible) {
+            throw new IllegalStateException("buffer is inaccessible");
+        }
+        int off = this.position();
+        int lim = this.limit();
+        assert (off <= lim);
+        int rem = (off <= lim ? lim - off : 0);
+
+        int size = rem >> 3;
+        return (DoubleBuffer) (new ByteBufferAsDoubleBuffer(this,
+                -1,
+                0,
+                size,
+                size,
+                off,
+                order()));
+    }
+
+    public boolean isAccessible() {
+        return memoryRef.isAccessible;
+    }
+
+    public void setAccessible(boolean value) {
+        memoryRef.isAccessible = value;
+    }
 }

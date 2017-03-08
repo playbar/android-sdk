@@ -1,59 +1,89 @@
-/* Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+/*
+ * Copyright (c) 2003, 2005, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.lang.reflect;
 
 /**
- * This interface represents a type variables such as {@code 'T'} in {@code
- * 'public interface Comparable<T>'}, the bounded {@code 'T'} in {@code
- * 'public interface A<T extends Number>'} or the multiple bounded {@code
- * 'T'} in {@code 'public interface B<T extends Number & Cloneable>'}.
+ * TypeVariable is the common superinterface for type variables of kinds.
+ * A type variable is created the first time it is needed by a reflective
+ * method, as specified in this package.  If a type variable t is referenced
+ * by a type (i.e, class, interface or annotation type) T, and T is declared
+ * by the nth enclosing class of T (see JLS 8.1.2), then the creation of t
+ * requires the resolution (see JVMS 5) of the ith enclosing class of T,
+ * for i = 0 to n, inclusive. Creating a type variable must not cause the
+ * creation of its bounds. Repeated creation of a type variable has no effect.
  *
- * @param <D>
- *            the generic declaration that declares this type variable
+ * <p>Multiple objects may be instantiated at run-time to
+ * represent a given type variable. Even though a type variable is
+ * created only once, this does not imply any requirement to cache
+ * instances representing the type variable. However, all instances
+ * representing a type variable must be equal() to each other.
+ * As a consequence, users of type variables must not rely on the identity
+ * of instances of classes implementing this interface.
+ *
+ * @param <D> the type of generic declaration that declared the
+ * underlying type variable.
+ *
  * @since 1.5
  */
 public interface TypeVariable<D extends GenericDeclaration> extends Type {
-
     /**
-     * Returns the upper bounds of this type variable. {@code Object} is the
-     * implicit upper bound if no other bounds are declared.
+     * Returns an array of {@code Type} objects representing the
+     * upper bound(s) of this type variable.  Note that if no upper bound is
+     * explicitly declared, the upper bound is {@code Object}.
      *
-     * @return the upper bounds of this type variable
+     * <p>For each upper bound B: <ul> <li>if B is a parameterized
+     * type or a type variable, it is created, (see {@link
+     * java.lang.reflect.ParameterizedType ParameterizedType} for the
+     * details of the creation process for parameterized types).
+     * <li>Otherwise, B is resolved.  </ul>
      *
-     * @throws TypeNotPresentException
-     *             if any of the bounds points to a missing type
-     * @throws MalformedParameterizedTypeException
-     *             if any of the bounds points to a type that cannot be
-     *             instantiated for some reason
-     */
+     * @throws TypeNotPresentException  if any of the
+     *     bounds refers to a non-existent type declaration
+     * @throws MalformedParameterizedTypeException if any of the
+     *     bounds refer to a parameterized type that cannot be instantiated
+     *     for any reason
+     * @return an array of {@code Type}s representing the upper
+     *     bound(s) of this type variable
+    */
     Type[] getBounds();
 
     /**
-     * Returns the language construct that declares this type variable.
+     * Returns the {@code GenericDeclaration} object representing the
+     * generic declaration declared this type variable.
      *
-     * @return the generic declaration
+     * @return the generic declaration declared for this type variable.
+     *
+     * @since 1.5
      */
     D getGenericDeclaration();
 
     /**
-     * Returns the name of this type variable as it is specified in source
-     * code.
+     * Returns the name of this type variable, as it occurs in the source code.
      *
-     * @return the name of this type variable
+     * @return the name of this type variable, as it appears in the source code
      */
     String getName();
 }

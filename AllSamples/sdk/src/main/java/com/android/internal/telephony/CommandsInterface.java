@@ -24,6 +24,9 @@ import com.android.internal.telephony.uicc.IccCardStatus;
 
 import android.os.Message;
 import android.os.Handler;
+import android.service.carrier.CarrierIdentifier;
+
+import java.util.List;
 
 
 /**
@@ -1595,10 +1598,9 @@ public interface CommandsInterface {
      * object containing the connection information.
      *
      * @param radioTechnology
-     *            indicates whether to setup connection on radio technology CDMA
-     *            (0) or GSM/UMTS (1)
+     *            Radio technology to use. Values is one of RIL_RADIO_TECHNOLOGY_*
      * @param profile
-     *            Profile Number or NULL to indicate default profile
+     *            Profile Number. Values is one of DATA_PROFILE_*
      * @param apn
      *            the APN to connect to if radio technology is GSM/UMTS.
      *            Otherwise null for CDMA.
@@ -1614,8 +1616,8 @@ public interface CommandsInterface {
      * @param result
      *            Callback message
      */
-    public void setupDataCall(String radioTechnology, String profile,
-            String apn, String user, String password, String authType,
+    public void setupDataCall(int radioTechnology, int profile,
+            String apn, String user, String password, int authType,
             String protocol, Message result);
 
     /**
@@ -1658,7 +1660,7 @@ public interface CommandsInterface {
 
     /**
      *  Requests the radio's system selection module to exit emergency callback mode.
-     *  This function should only be called from CDMAPHone.java.
+     *  This function should only be called from for CDMA.
      *
      * @param response callback message
      */
@@ -2018,4 +2020,36 @@ public interface CommandsInterface {
      * @param result Callback message contains the modem activity information
      */
     public void getModemActivityInfo(Message result);
+
+    /**
+     * Set allowed carriers
+     *
+     * @param carriers Allowed carriers
+     * @param result Callback message contains the number of carriers set successfully
+     */
+    public void setAllowedCarriers(List<CarrierIdentifier> carriers, Message result);
+
+    /**
+     * Get allowed carriers
+     *
+     * @param result Callback message contains the allowed carriers
+     */
+    public void getAllowedCarriers(Message result);
+
+    /**
+     * Register for unsolicited PCO data.  This information is carrier-specific,
+     * opaque binary blobs destined for carrier apps for interpretation.
+     *
+     * @param h Handler for notificaiton message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForPcoData(Handler h, int what, Object obj);
+
+    /**
+     * Unregister for PCO data.
+     *
+     * @param h handler to be removed
+     */
+    public void unregisterForPcoData(Handler h);
 }

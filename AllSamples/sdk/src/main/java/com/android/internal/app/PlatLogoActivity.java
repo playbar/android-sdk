@@ -16,16 +16,23 @@
 
 package com.android.internal.app;
 
+import android.animation.Animator;
 import android.animation.ObjectAnimator;
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
 import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -35,6 +42,7 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.MathUtils;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -45,6 +53,9 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 public class PlatLogoActivity extends Activity {
+    public static final boolean REVEAL_THE_NAME = false;
+    public static final boolean FINISH = false;
+
     FrameLayout mLayout;
     int mTapCount;
     int mKeyCount;
@@ -65,23 +76,24 @@ public class PlatLogoActivity extends Activity {
         final int size = (int)
                 (Math.min(Math.min(dm.widthPixels, dm.heightPixels), 600*dp) - 100*dp);
 
-        final View im = new View(this);
+        final ImageView im = new ImageView(this);
+        final int pad = (int)(40*dp);
+        im.setPadding(pad, pad, pad, pad);
         im.setTranslationZ(20);
         im.setScaleX(0.5f);
         im.setScaleY(0.5f);
         im.setAlpha(0f);
-        im.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, Outline outline) {
-                final int pad = (int) (8*dp);
-                outline.setOval(pad, pad, view.getWidth()-pad, view.getHeight()-pad);
-            }
-        });
-        final Drawable platlogo = getDrawable(com.android.internal.R.drawable.platlogo);
+
         im.setBackground(new RippleDrawable(
                 ColorStateList.valueOf(0xFFFFFFFF),
-                platlogo,
+                getDrawable(com.android.internal.R.drawable.platlogo),
                 null));
+//        im.setOutlineProvider(new ViewOutlineProvider() {
+//            @Override
+//            public void getOutline(View view, Outline outline) {
+//                outline.setOval(0, 0, view.getWidth(), view.getHeight());
+//            }
+//        });
         im.setClickable(true);
         im.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -90,6 +102,18 @@ public class PlatLogoActivity extends Activity {
                     @Override
                     public boolean onLongClick(View v) {
                         if (mTapCount < 5) return false;
+
+                        if (REVEAL_THE_NAME) {
+                            final Drawable overlay = getDrawable(
+                                com.android.internal.R.drawable.platlogo_m);
+                            overlay.setBounds(0, 0, v.getMeasuredWidth(), v.getMeasuredHeight());
+                            im.getOverlay().clear();
+                            im.getOverlay().add(overlay);
+                            overlay.setAlpha(0);
+                            ObjectAnimator.ofInt(overlay, "alpha", 0, 255)
+                                .setDuration(500)
+                                .start();
+                        }
 
                         final ContentResolver cr = getContentResolver();
                         if (Settings.System.getLong(cr, Settings.System.EGG_MODE, 0)
@@ -115,7 +139,7 @@ public class PlatLogoActivity extends Activity {
                                 } catch (ActivityNotFoundException ex) {
                                     Log.e("PlatLogoActivity", "No more eggs.");
                                 }
-                                finish();
+                                if (FINISH) finish();
                             }
                         });
                         return true;

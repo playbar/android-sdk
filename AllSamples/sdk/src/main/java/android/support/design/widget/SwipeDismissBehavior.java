@@ -17,15 +17,20 @@
 package android.support.design.widget;
 
 import android.support.annotation.IntDef;
+import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ViewDragHelper;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * An interaction behavior plugin for child views of {@link CoordinatorLayout} to provide support
@@ -51,6 +56,7 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
     public static final int STATE_SETTLING = ViewDragHelper.STATE_SETTLING;
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     @IntDef({SWIPE_DIRECTION_START_TO_END, SWIPE_DIRECTION_END_TO_START, SWIPE_DIRECTION_ANY})
     @Retention(RetentionPolicy.SOURCE)
     private @interface SwipeDirection {}
@@ -76,17 +82,17 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
     private static final float DEFAULT_ALPHA_START_DISTANCE = 0f;
     private static final float DEFAULT_ALPHA_END_DISTANCE = DEFAULT_DRAG_DISMISS_THRESHOLD;
 
-    private ViewDragHelper mViewDragHelper;
-    private OnDismissListener mListener;
-    private boolean mIgnoreEvents;
+    ViewDragHelper mViewDragHelper;
+    OnDismissListener mListener;
+    private boolean mInterceptingEvents;
 
     private float mSensitivity = 0f;
     private boolean mSensitivitySet;
 
-    private int mSwipeDirection = SWIPE_DIRECTION_ANY;
-    private float mDragDismissThreshold = DEFAULT_DRAG_DISMISS_THRESHOLD;
-    private float mAlphaStartSwipeDistance = DEFAULT_ALPHA_START_DISTANCE;
-    private float mAlphaEndSwipeDistance = DEFAULT_ALPHA_END_DISTANCE;
+    int mSwipeDirection = SWIPE_DIRECTION_ANY;
+    float mDragDismissThreshold = DEFAULT_DRAG_DISMISS_THRESHOLD;
+    float mAlphaStartSwipeDistance = DEFAULT_ALPHA_START_DISTANCE;
+    float mAlphaEndSwipeDistance = DEFAULT_ALPHA_END_DISTANCE;
 
     /**
      * Callback interface used to notify the application that the view has been dismissed.
@@ -166,27 +172,26 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
 
     @Override
     public boolean onInterceptTouchEvent(CoordinatorLayout parent, V child, MotionEvent event) {
+        boolean dispatchEventToHelper = mInterceptingEvents;
+
         switch (MotionEventCompat.getActionMasked(event)) {
+            case MotionEvent.ACTION_DOWN:
+                mInterceptingEvents = parent.isPointInChildBounds(child,
+                        (int) event.getX(), (int) event.getY());
+                dispatchEventToHelper = mInterceptingEvents;
+                break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                // Reset the ignore flag
-                if (mIgnoreEvents) {
-                    mIgnoreEvents = false;
-                    return false;
-                }
-                break;
-            default:
-                mIgnoreEvents = !parent.isPointInChildBounds(child,
-                        (int) event.getX(), (int) event.getY());
+                // Reset the ignore flag for next time
+                mInterceptingEvents = false;
                 break;
         }
 
-        if (mIgnoreEvents) {
-            return false;
+        if (dispatchEventToHelper) {
+            ensureViewDragHelper(parent);
+            return mViewDragHelper.shouldInterceptTouchEvent(event);
         }
-
-        ensureViewDragHelper(parent);
-        return mViewDragHelper.shouldInterceptTouchEvent(event);
+        return false;
     }
 
     @Override
@@ -198,13 +203,39 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
         return false;
     }
 
+    /**
+     * Called when the user's input indicates that they want to swipe the given view.
+     *
+     * @param view View the user is attempting to swipe
+     * @return true if the view can be dismissed via swiping, false otherwise
+     */
+    public boolean canSwipeDismissView(@NonNull View view) {
+        return true;
+    }
+
     private final ViewDragHelper.Callback mDragCallback = new ViewDragHelper.Callback() {
+        private static final int INVALID_POINTER_ID = -1;
+
         private int mOriginalCapturedViewLeft;
+        private int mActivePointerId = INVALID_POINTER_ID;
 
         @Override
         public boolean tryCaptureView(View child, int pointerId) {
-            mOriginalCapturedViewLeft = child.getLeft();
-            return true;
+            // Only capture if we don't already have an active pointer id
+            return mActivePointerId == INVALID_POINTER_ID && canSwipeDismissView(child);
+        }
+
+        @Override
+        public void onViewCaptured(View capturedChild, int activePointerId) {
+            mActivePointerId = activePointerId;
+            mOriginalCapturedViewLeft = capturedChild.getLeft();
+
+            // The view has been captured, and thus a drag is about to start so stop any parents
+            // intercepting
+            final ViewParent parent = capturedChild.getParent();
+            if (parent != null) {
+                parent.requestDisallowInterceptTouchEvent(true);
+            }
         }
 
         @Override
@@ -216,6 +247,9 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
 
         @Override
         public void onViewReleased(View child, float xvel, float yvel) {
+            // Reset the active pointer ID
+            mActivePointerId = INVALID_POINTER_ID;
+
             final int childWidth = child.getWidth();
             int targetLeft;
             boolean dismiss = false;
@@ -351,11 +385,11 @@ public class SwipeDismissBehavior<V extends View> extends CoordinatorLayout.Beha
         }
     }
 
-    private static float clamp(float min, float value, float max) {
+    static float clamp(float min, float value, float max) {
         return Math.min(Math.max(min, value), max);
     }
 
-    private static int clamp(int min, int value, int max) {
+    static int clamp(int min, int value, int max) {
         return Math.min(Math.max(min, value), max);
     }
 

@@ -17,8 +17,7 @@
 package android.appwidget;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -36,6 +35,7 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.DisplayMetrics;
+import android.util.SparseArray;
 import android.util.TypedValue;
 import android.widget.RemoteViews;
 import android.widget.RemoteViews.OnClickHandler;
@@ -62,7 +62,7 @@ public class AppWidgetHost {
     private final Handler mHandler;
     private final int mHostId;
     private final Callbacks mCallbacks;
-    private final HashMap<Integer,AppWidgetHostView> mViews = new HashMap<>();
+    private final SparseArray<AppWidgetHostView> mViews = new SparseArray<>();
     private OnClickHandler mOnClickHandler;
 
     static class Callbacks extends IAppWidgetHost.Stub {
@@ -164,7 +164,6 @@ public class AppWidgetHost {
         bindService();
     }
 
-
     private static void bindService() {
         synchronized (sServiceLock) {
             if (sService == null) {
@@ -179,19 +178,36 @@ public class AppWidgetHost {
      * becomes visible, i.e. from onStart() in your Activity.
      */
     public void startListening() {
-        int[] updatedIds;
-        ArrayList<RemoteViews> updatedViews = new ArrayList<RemoteViews>();
+        final int[] idsToUpdate;
+        synchronized (mViews) {
+            int N = mViews.size();
+            idsToUpdate = new int[N];
+            for (int i = 0; i < N; i++) {
+                idsToUpdate[i] = mViews.keyAt(i);
+            }
+        }
+        List<PendingHostUpdate> updates;
         try {
-            updatedIds = sService.startListening(mCallbacks, mContextOpPackageName, mHostId,
-                    updatedViews);
+            updates = sService.startListening(
+                    mCallbacks, mContextOpPackageName, mHostId, idsToUpdate).getList();
         }
         catch (RemoteException e) {
             throw new RuntimeException("system server dead?", e);
         }
 
-        final int N = updatedIds.length;
+        int N = updates.size();
         for (int i = 0; i < N; i++) {
-            updateAppWidgetView(updatedIds[i], updatedViews.get(i));
+            PendingHostUpdate update = updates.get(i);
+            switch (update.type) {
+                case PendingHostUpdate.TYPE_VIEWS_UPDATE:
+                    updateAppWidgetView(update.appWidgetId, update.views);
+                    break;
+                case PendingHostUpdate.TYPE_PROVIDER_CHANGED:
+                    onProviderChanged(update.appWidgetId, update.widgetInfo);
+                    break;
+                case PendingHostUpdate.TYPE_VIEW_DATA_CHANGED:
+                    viewDataChanged(update.appWidgetId, update.viewId);
+            }
         }
     }
 
@@ -206,10 +222,6 @@ public class AppWidgetHost {
         catch (RemoteException e) {
             throw new RuntimeException("system server dead?", e);
         }
-
-        // This is here because keyguard needs it since it'll be switching users after this call.
-        // If it turns out other apps need to call this often, we should re-think how this works.
-        clearViews();
     }
 
     /**
@@ -418,7 +430,9 @@ public class AppWidgetHost {
      * Clear the list of Views that have been created by this AppWidgetHost.
      */
     protected void clearViews() {
-        mViews.clear();
+        synchronized (mViews) {
+            mViews.clear();
+        }
     }
 }
 

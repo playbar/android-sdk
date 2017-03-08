@@ -215,7 +215,7 @@ public class PlaybackControlsRow extends Row {
             if (numSpeeds < 1) {
                 throw new IllegalArgumentException("numSpeeds must be > 0");
             }
-            Drawable[] drawables = new Drawable[numSpeeds];
+            Drawable[] drawables = new Drawable[numSpeeds + 1];
             drawables[0] = getStyledDrawable(context,
                     R.styleable.lbPlaybackControlsActionIcons_fast_forward);
             setDrawables(drawables);
@@ -226,7 +226,7 @@ public class PlaybackControlsRow extends Row {
             String[] labels2 = new String[getActionCount()];
             labels2[0] = labels[0];
 
-            for (int i = 1; i < numSpeeds; i++) {
+            for (int i = 1; i <= numSpeeds; i++) {
                 int multiplier = i + 1;
                 labels[i] = context.getResources().getString(
                         R.string.lb_control_display_fast_forward_multiplier, multiplier);
@@ -262,7 +262,7 @@ public class PlaybackControlsRow extends Row {
             if (numSpeeds < 1) {
                 throw new IllegalArgumentException("numSpeeds must be > 0");
             }
-            Drawable[] drawables = new Drawable[numSpeeds];
+            Drawable[] drawables = new Drawable[numSpeeds + 1];
             drawables[0] = getStyledDrawable(context,
                     R.styleable.lbPlaybackControlsActionIcons_rewind);
             setDrawables(drawables);
@@ -273,7 +273,7 @@ public class PlaybackControlsRow extends Row {
             String[] labels2 = new String[getActionCount()];
             labels2[0] = labels[0];
 
-            for (int i = 1; i < numSpeeds; i++) {
+            for (int i = 1; i <= numSpeeds; i++) {
                 int multiplier = i + 1;
                 labels[i] = labels[i] = context.getResources().getString(
                         R.string.lb_control_display_rewind_multiplier, multiplier);
@@ -317,6 +317,23 @@ public class PlaybackControlsRow extends Row {
                     R.styleable.lbPlaybackControlsActionIcons_skip_previous));
             setLabel1(context.getString(R.string.lb_playback_controls_skip_previous));
             addKeyCode(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+        }
+    }
+
+    /**
+     * An action displaying an icon for picture-in-picture.
+     */
+    public static class PictureInPictureAction extends Action {
+        /**
+         * Constructor
+         * @param context Context used for loading resources.
+         */
+        public PictureInPictureAction(Context context) {
+            super(R.id.lb_control_picture_in_picture);
+            setIcon(getStyledDrawable(context,
+                    R.styleable.lbPlaybackControlsActionIcons_picture_in_picture));
+            setLabel1(context.getString(R.string.lb_playback_controls_picture_in_picture));
+            addKeyCode(KeyEvent.KEYCODE_WINDOW);
         }
     }
 
@@ -554,7 +571,7 @@ public class PlaybackControlsRow extends Row {
          * @param highlightColor Color for the highlighted icon state.
          */
         public ClosedCaptioningAction(Context context, int highlightColor) {
-            super(R.id.lb_control_high_quality);
+            super(R.id.lb_control_closed_captioning);
             BitmapDrawable uncoloredDrawable = (BitmapDrawable) getStyledDrawable(context,
                     R.styleable.lbPlaybackControlsActionIcons_closed_captioning);
             Drawable[] drawables = new Drawable[2];
@@ -570,7 +587,7 @@ public class PlaybackControlsRow extends Row {
         }
     }
 
-    private static Bitmap createBitmap(Bitmap bitmap, int color) {
+    static Bitmap createBitmap(Bitmap bitmap, int color) {
         Bitmap dst = bitmap.copy(bitmap.getConfig(), true);
         Canvas canvas = new Canvas(dst);
         Paint paint = new Paint();
@@ -579,7 +596,7 @@ public class PlaybackControlsRow extends Row {
         return dst;
     }
 
-    private static int getIconHighlightColor(Context context) {
+    static int getIconHighlightColor(Context context) {
         TypedValue outValue = new TypedValue();
         if (context.getTheme().resolveAttribute(R.attr.playbackControlsIconHighlightColor,
                 outValue, true)) {
@@ -588,7 +605,7 @@ public class PlaybackControlsRow extends Row {
         return context.getResources().getColor(R.color.lb_playback_icon_highlight_no_theme);
     }
 
-    private static Drawable getStyledDrawable(Context context, int index) {
+    static Drawable getStyledDrawable(Context context, int index) {
         TypedValue outValue = new TypedValue();
         if (!context.getTheme().resolveAttribute(
                 R.attr.playbackControlsActionIcons, outValue, false)) {

@@ -16,7 +16,7 @@
 
 package android.support.design.widget;
 
-import android.content.res.Resources;
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -28,6 +28,7 @@ import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.support.design.R;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.graphics.drawable.DrawableWrapper;
 
 /**
@@ -71,18 +72,20 @@ class ShadowDrawableWrapper extends DrawableWrapper {
 
     private boolean mAddPaddingForCorners = true;
 
+    private float mRotation;
+
     /**
      * If shadow size is set to a value above max shadow, we print a warning
      */
     private boolean mPrintedShadowClipWarning = false;
 
-    public ShadowDrawableWrapper(Resources resources, Drawable content, float radius,
+    public ShadowDrawableWrapper(Context context, Drawable content, float radius,
             float shadowSize, float maxShadowSize) {
         super(content);
 
-        mShadowStartColor = resources.getColor(R.color.design_fab_shadow_start_color);
-        mShadowMiddleColor = resources.getColor(R.color.design_fab_shadow_mid_color);
-        mShadowEndColor = resources.getColor(R.color.design_fab_shadow_end_color);
+        mShadowStartColor = ContextCompat.getColor(context, R.color.design_fab_shadow_start_color);
+        mShadowMiddleColor = ContextCompat.getColor(context, R.color.design_fab_shadow_mid_color);
+        mShadowEndColor = ContextCompat.getColor(context, R.color.design_fab_shadow_end_color);
 
         mCornerShadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
         mCornerShadowPaint.setStyle(Paint.Style.FILL);
@@ -195,7 +198,17 @@ class ShadowDrawableWrapper extends DrawableWrapper {
         super.draw(canvas);
     }
 
+    final void setRotation(float rotation) {
+        if (mRotation != rotation) {
+            mRotation = rotation;
+            invalidateSelf();
+        }
+    }
+
     private void drawShadow(Canvas canvas) {
+        final int rotateSaved = canvas.save();
+        canvas.rotate(mRotation, mContentBounds.centerX(), mContentBounds.centerY());
+
         final float edgeShadowTop = -mCornerRadius - mShadowSize;
         final float shadowOffset = mCornerRadius;
         final boolean drawHorizontalEdges = mContentBounds.width() - 2 * shadowOffset > 0;
@@ -262,6 +275,8 @@ class ShadowDrawableWrapper extends DrawableWrapper {
                     mContentBounds.height() - 2 * shadowOffset, -mCornerRadius, mEdgeShadowPaint);
         }
         canvas.restoreToCount(saved);
+
+        canvas.restoreToCount(rotateSaved);
     }
 
     private void buildShadowCorners() {

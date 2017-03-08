@@ -28,13 +28,23 @@ class ViewGroupUtils {
     }
 
     private static class ViewGroupUtilsImplBase implements ViewGroupUtilsImpl {
+        ViewGroupUtilsImplBase() {
+        }
+
         @Override
         public void offsetDescendantRect(ViewGroup parent, View child, Rect rect) {
             parent.offsetDescendantRectToMyCoords(child, rect);
+            // View#offsetDescendantRectToMyCoords includes scroll offsets of the last child.
+            // We need to reverse it here so that we get the rect of the view itself rather
+            // than its content.
+            rect.offset(child.getScrollX(), child.getScrollY());
         }
     }
 
     private static class ViewGroupUtilsImplHoneycomb implements ViewGroupUtilsImpl {
+        ViewGroupUtilsImplHoneycomb() {
+        }
+
         @Override
         public void offsetDescendantRect(ViewGroup parent, View child, Rect rect) {
             ViewGroupUtilsHoneycomb.offsetDescendantRect(parent, child, rect);

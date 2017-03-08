@@ -16,8 +16,6 @@
 
 package android.support.v4.app;
 
-import java.util.ArrayList;
-
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.support.v4.view.PagerAdapter;
@@ -25,8 +23,10 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.util.ArrayList;
+
 /**
- * Implementation of {@link android.support.v4.view.PagerAdapter} that
+ * Implementation of {@link PagerAdapter} that
  * uses a {@link Fragment} to manage each page. This class also handles
  * saving and restoring of fragment's state.
  *
@@ -47,18 +47,18 @@ import android.view.ViewGroup;
  * <p>Here is an example implementation of a pager containing fragments of
  * lists:
  *
- * {@sample development/samples/Support13Demos/src/com/example/android/supportv13/app/FragmentStatePagerSupport.java
+ * {@sample frameworks/support/samples/Support13Demos/src/com/example/android/supportv13/app/FragmentStatePagerSupport.java
  *      complete}
  *
  * <p>The <code>R.layout.fragment_pager</code> resource of the top-level fragment is:
  *
- * {@sample development/samples/Support13Demos/res/layout/fragment_pager.xml
+ * {@sample frameworks/support/samples/Support13Demos/res/layout/fragment_pager.xml
  *      complete}
  *
  * <p>The <code>R.layout.fragment_pager_list</code> resource containing each
  * individual fragment's layout is:
  *
- * {@sample development/samples/Support13Demos/res/layout/fragment_pager_list.xml
+ * {@sample frameworks/support/samples/Support13Demos/res/layout/fragment_pager_list.xml
  *      complete}
  */
 public abstract class FragmentStatePagerAdapter extends PagerAdapter {
@@ -83,6 +83,10 @@ public abstract class FragmentStatePagerAdapter extends PagerAdapter {
 
     @Override
     public void startUpdate(ViewGroup container) {
+        if (container.getId() == View.NO_ID) {
+            throw new IllegalStateException("ViewPager with adapter " + this
+                    + " requires a view id");
+        }
     }
 
     @Override
@@ -123,7 +127,7 @@ public abstract class FragmentStatePagerAdapter extends PagerAdapter {
 
     @Override
     public void destroyItem(ViewGroup container, int position, Object object) {
-        Fragment fragment = (Fragment)object;
+        Fragment fragment = (Fragment) object;
 
         if (mCurTransaction == null) {
             mCurTransaction = mFragmentManager.beginTransaction();
@@ -133,7 +137,8 @@ public abstract class FragmentStatePagerAdapter extends PagerAdapter {
         while (mSavedState.size() <= position) {
             mSavedState.add(null);
         }
-        mSavedState.set(position, mFragmentManager.saveFragmentInstanceState(fragment));
+        mSavedState.set(position, fragment.isAdded()
+                ? mFragmentManager.saveFragmentInstanceState(fragment) : null);
         mFragments.set(position, null);
 
         mCurTransaction.remove(fragment);
@@ -158,9 +163,8 @@ public abstract class FragmentStatePagerAdapter extends PagerAdapter {
     @Override
     public void finishUpdate(ViewGroup container) {
         if (mCurTransaction != null) {
-            mCurTransaction.commitAllowingStateLoss();
+            mCurTransaction.commitNowAllowingStateLoss();
             mCurTransaction = null;
-            mFragmentManager.executePendingTransactions();
         }
     }
 

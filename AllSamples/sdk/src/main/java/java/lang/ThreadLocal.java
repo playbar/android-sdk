@@ -1,534 +1,684 @@
 /*
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (c) 1997, 2007, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.lang;
-
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
+import java.lang.ref.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Implements a thread-local storage, that is, a variable for which each thread
- * has its own value. All threads share the same {@code ThreadLocal} object,
- * but each sees a different value when accessing it, and changes made by one
- * thread do not affect the other threads. The implementation supports
- * {@code null} values.
+ * This class provides thread-local variables.  These variables differ from
+ * their normal counterparts in that each thread that accesses one (via its
+ * <tt>get</tt> or <tt>set</tt> method) has its own, independently initialized
+ * copy of the variable.  <tt>ThreadLocal</tt> instances are typically private
+ * static fields in classes that wish to associate state with a thread (e.g.,
+ * a user ID or Transaction ID).
  *
- * @see java.lang.Thread
- * @author Bob Lee
+ * <p>For example, the class below generates unique identifiers local to each
+ * thread.
+ * A thread's id is assigned the first time it invokes <tt>ThreadId.get()</tt>
+ * and remains unchanged on subsequent calls.
+ * <pre>
+ * import java.util.concurrent.atomic.AtomicInteger;
+ *
+ * public class ThreadId {
+ *     // Atomic integer containing the next thread ID to be assigned
+ *     private static final AtomicInteger nextId = new AtomicInteger(0);
+ *
+ *     // Thread local variable containing each thread's ID
+ *     private static final ThreadLocal&lt;Integer> threadId =
+ *         new ThreadLocal&lt;Integer>() {
+ *             &#64;Override protected Integer initialValue() {
+ *                 return nextId.getAndIncrement();
+ *         }
+ *     };
+ *
+ *     // Returns the current thread's unique ID, assigning it if necessary
+ *     public static int get() {
+ *         return threadId.get();
+ *     }
+ * }
+ * </pre>
+ * <p>Each thread holds an implicit reference to its copy of a thread-local
+ * variable as long as the thread is alive and the <tt>ThreadLocal</tt>
+ * instance is accessible; after a thread goes away, all of its copies of
+ * thread-local instances are subject to garbage collection (unless other
+ * references to these copies exist).
+ *
+ * @author  Josh Bloch and Doug Lea
+ * @since   1.2
  */
 public class ThreadLocal<T> {
-
-    /* Thanks to Josh Bloch and Doug Lea for code reviews and impl advice. */
+    /**
+     * ThreadLocals rely on per-thread linear-probe hash maps attached
+     * to each thread (Thread.threadLocals and
+     * inheritableThreadLocals).  The ThreadLocal objects act as keys,
+     * searched via threadLocalHashCode.  This is a custom hash code
+     * (useful only within ThreadLocalMaps) that eliminates collisions
+     * in the common case where consecutively constructed ThreadLocals
+     * are used by the same threads, while remaining well-behaved in
+     * less common cases.
+     */
+    private final int threadLocalHashCode = nextHashCode();
 
     /**
-     * Creates a new thread-local variable.
+     * The next hash code to be given out. Updated atomically. Starts at
+     * zero.
      */
-    public ThreadLocal() {}
+    private static AtomicInteger nextHashCode =
+        new AtomicInteger();
 
     /**
-     * Returns the value of this variable for the current thread. If an entry
-     * doesn't yet exist for this variable on this thread, this method will
-     * create an entry, populating the value with the result of
-     * {@link #initialValue()}.
-     *
-     * @return the current value of the variable for the calling thread.
+     * The difference between successively generated hash codes - turns
+     * implicit sequential thread-local IDs into near-optimally spread
+     * multiplicative hash values for power-of-two-sized tables.
      */
-    @SuppressWarnings("unchecked")
-    public T get() {
-        // Optimized for the fast path.
-        Thread currentThread = Thread.currentThread();
-        Values values = values(currentThread);
-        if (values != null) {
-            Object[] table = values.table;
-            int index = hash & values.mask;
-            if (this.reference == table[index]) {
-                return (T) table[index + 1];
-            }
-        } else {
-            values = initializeValues(currentThread);
-        }
+    private static final int HASH_INCREMENT = 0x61c88647;
 
-        return (T) values.getAfterMiss(this);
+    /**
+     * Returns the next hash code.
+     */
+    private static int nextHashCode() {
+        return nextHashCode.getAndAdd(HASH_INCREMENT);
     }
 
     /**
-     * Provides the initial value of this variable for the current thread.
-     * The default implementation returns {@code null}.
+     * Returns the current thread's "initial value" for this
+     * thread-local variable.  This method will be invoked the first
+     * time a thread accesses the variable with the {@link #get}
+     * method, unless the thread previously invoked the {@link #set}
+     * method, in which case the <tt>initialValue</tt> method will not
+     * be invoked for the thread.  Normally, this method is invoked at
+     * most once per thread, but it may be invoked again in case of
+     * subsequent invocations of {@link #remove} followed by {@link #get}.
      *
-     * @return the initial value of the variable.
+     * <p>This implementation simply returns <tt>null</tt>; if the
+     * programmer desires thread-local variables to have an initial
+     * value other than <tt>null</tt>, <tt>ThreadLocal</tt> must be
+     * subclassed, and this method overridden.  Typically, an
+     * anonymous inner class will be used.
+     *
+     * @return the initial value for this thread-local
      */
     protected T initialValue() {
         return null;
     }
 
     /**
-     * Sets the value of this variable for the current thread. If set to
-     * {@code null}, the value will be set to null and the underlying entry will
-     * still be present.
-     *
-     * @param value the new value of the variable for the caller thread.
+     * Creates a thread local variable.
      */
-    public void set(T value) {
-        Thread currentThread = Thread.currentThread();
-        Values values = values(currentThread);
-        if (values == null) {
-            values = initializeValues(currentThread);
-        }
-        values.put(this, value);
+    public ThreadLocal() {
     }
 
     /**
-     * Removes the entry for this variable in the current thread. If this call
-     * is followed by a {@link #get()} before a {@link #set},
-     * {@code #get()} will call {@link #initialValue()} and create a new
-     * entry with the resulting value.
+     * Returns the value in the current thread's copy of this
+     * thread-local variable.  If the variable has no value for the
+     * current thread, it is first initialized to the value returned
+     * by an invocation of the {@link #initialValue} method.
+     *
+     * @return the current thread's value of this thread-local
+     */
+    public T get() {
+        Thread t = Thread.currentThread();
+        ThreadLocalMap map = getMap(t);
+        if (map != null) {
+            ThreadLocalMap.Entry e = map.getEntry(this);
+            if (e != null)
+                return (T)e.value;
+        }
+        return setInitialValue();
+    }
+
+    /**
+     * Variant of set() to establish initialValue. Used instead
+     * of set() in case user has overridden the set() method.
+     *
+     * @return the initial value
+     */
+    private T setInitialValue() {
+        T value = initialValue();
+        Thread t = Thread.currentThread();
+        ThreadLocalMap map = getMap(t);
+        if (map != null)
+            map.set(this, value);
+        else
+            createMap(t, value);
+        return value;
+    }
+
+    /**
+     * Sets the current thread's copy of this thread-local variable
+     * to the specified value.  Most subclasses will have no need to
+     * override this method, relying solely on the {@link #initialValue}
+     * method to set the values of thread-locals.
+     *
+     * @param value the value to be stored in the current thread's copy of
+     *        this thread-local.
+     */
+    public void set(T value) {
+        Thread t = Thread.currentThread();
+        ThreadLocalMap map = getMap(t);
+        if (map != null)
+            map.set(this, value);
+        else
+            createMap(t, value);
+    }
+
+    /**
+     * Removes the current thread's value for this thread-local
+     * variable.  If this thread-local variable is subsequently
+     * {@linkplain #get read} by the current thread, its value will be
+     * reinitialized by invoking its {@link #initialValue} method,
+     * unless its value is {@linkplain #set set} by the current thread
+     * in the interim.  This may result in multiple invocations of the
+     * <tt>initialValue</tt> method in the current thread.
      *
      * @since 1.5
      */
-    public void remove() {
-        Thread currentThread = Thread.currentThread();
-        Values values = values(currentThread);
-        if (values != null) {
-            values.remove(this);
-        }
-    }
+     public void remove() {
+         ThreadLocalMap m = getMap(Thread.currentThread());
+         if (m != null)
+             m.remove(this);
+     }
 
     /**
-     * Creates Values instance for this thread and variable type.
-     */
-    Values initializeValues(Thread current) {
-        return current.localValues = new Values();
-    }
-
-    /**
-     * Gets Values instance for this thread and variable type.
-     */
-    Values values(Thread current) {
-        return current.localValues;
-    }
-
-    /** Weak reference to this thread local instance. */
-    private final Reference<ThreadLocal<T>> reference
-            = new WeakReference<ThreadLocal<T>>(this);
-
-    /** Hash counter. */
-    private static AtomicInteger hashCounter = new AtomicInteger(0);
-
-    /**
-     * Internal hash. We deliberately don't bother with #hashCode().
-     * Hashes must be even. This ensures that the result of
-     * (hash & (table.length - 1)) points to a key and not a value.
+     * Get the map associated with a ThreadLocal. Overridden in
+     * InheritableThreadLocal.
      *
-     * We increment by Doug Lea's Magic Number(TM) (*2 since keys are in
-     * every other bucket) to help prevent clustering.
+     * @param  t the current thread
+     * @return the map
      */
-    private final int hash = hashCounter.getAndAdd(0x61c88647 * 2);
+    ThreadLocalMap getMap(Thread t) {
+        return t.threadLocals;
+    }
 
     /**
-     * Per-thread map of ThreadLocal instances to values.
+     * Create the map associated with a ThreadLocal. Overridden in
+     * InheritableThreadLocal.
+     *
+     * @param t the current thread
+     * @param firstValue value for the initial entry of the map
+     * @param map the map to store.
      */
-    static class Values {
+    void createMap(Thread t, T firstValue) {
+        t.threadLocals = new ThreadLocalMap(this, firstValue);
+    }
+
+    /**
+     * Factory method to create map of inherited thread locals.
+     * Designed to be called only from Thread constructor.
+     *
+     * @param  parentMap the map associated with parent thread
+     * @return a map containing the parent's inheritable bindings
+     */
+    static ThreadLocalMap createInheritedMap(ThreadLocalMap parentMap) {
+        return new ThreadLocalMap(parentMap);
+    }
+
+    /**
+     * Method childValue is visibly defined in subclass
+     * InheritableThreadLocal, but is internally defined here for the
+     * sake of providing createInheritedMap factory method without
+     * needing to subclass the map class in InheritableThreadLocal.
+     * This technique is preferable to the alternative of embedding
+     * instanceof tests in methods.
+     */
+    T childValue(T parentValue) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * ThreadLocalMap is a customized hash map suitable only for
+     * maintaining thread local values. No operations are exported
+     * outside of the ThreadLocal class. The class is package private to
+     * allow declaration of fields in class Thread.  To help deal with
+     * very large and long-lived usages, the hash table entries use
+     * WeakReferences for keys. However, since reference queues are not
+     * used, stale entries are guaranteed to be removed only when
+     * the table starts running out of space.
+     */
+    static class ThreadLocalMap {
 
         /**
-         * Size must always be a power of 2.
+         * The entries in this hash map extend WeakReference, using
+         * its main ref field as the key (which is always a
+         * ThreadLocal object).  Note that null keys (i.e. entry.get()
+         * == null) mean that the key is no longer referenced, so the
+         * entry can be expunged from table.  Such entries are referred to
+         * as "stale entries" in the code that follows.
          */
-        private static final int INITIAL_SIZE = 16;
+        static class Entry extends WeakReference<ThreadLocal> {
+            /** The value associated with this ThreadLocal. */
+            Object value;
 
-        /**
-         * Placeholder for deleted entries.
-         */
-        private static final Object TOMBSTONE = new Object();
-
-        /**
-         * Map entries. Contains alternating keys (ThreadLocal) and values.
-         * The length is always a power of 2.
-         */
-        private Object[] table;
-
-        /** Used to turn hashes into indices. */
-        private int mask;
-
-        /** Number of live entries. */
-        private int size;
-
-        /** Number of tombstones. */
-        private int tombstones;
-
-        /** Maximum number of live entries and tombstones. */
-        private int maximumLoad;
-
-        /** Points to the next cell to clean up. */
-        private int clean;
-
-        /**
-         * Constructs a new, empty instance.
-         */
-        Values() {
-            initializeTable(INITIAL_SIZE);
-            this.size = 0;
-            this.tombstones = 0;
-        }
-
-        /**
-         * Used for InheritableThreadLocals.
-         */
-        Values(Values fromParent) {
-            this.table = fromParent.table.clone();
-            this.mask = fromParent.mask;
-            this.size = fromParent.size;
-            this.tombstones = fromParent.tombstones;
-            this.maximumLoad = fromParent.maximumLoad;
-            this.clean = fromParent.clean;
-            inheritValues(fromParent);
-        }
-
-        /**
-         * Inherits values from a parent thread.
-         */
-        @SuppressWarnings({"unchecked"})
-        private void inheritValues(Values fromParent) {
-            // Transfer values from parent to child thread.
-            Object[] table = this.table;
-            for (int i = table.length - 2; i >= 0; i -= 2) {
-                Object k = table[i];
-
-                if (k == null || k == TOMBSTONE) {
-                    // Skip this entry.
-                    continue;
-                }
-
-                // The table can only contain null, tombstones and references.
-                Reference<InheritableThreadLocal<?>> reference
-                        = (Reference<InheritableThreadLocal<?>>) k;
-                // Raw type enables us to pass in an Object below.
-                InheritableThreadLocal key = reference.get();
-                if (key != null) {
-                    // Replace value with filtered value.
-                    // We should just let exceptions bubble out and tank
-                    // the thread creation
-                    table[i + 1] = key.childValue(fromParent.table[i + 1]);
-                } else {
-                    // The key was reclaimed.
-                    table[i] = TOMBSTONE;
-                    table[i + 1] = null;
-                    fromParent.table[i] = TOMBSTONE;
-                    fromParent.table[i + 1] = null;
-
-                    tombstones++;
-                    fromParent.tombstones++;
-
-                    size--;
-                    fromParent.size--;
-                }
+            Entry(ThreadLocal k, Object v) {
+                super(k);
+                value = v;
             }
         }
 
         /**
-         * Creates a new, empty table with the given capacity.
+         * The initial capacity -- MUST be a power of two.
          */
-        private void initializeTable(int capacity) {
-            this.table = new Object[capacity * 2];
-            this.mask = table.length - 1;
-            this.clean = 0;
-            this.maximumLoad = capacity * 2 / 3; // 2/3
+        private static final int INITIAL_CAPACITY = 16;
+
+        /**
+         * The table, resized as necessary.
+         * table.length MUST always be a power of two.
+         */
+        private Entry[] table;
+
+        /**
+         * The number of entries in the table.
+         */
+        private int size = 0;
+
+        /**
+         * The next size value at which to resize.
+         */
+        private int threshold; // Default to 0
+
+        /**
+         * Set the resize threshold to maintain at worst a 2/3 load factor.
+         */
+        private void setThreshold(int len) {
+            threshold = len * 2 / 3;
         }
 
         /**
-         * Cleans up after garbage-collected thread locals.
+         * Increment i modulo len.
          */
-        private void cleanUp() {
-            if (rehash()) {
-                // If we rehashed, we needn't clean up (clean up happens as
-                // a side effect).
-                return;
-            }
-
-            if (size == 0) {
-                // No live entries == nothing to clean.
-                return;
-            }
-
-            // Clean log(table.length) entries picking up where we left off
-            // last time.
-            int index = clean;
-            Object[] table = this.table;
-            for (int counter = table.length; counter > 0; counter >>= 1,
-                    index = next(index)) {
-                Object k = table[index];
-
-                if (k == TOMBSTONE || k == null) {
-                    continue; // on to next entry
-                }
-
-                // The table can only contain null, tombstones and references.
-                @SuppressWarnings("unchecked")
-                Reference<ThreadLocal<?>> reference
-                        = (Reference<ThreadLocal<?>>) k;
-                if (reference.get() == null) {
-                    // This thread local was reclaimed by the garbage collector.
-                    table[index] = TOMBSTONE;
-                    table[index + 1] = null;
-                    tombstones++;
-                    size--;
-                }
-            }
-
-            // Point cursor to next index.
-            clean = index;
+        private static int nextIndex(int i, int len) {
+            return ((i + 1 < len) ? i + 1 : 0);
         }
 
         /**
-         * Rehashes the table, expanding or contracting it as necessary.
-         * Gets rid of tombstones. Returns true if a rehash occurred.
-         * We must rehash every time we fill a null slot; we depend on the
-         * presence of null slots to end searches (otherwise, we'll infinitely
-         * loop).
+         * Decrement i modulo len.
          */
-        private boolean rehash() {
-            if (tombstones + size < maximumLoad) {
-                return false;
-            }
-
-            int capacity = table.length >> 1;
-
-            // Default to the same capacity. This will create a table of the
-            // same size and move over the live entries, analogous to a
-            // garbage collection. This should only happen if you churn a
-            // bunch of thread local garbage (removing and reinserting
-            // the same thread locals over and over will overwrite tombstones
-            // and not fill up the table).
-            int newCapacity = capacity;
-
-            if (size > (capacity >> 1)) {
-                // More than 1/2 filled w/ live entries.
-                // Double size.
-                newCapacity = capacity * 2;
-            }
-
-            Object[] oldTable = this.table;
-
-            // Allocate new table.
-            initializeTable(newCapacity);
-
-            // We won't have any tombstones after this.
-            this.tombstones = 0;
-
-            // If we have no live entries, we can quit here.
-            if (size == 0) {
-                return true;
-            }
-
-            // Move over entries.
-            for (int i = oldTable.length - 2; i >= 0; i -= 2) {
-                Object k = oldTable[i];
-                if (k == null || k == TOMBSTONE) {
-                    // Skip this entry.
-                    continue;
-                }
-
-                // The table can only contain null, tombstones and references.
-                @SuppressWarnings("unchecked")
-                Reference<ThreadLocal<?>> reference
-                        = (Reference<ThreadLocal<?>>) k;
-                ThreadLocal<?> key = reference.get();
-                if (key != null) {
-                    // Entry is still live. Move it over.
-                    add(key, oldTable[i + 1]);
-                } else {
-                    // The key was reclaimed.
-                    size--;
-                }
-            }
-
-            return true;
+        private static int prevIndex(int i, int len) {
+            return ((i - 1 >= 0) ? i - 1 : len - 1);
         }
 
         /**
-         * Adds an entry during rehashing. Compared to put(), this method
-         * doesn't have to clean up, check for existing entries, account for
-         * tombstones, etc.
+         * Construct a new map initially containing (firstKey, firstValue).
+         * ThreadLocalMaps are constructed lazily, so we only create
+         * one when we have at least one entry to put in it.
          */
-        void add(ThreadLocal<?> key, Object value) {
-            for (int index = key.hash & mask;; index = next(index)) {
-                Object k = table[index];
-                if (k == null) {
-                    table[index] = key.reference;
-                    table[index + 1] = value;
-                    return;
-                }
-            }
+        ThreadLocalMap(ThreadLocal firstKey, Object firstValue) {
+            table = new Entry[INITIAL_CAPACITY];
+            int i = firstKey.threadLocalHashCode & (INITIAL_CAPACITY - 1);
+            table[i] = new Entry(firstKey, firstValue);
+            size = 1;
+            setThreshold(INITIAL_CAPACITY);
         }
 
         /**
-         * Sets entry for given ThreadLocal to given value, creating an
-         * entry if necessary.
+         * Construct a new map including all Inheritable ThreadLocals
+         * from given parent map. Called only by createInheritedMap.
+         *
+         * @param parentMap the map associated with parent thread.
          */
-        void put(ThreadLocal<?> key, Object value) {
-            cleanUp();
+        private ThreadLocalMap(ThreadLocalMap parentMap) {
+            Entry[] parentTable = parentMap.table;
+            int len = parentTable.length;
+            setThreshold(len);
+            table = new Entry[len];
 
-            // Keep track of first tombstone. That's where we want to go back
-            // and add an entry if necessary.
-            int firstTombstone = -1;
-
-            for (int index = key.hash & mask;; index = next(index)) {
-                Object k = table[index];
-
-                if (k == key.reference) {
-                    // Replace existing entry.
-                    table[index + 1] = value;
-                    return;
-                }
-
-                if (k == null) {
-                    if (firstTombstone == -1) {
-                        // Fill in null slot.
-                        table[index] = key.reference;
-                        table[index + 1] = value;
+            for (int j = 0; j < len; j++) {
+                Entry e = parentTable[j];
+                if (e != null) {
+                    ThreadLocal key = e.get();
+                    if (key != null) {
+                        Object value = key.childValue(e.value);
+                        Entry c = new Entry(key, value);
+                        int h = key.threadLocalHashCode & (len - 1);
+                        while (table[h] != null)
+                            h = nextIndex(h, len);
+                        table[h] = c;
                         size++;
-                        return;
                     }
+                }
+            }
+        }
 
-                    // Go back and replace first tombstone.
-                    table[firstTombstone] = key.reference;
-                    table[firstTombstone + 1] = value;
-                    tombstones--;
-                    size++;
+        /**
+         * Get the entry associated with key.  This method
+         * itself handles only the fast path: a direct hit of existing
+         * key. It otherwise relays to getEntryAfterMiss.  This is
+         * designed to maximize performance for direct hits, in part
+         * by making this method readily inlinable.
+         *
+         * @param  key the thread local object
+         * @return the entry associated with key, or null if no such
+         */
+        private Entry getEntry(ThreadLocal key) {
+            int i = key.threadLocalHashCode & (table.length - 1);
+            Entry e = table[i];
+            if (e != null && e.get() == key)
+                return e;
+            else
+                return getEntryAfterMiss(key, i, e);
+        }
+
+        /**
+         * Version of getEntry method for use when key is not found in
+         * its direct hash slot.
+         *
+         * @param  key the thread local object
+         * @param  i the table index for key's hash code
+         * @param  e the entry at table[i]
+         * @return the entry associated with key, or null if no such
+         */
+        private Entry getEntryAfterMiss(ThreadLocal key, int i, Entry e) {
+            Entry[] tab = table;
+            int len = tab.length;
+
+            while (e != null) {
+                ThreadLocal k = e.get();
+                if (k == key)
+                    return e;
+                if (k == null)
+                    expungeStaleEntry(i);
+                else
+                    i = nextIndex(i, len);
+                e = tab[i];
+            }
+            return null;
+        }
+
+        /**
+         * Set the value associated with key.
+         *
+         * @param key the thread local object
+         * @param value the value to be set
+         */
+        private void set(ThreadLocal key, Object value) {
+
+            // We don't use a fast path as with get() because it is at
+            // least as common to use set() to create new entries as
+            // it is to replace existing ones, in which case, a fast
+            // path would fail more often than not.
+
+            Entry[] tab = table;
+            int len = tab.length;
+            int i = key.threadLocalHashCode & (len-1);
+
+            for (Entry e = tab[i];
+                 e != null;
+                 e = tab[i = nextIndex(i, len)]) {
+                ThreadLocal k = e.get();
+
+                if (k == key) {
+                    e.value = value;
                     return;
                 }
 
-                // Remember first tombstone.
-                if (firstTombstone == -1 && k == TOMBSTONE) {
-                    firstTombstone = index;
+                if (k == null) {
+                    replaceStaleEntry(key, value, i);
+                    return;
+                }
+            }
+
+            tab[i] = new Entry(key, value);
+            int sz = ++size;
+            if (!cleanSomeSlots(i, sz) && sz >= threshold)
+                rehash();
+        }
+
+        /**
+         * Remove the entry for key.
+         */
+        private void remove(ThreadLocal key) {
+            Entry[] tab = table;
+            int len = tab.length;
+            int i = key.threadLocalHashCode & (len-1);
+            for (Entry e = tab[i];
+                 e != null;
+                 e = tab[i = nextIndex(i, len)]) {
+                if (e.get() == key) {
+                    e.clear();
+                    expungeStaleEntry(i);
+                    return;
                 }
             }
         }
 
         /**
-         * Gets value for given ThreadLocal after not finding it in the first
-         * slot.
+         * Replace a stale entry encountered during a set operation
+         * with an entry for the specified key.  The value passed in
+         * the value parameter is stored in the entry, whether or not
+         * an entry already exists for the specified key.
+         *
+         * As a side effect, this method expunges all stale entries in the
+         * "run" containing the stale entry.  (A run is a sequence of entries
+         * between two null slots.)
+         *
+         * @param  key the key
+         * @param  value the value to be associated with key
+         * @param  staleSlot index of the first stale entry encountered while
+         *         searching for key.
          */
-        Object getAfterMiss(ThreadLocal<?> key) {
-            Object[] table = this.table;
-            int index = key.hash & mask;
+        private void replaceStaleEntry(ThreadLocal key, Object value,
+                                       int staleSlot) {
+            Entry[] tab = table;
+            int len = tab.length;
+            Entry e;
 
-            // If the first slot is empty, the search is over.
-            if (table[index] == null) {
-                Object value = key.initialValue();
+            // Back up to check for prior stale entry in current run.
+            // We clean out whole runs at a time to avoid continual
+            // incremental rehashing due to garbage collector freeing
+            // up refs in bunches (i.e., whenever the collector runs).
+            int slotToExpunge = staleSlot;
+            for (int i = prevIndex(staleSlot, len);
+                 (e = tab[i]) != null;
+                 i = prevIndex(i, len))
+                if (e.get() == null)
+                    slotToExpunge = i;
 
-                // If the table is still the same and the slot is still empty...
-                if (this.table == table && table[index] == null) {
-                    table[index] = key.reference;
-                    table[index + 1] = value;
-                    size++;
+            // Find either the key or trailing null slot of run, whichever
+            // occurs first
+            for (int i = nextIndex(staleSlot, len);
+                 (e = tab[i]) != null;
+                 i = nextIndex(i, len)) {
+                ThreadLocal k = e.get();
 
-                    cleanUp();
-                    return value;
+                // If we find key, then we need to swap it
+                // with the stale entry to maintain hash table order.
+                // The newly stale slot, or any other stale slot
+                // encountered above it, can then be sent to expungeStaleEntry
+                // to remove or rehash all of the other entries in run.
+                if (k == key) {
+                    e.value = value;
+
+                    tab[i] = tab[staleSlot];
+                    tab[staleSlot] = e;
+
+                    // Start expunge at preceding stale entry if it exists
+                    if (slotToExpunge == staleSlot)
+                        slotToExpunge = i;
+                    cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
+                    return;
                 }
 
-                // The table changed during initialValue().
-                put(key, value);
-                return value;
+                // If we didn't find stale entry on backward scan, the
+                // first stale entry seen while scanning for key is the
+                // first still present in the run.
+                if (k == null && slotToExpunge == staleSlot)
+                    slotToExpunge = i;
             }
 
-            // Keep track of first tombstone. That's where we want to go back
-            // and add an entry if necessary.
-            int firstTombstone = -1;
+            // If key not found, put new entry in stale slot
+            tab[staleSlot].value = null;
+            tab[staleSlot] = new Entry(key, value);
 
-            // Continue search.
-            for (index = next(index);; index = next(index)) {
-                Object reference = table[index];
-                if (reference == key.reference) {
-                    return table[index + 1];
-                }
-
-                // If no entry was found...
-                if (reference == null) {
-                    Object value = key.initialValue();
-
-                    // If the table is still the same...
-                    if (this.table == table) {
-                        // If we passed a tombstone and that slot still
-                        // contains a tombstone...
-                        if (firstTombstone > -1
-                                && table[firstTombstone] == TOMBSTONE) {
-                            table[firstTombstone] = key.reference;
-                            table[firstTombstone + 1] = value;
-                            tombstones--;
-                            size++;
-
-                            // No need to clean up here. We aren't filling
-                            // in a null slot.
-                            return value;
-                        }
-
-                        // If this slot is still empty...
-                        if (table[index] == null) {
-                            table[index] = key.reference;
-                            table[index + 1] = value;
-                            size++;
-
-                            cleanUp();
-                            return value;
-                        }
-                    }
-
-                    // The table changed during initialValue().
-                    put(key, value);
-                    return value;
-                }
-
-                if (firstTombstone == -1 && reference == TOMBSTONE) {
-                    // Keep track of this tombstone so we can overwrite it.
-                    firstTombstone = index;
-                }
-            }
+            // If there are any other stale entries in run, expunge them
+            if (slotToExpunge != staleSlot)
+                cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
         }
 
         /**
-         * Removes entry for the given ThreadLocal.
+         * Expunge a stale entry by rehashing any possibly colliding entries
+         * lying between staleSlot and the next null slot.  This also expunges
+         * any other stale entries encountered before the trailing null.  See
+         * Knuth, Section 6.4
+         *
+         * @param staleSlot index of slot known to have null key
+         * @return the index of the next null slot after staleSlot
+         * (all between staleSlot and this slot will have been checked
+         * for expunging).
          */
-        void remove(ThreadLocal<?> key) {
-            cleanUp();
+        private int expungeStaleEntry(int staleSlot) {
+            Entry[] tab = table;
+            int len = tab.length;
 
-            for (int index = key.hash & mask;; index = next(index)) {
-                Object reference = table[index];
+            // expunge entry at staleSlot
+            tab[staleSlot].value = null;
+            tab[staleSlot] = null;
+            size--;
 
-                if (reference == key.reference) {
-                    // Success!
-                    table[index] = TOMBSTONE;
-                    table[index + 1] = null;
-                    tombstones++;
+            // Rehash until we encounter null
+            Entry e;
+            int i;
+            for (i = nextIndex(staleSlot, len);
+                 (e = tab[i]) != null;
+                 i = nextIndex(i, len)) {
+                ThreadLocal k = e.get();
+                if (k == null) {
+                    e.value = null;
+                    tab[i] = null;
                     size--;
-                    return;
-                }
+                } else {
+                    int h = k.threadLocalHashCode & (len - 1);
+                    if (h != i) {
+                        tab[i] = null;
 
-                if (reference == null) {
-                    // No entry found.
-                    return;
+                        // Unlike Knuth 6.4 Algorithm R, we must scan until
+                        // null because multiple entries could have been stale.
+                        while (tab[h] != null)
+                            h = nextIndex(h, len);
+                        tab[h] = e;
+                    }
                 }
             }
+            return i;
         }
 
         /**
-         * Gets the next index. If we're at the end of the table, we wrap back
-         * around to 0.
+         * Heuristically scan some cells looking for stale entries.
+         * This is invoked when either a new element is added, or
+         * another stale one has been expunged. It performs a
+         * logarithmic number of scans, as a balance between no
+         * scanning (fast but retains garbage) and a number of scans
+         * proportional to number of elements, that would find all
+         * garbage but would cause some insertions to take O(n) time.
+         *
+         * @param i a position known NOT to hold a stale entry. The
+         * scan starts at the element after i.
+         *
+         * @param n scan control: <tt>log2(n)</tt> cells are scanned,
+         * unless a stale entry is found, in which case
+         * <tt>log2(table.length)-1</tt> additional cells are scanned.
+         * When called from insertions, this parameter is the number
+         * of elements, but when from replaceStaleEntry, it is the
+         * table length. (Note: all this could be changed to be either
+         * more or less aggressive by weighting n instead of just
+         * using straight log n. But this version is simple, fast, and
+         * seems to work well.)
+         *
+         * @return true if any stale entries have been removed.
          */
-        private int next(int index) {
-            return (index + 2) & mask;
+        private boolean cleanSomeSlots(int i, int n) {
+            boolean removed = false;
+            Entry[] tab = table;
+            int len = tab.length;
+            do {
+                i = nextIndex(i, len);
+                Entry e = tab[i];
+                if (e != null && e.get() == null) {
+                    n = len;
+                    removed = true;
+                    i = expungeStaleEntry(i);
+                }
+            } while ( (n >>>= 1) != 0);
+            return removed;
+        }
+
+        /**
+         * Re-pack and/or re-size the table. First scan the entire
+         * table removing stale entries. If this doesn't sufficiently
+         * shrink the size of the table, double the table size.
+         */
+        private void rehash() {
+            expungeStaleEntries();
+
+            // Use lower threshold for doubling to avoid hysteresis
+            if (size >= threshold - threshold / 4)
+                resize();
+        }
+
+        /**
+         * Double the capacity of the table.
+         */
+        private void resize() {
+            Entry[] oldTab = table;
+            int oldLen = oldTab.length;
+            int newLen = oldLen * 2;
+            Entry[] newTab = new Entry[newLen];
+            int count = 0;
+
+            for (int j = 0; j < oldLen; ++j) {
+                Entry e = oldTab[j];
+                if (e != null) {
+                    ThreadLocal k = e.get();
+                    if (k == null) {
+                        e.value = null; // Help the GC
+                    } else {
+                        int h = k.threadLocalHashCode & (newLen - 1);
+                        while (newTab[h] != null)
+                            h = nextIndex(h, newLen);
+                        newTab[h] = e;
+                        count++;
+                    }
+                }
+            }
+
+            setThreshold(newLen);
+            size = count;
+            table = newTab;
+        }
+
+        /**
+         * Expunge all stale entries in the table.
+         */
+        private void expungeStaleEntries() {
+            Entry[] tab = table;
+            int len = tab.length;
+            for (int j = 0; j < len; j++) {
+                Entry e = tab[j];
+                if (e != null && e.get() == null)
+                    expungeStaleEntry(j);
+            }
         }
     }
 }

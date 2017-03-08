@@ -16,7 +16,10 @@
 
 package android.view.inputmethod;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 
@@ -27,10 +30,28 @@ import android.view.KeyEvent;
  * cursor, committing text to the text box, and sending raw key events
  * to the application.
  *
- * <p>Applications should never directly implement this interface, but
- * instead subclass from {@link BaseInputConnection}. This will ensure
- * that the application does not break when new methods are added to
- * the interface.</p>
+ * <p>Starting from API Level {@link android.os.Build.VERSION_CODES#N},
+ * the system can deal with the situation where the application directly
+ * implements this class but one or more of the following methods are
+ * not implemented.</p>
+ * <ul>
+ *     <li>{@link #getSelectedText(int)}, which was introduced in
+ *     {@link android.os.Build.VERSION_CODES#GINGERBREAD}.</li>
+ *     <li>{@link #setComposingRegion(int, int)}, which was introduced
+ *     in {@link android.os.Build.VERSION_CODES#GINGERBREAD}.</li>
+ *     <li>{@link #commitCorrection(CorrectionInfo)}, which was introduced
+ *     in {@link android.os.Build.VERSION_CODES#HONEYCOMB}.</li>
+ *     <li>{@link #requestCursorUpdates(int)}, which was introduced in
+ *     {@link android.os.Build.VERSION_CODES#LOLLIPOP}.</li>
+ *     <li>{@link #deleteSurroundingTextInCodePoints(int, int)}, which
+ *     was introduced in {@link android.os.Build.VERSION_CODES#N}.</li>
+ *     <li>{@link #getHandler()}, which was introduced in
+ *     {@link android.os.Build.VERSION_CODES#N}.</li>
+ *     <li>{@link #closeConnection()}, which was introduced in
+ *     {@link android.os.Build.VERSION_CODES#N}.</li>
+ *     <li>{@link #commitContent(InputContentInfo, int, Bundle)}, which was
+ *     introduced in {@link android.os.Build.VERSION_CODES#N_MR1}.</li>
+ * </ul>
  *
  * <h3>Implementing an IME or an editor</h3>
  * <p>Text input is the result of the synergy of two essential components:
@@ -223,7 +244,9 @@ public interface InputConnection {
      * @param flags Supplies additional options controlling how the text is
      * returned. May be either 0 or {@link #GET_TEXT_WITH_STYLES}.
      * @return the text that is currently selected, if any, or null if
-     * no text is selected.
+     * no text is selected. In {@link android.os.Build.VERSION_CODES#N} and
+     * later, returns false when the target application does not implement
+     * this method.
      */
     public CharSequence getSelectedText(int flags);
 
@@ -335,14 +358,45 @@ public interface InputConnection {
      * but be careful to wait until the batch edit is over if one is
      * in progress.</p>
      *
-     * @param beforeLength The number of characters to be deleted before the
-     *        current cursor position.
-     * @param afterLength The number of characters to be deleted after the
-     *        current cursor position.
-     * @return true on success, false if the input connection is no longer
-     * valid.
+     * @param beforeLength The number of characters before the cursor to be deleted, in code unit.
+     *        If this is greater than the number of existing characters between the beginning of the
+     *        text and the cursor, then this method does not fail but deletes all the characters in
+     *        that range.
+     * @param afterLength The number of characters after the cursor to be deleted, in code unit.
+     *        If this is greater than the number of existing characters between the cursor and
+     *        the end of the text, then this method does not fail but deletes all the characters in
+     *        that range.
+     * @return true on success, false if the input connection is no longer valid.
      */
     public boolean deleteSurroundingText(int beforeLength, int afterLength);
+
+    /**
+     * A variant of {@link #deleteSurroundingText(int, int)}. Major differences are:
+     *
+     * <ul>
+     *     <li>The lengths are supplied in code points, not in Java chars or in glyphs.</>
+     *     <li>This method does nothing if there are one or more invalid surrogate pairs in the
+     *     requested range.</li>
+     * </ul>
+     *
+     * <p><strong>Editor authors:</strong> In addition to the requirement in
+     * {@link #deleteSurroundingText(int, int)}, make sure to do nothing when one ore more invalid
+     * surrogate pairs are found in the requested range.</p>
+     *
+     * @see #deleteSurroundingText(int, int)
+     *
+     * @param beforeLength The number of characters before the cursor to be deleted, in code points.
+     *        If this is greater than the number of existing characters between the beginning of the
+     *        text and the cursor, then this method does not fail but deletes all the characters in
+     *        that range.
+     * @param afterLength The number of characters after the cursor to be deleted, in code points.
+     *        If this is greater than the number of existing characters between the cursor and
+     *        the end of the text, then this method does not fail but deletes all the characters in
+     *        that range.
+     * @return true on success, false if the input connection is no longer valid.  Returns
+     * {@code false} when the target application does not implement this method.
+     */
+    public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength);
 
     /**
      * Replace the currently composing text with the given text, and
@@ -430,7 +484,8 @@ public interface InputConnection {
      * @param start the position in the text at which the composing region begins
      * @param end the position in the text at which the composing region ends
      * @return true on success, false if the input connection is no longer
-     * valid.
+     * valid. In {@link android.os.Build.VERSION_CODES#N} and later, false is returned when the
+     * target application does not implement this method.
      */
     public boolean setComposingRegion(int start, int end);
 
@@ -542,6 +597,8 @@ public interface InputConnection {
      *
      * @param correctionInfo Detailed information about the correction.
      * @return true on success, false if the input connection is no longer valid.
+     * In {@link android.os.Build.VERSION_CODES#N} and later, returns false
+     * when the target application does not implement this method.
      */
     public boolean commitCorrection(CorrectionInfo correctionInfo);
 
@@ -754,6 +811,85 @@ public interface InputConnection {
      * @return {@code true} if the request is scheduled. {@code false} to indicate that when the
      * application will not call
      * {@link InputMethodManager#updateCursorAnchorInfo(android.view.View, CursorAnchorInfo)}.
+     * In {@link android.os.Build.VERSION_CODES#N} and later, returns {@code false} also when the
+     * target application does not implement this method.
      */
     public boolean requestCursorUpdates(int cursorUpdateMode);
+
+    /**
+     * Called by the {@link InputMethodManager} to enable application developers to specify a
+     * dedicated {@link Handler} on which incoming IPC method calls from input methods will be
+     * dispatched.
+     *
+     * <p>Note: This does nothing when called from input methods.</p>
+     *
+     * @return {@code null} to use the default {@link Handler}.
+     */
+    public Handler getHandler();
+
+    /**
+     * Called by the system up to only once to notify that the system is about to invalidate
+     * connection between the input method and the application.
+     *
+     * <p><strong>Editor authors</strong>: You can clear all the nested batch edit right now and
+     * you no longer need to handle subsequent callbacks on this connection, including
+     * {@link #beginBatchEdit()}}.  Note that although the system tries to call this method whenever
+     * possible, there may be a chance that this method is not called in some exceptional
+     * situations.</p>
+     *
+     * <p>Note: This does nothing when called from input methods.</p>
+     */
+    public void closeConnection();
+
+    /**
+     * When this flag is used, the editor will be able to request read access to the content URI
+     * contained in the {@link InputContentInfo} object.
+     *
+     * <p>Make sure that the content provider owning the Uri sets the
+     * {@link android.R.styleable#AndroidManifestProvider_grantUriPermissions
+     * grantUriPermissions} attribute in its manifest or included the
+     * {@link android.R.styleable#AndroidManifestGrantUriPermission
+     * &lt;grant-uri-permissions&gt;} tag. Otherwise {@link InputContentInfo#requestPermission()}
+     * can fail.</p>
+     *
+     * <p>Although calling this API is allowed only for the IME that is currently selected, the
+     * client is able to request a temporary read-only access even after the current IME is switched
+     * to any other IME as long as the client keeps {@link InputContentInfo} object.</p>
+     **/
+    public static int INPUT_CONTENT_GRANT_READ_URI_PERMISSION =
+            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION;  // 0x00000001
+
+    /**
+     * Called by the input method to commit content such as a PNG image to the editor.
+     *
+     * <p>In order to avoid a variety of compatibility issues, this focuses on a simple use case,
+     * where editors and IMEs are expected to work cooperatively as follows:</p>
+     * <ul>
+     *     <li>Editor must keep {@link EditorInfo#contentMimeTypes} equal to {@code null} if it does
+     *     not support this method at all.</li>
+     *     <li>Editor can ignore this request when the MIME type specified in
+     *     {@code inputContentInfo} does not match any of {@link EditorInfo#contentMimeTypes}.
+     *     </li>
+     *     <li>Editor can ignore the cursor position when inserting the provided content.</li>
+     *     <li>Editor can return {@code true} asynchronously, even before it starts loading the
+     *     content.</li>
+     *     <li>Editor should provide a way to delete the content inserted by this method or to
+     *     revert the effect caused by this method.</li>
+     *     <li>IME should not call this method when there is any composing text, in case calling
+     *     this method causes a focus change.</li>
+     *     <li>IME should grant a permission for the editor to read the content. See
+     *     {@link EditorInfo#packageName} about how to obtain the package name of the editor.</li>
+     * </ul>
+     *
+     * @param inputContentInfo Content to be inserted.
+     * @param flags {@link #INPUT_CONTENT_GRANT_READ_URI_PERMISSION} if the content provider
+     * allows {@link android.R.styleable#AndroidManifestProvider_grantUriPermissions
+     * grantUriPermissions} or {@code 0} if the application does not need to call
+     * {@link InputContentInfo#requestPermission()}.
+     * @param opts optional bundle data. This can be {@code null}.
+     * @return {@code true} if this request is accepted by the application, whether the request
+     * is already handled or still being handled in background, {@code false} otherwise.
+     */
+    public boolean commitContent(@NonNull InputContentInfo inputContentInfo, int flags,
+            @Nullable Bundle opts);
 }

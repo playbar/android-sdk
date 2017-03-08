@@ -211,7 +211,7 @@ class PreferenceInflater {
      * @param name The full name of the class to be instantiated.
      * @param attrs The XML attributes supplied for this instance.
      *
-     * @return The newly instantied item, or null.
+     * @return The newly instantiated item, or null.
      */
     private Preference createItem(@NonNull String name, @Nullable String[] prefixes,
             AttributeSet attrs)
@@ -231,6 +231,7 @@ class PreferenceInflater {
                     for (final String prefix : prefixes) {
                         try {
                             clazz = classLoader.loadClass(prefix + name);
+                            break;
                         } catch (final ClassNotFoundException e) {
                             notFoundException = e;
                         }

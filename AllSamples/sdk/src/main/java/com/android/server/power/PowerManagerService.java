@@ -16,21 +16,9 @@
 
 package com.android.server.power;
 
-import android.app.ActivityManager;
-import android.util.SparseIntArray;
-import com.android.internal.app.IAppOpsService;
-import com.android.internal.app.IBatteryStats;
-import com.android.internal.os.BackgroundThread;
-import com.android.server.EventLogTags;
-import com.android.server.ServiceThread;
-import com.android.server.SystemService;
-import com.android.server.am.BatteryStatsService;
-import com.android.server.lights.Light;
-import com.android.server.lights.LightsManager;
-import com.android.server.Watchdog;
-
 import android.Manifest;
-import android.app.AppOpsManager;
+import android.annotation.IntDef;
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -62,24 +50,45 @@ import android.os.Trace;
 import android.os.UserHandle;
 import android.os.WorkSource;
 import android.provider.Settings;
+import android.provider.Settings.Secure;
+import android.provider.Settings.SettingNotFoundException;
 import android.service.dreams.DreamManagerInternal;
+import android.service.vr.IVrManager;
+import android.service.vr.IVrStateCallbacks;
 import android.util.EventLog;
+import android.util.PrintWriterPrinter;
 import android.util.Slog;
+import android.util.SparseIntArray;
 import android.util.TimeUtils;
 import android.view.Display;
 import android.view.WindowManagerPolicy;
 
+import com.android.internal.app.IAppOpsService;
+import com.android.internal.app.IBatteryStats;
+import com.android.internal.os.BackgroundThread;
+import com.android.internal.util.ArrayUtils;
+import com.android.server.EventLogTags;
+import com.android.server.ServiceThread;
+import com.android.server.SystemService;
+import com.android.server.Watchdog;
+import com.android.server.am.BatteryStatsService;
+import com.android.server.lights.Light;
+import com.android.server.lights.LightsManager;
+import com.android.server.vr.VrManagerService;
+import libcore.util.Objects;
+
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import libcore.util.Objects;
-
+import static android.os.PowerManagerInternal.POWER_HINT_INTERACTION;
 import static android.os.PowerManagerInternal.WAKEFULNESS_ASLEEP;
 import static android.os.PowerManagerInternal.WAKEFULNESS_AWAKE;
-import static android.os.PowerManagerInternal.WAKEFULNESS_DREAMING;
 import static android.os.PowerManagerInternal.WAKEFULNESS_DOZING;
+import static android.os.PowerManagerInternal.WAKEFULNESS_DREAMING;
 
 /**
  * The power manager service is responsible for coordinating power management
@@ -98,6 +107,8 @@ public final class PowerManagerService extends SystemService
     private static final int MSG_SANDMAN = 2;
     // Message: Sent when the screen brightness boost expires.
     private static final int MSG_SCREEN_BRIGHTNESS_BOOST_TIMEOUT = 3;
+    // Message: Polling to look for long held wake locks.
+    private static final int MSG_CHECK_FOR_LONG_WAKELOCKS = 4;
 
     // Dirty bit: mWakeLocks changed
     private static final int DIRTY_WAKE_LOCKS = 1 << 0;
@@ -149,15 +160,26 @@ public final class PowerManagerService extends SystemService
     // This should perhaps be a setting.
     private static final int SCREEN_BRIGHTNESS_BOOST_TIMEOUT = 5 * 1000;
 
+    // How long a partial wake lock must be held until we consider it a long wake lock.
+    static final long MIN_LONG_WAKE_CHECK_INTERVAL = 60*1000;
+
     // Power hints defined in hardware/libhardware/include/hardware/power.h.
-    private static final int POWER_HINT_INTERACTION = 2;
     private static final int POWER_HINT_LOW_POWER = 5;
+    private static final int POWER_HINT_VR_MODE = 7;
 
     // Power features defined in hardware/libhardware/include/hardware/power.h.
     private static final int POWER_FEATURE_DOUBLE_TAP_TO_WAKE = 1;
 
     // Default setting for double tap to wake.
     private static final int DEFAULT_DOUBLE_TAP_TO_WAKE = 0;
+
+    /** Constants for {@link #shutdownOrRebootInternal} */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({HALT_MODE_SHUTDOWN, HALT_MODE_REBOOT, HALT_MODE_REBOOT_SAFE_MODE})
+    public @interface HaltMode {}
+    private static final int HALT_MODE_SHUTDOWN = 0;
+    private static final int HALT_MODE_REBOOT = 1;
+    private static final int HALT_MODE_REBOOT_SAFE_MODE = 2;
 
     private final Context mContext;
     private final ServiceThread mHandlerThread;
@@ -202,6 +224,15 @@ public final class PowerManagerService extends SystemService
 
     // A bitfield that summarizes the state of all active wakelocks.
     private int mWakeLockSummary;
+
+    // Have we scheduled a message to check for long wake locks?  This is when we will check.
+    private long mNotifyLongScheduled;
+
+    // Last time we checked for long wake locks.
+    private long mNotifyLongDispatched;
+
+    // The time we decided to do next long check.
+    private long mNotifyLongNextCheck;
 
     // If true, instructs the display controller to wait for the proximity sensor to
     // go negative before turning the screen on.
@@ -253,6 +284,9 @@ public final class PowerManagerService extends SystemService
 
     // True if boot completed occurred.  We keep the screen on until this happens.
     private boolean mBootCompleted;
+
+    // Runnables that should be triggered on boot completed
+    private Runnable[] mBootCompletedRunnables;
 
     // True if auto-suspend mode is enabled.
     // Refer to autosuspend.h.
@@ -393,6 +427,14 @@ public final class PowerManagerService extends SystemService
     // Use -1 to disable.
     private int mScreenBrightnessOverrideFromWindowManager = -1;
 
+    // The window manager has determined the user to be inactive via other means.
+    // Set this to false to disable.
+    private boolean mUserInactiveOverrideFromWindowManager;
+
+    // The next possible user activity timeout after being explicitly told the user is inactive.
+    // Set to -1 when not told the user is inactive since the last period spent dozing or asleep.
+    private long mOverriddenTimeout = -1;
+
     // The user activity timeout override from the window manager
     // to allow the current foreground activity to override the user activity timeout.
     // Use -1 to disable.
@@ -436,6 +478,9 @@ public final class PowerManagerService extends SystemService
     // True if we are currently in device idle mode.
     private boolean mDeviceIdleMode;
 
+    // True if we are currently in light device idle mode.
+    private boolean mLightDeviceIdleMode;
+
     // Set of app ids that we will always respect the wake locks for.
     int[] mDeviceIdleWhitelist = new int[0];
 
@@ -452,6 +497,9 @@ public final class PowerManagerService extends SystemService
 
     private final ArrayList<PowerManagerInternal.LowPowerModeListener> mLowPowerModeListeners
             = new ArrayList<PowerManagerInternal.LowPowerModeListener>();
+
+    // True if brightness should be affected by twilight.
+    private boolean mBrightnessUseTwilight;
 
     private native void nativeInit();
 
@@ -499,13 +547,24 @@ public final class PowerManagerService extends SystemService
     @Override
     public void onBootPhase(int phase) {
         synchronized (mLock) {
-            if (phase == PHASE_BOOT_COMPLETED) {
+            if (phase == PHASE_THIRD_PARTY_APPS_CAN_START) {
+                incrementBootCount();
+
+            } else if (phase == PHASE_BOOT_COMPLETED) {
                 final long now = SystemClock.uptimeMillis();
                 mBootCompleted = true;
                 mDirty |= DIRTY_BOOT_COMPLETED;
                 userActivityNoUpdateLocked(
                         now, PowerManager.USER_ACTIVITY_EVENT_OTHER, 0, Process.SYSTEM_UID);
                 updatePowerStateLocked();
+
+                if (!ArrayUtils.isEmpty(mBootCompletedRunnables)) {
+                    Slog.d(TAG, "Posting " + mBootCompletedRunnables.length + " delayed runnables");
+                    for (Runnable r : mBootCompletedRunnables) {
+                        BackgroundThread.getHandler().post(r);
+                    }
+                }
+                mBootCompletedRunnables = null;
             }
         }
     }
@@ -605,6 +664,16 @@ public final class PowerManagerService extends SystemService
             resolver.registerContentObserver(Settings.Secure.getUriFor(
                     Settings.Secure.DOUBLE_TAP_TO_WAKE),
                     false, mSettingsObserver, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.Secure.getUriFor(
+                    Secure.BRIGHTNESS_USE_TWILIGHT),
+                    false, mSettingsObserver, UserHandle.USER_ALL);
+            IVrManager vrManager =
+                    (IVrManager) getBinderService(VrManagerService.VR_MANAGER_BINDER_SERVICE);
+            try {
+                vrManager.registerListener(mVrStateCallbacks);
+            } catch (RemoteException e) {
+                Slog.e(TAG, "Failed to register VR mode state listener: " + e);
+            }
             // Go.
             readConfigurationLocked();
             updateSettingsLocked();
@@ -711,6 +780,9 @@ public final class PowerManagerService extends SystemService
                 Settings.System.SCREEN_BRIGHTNESS_MODE,
                 Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL, UserHandle.USER_CURRENT);
 
+        mBrightnessUseTwilight = Settings.Secure.getIntForUser(resolver,
+                Secure.BRIGHTNESS_USE_TWILIGHT, 0, UserHandle.USER_CURRENT) != 0;
+
         final boolean lowPowerModeEnabled = Settings.Global.getInt(resolver,
                 Settings.Global.LOW_POWER_MODE, 0) != 0;
         final boolean autoLowPowerModeConfigured = Settings.Global.getInt(resolver,
@@ -725,10 +797,21 @@ public final class PowerManagerService extends SystemService
         mDirty |= DIRTY_SETTINGS;
     }
 
-    void updateLowPowerModeLocked() {
-        if (mIsPowered && mLowPowerModeSetting) {
+    private void postAfterBootCompleted(Runnable r) {
+        if (mBootCompleted) {
+            BackgroundThread.getHandler().post(r);
+        } else {
+            Slog.d(TAG, "Delaying runnable until system is booted");
+            mBootCompletedRunnables = ArrayUtils.appendElement(Runnable.class,
+                    mBootCompletedRunnables, r);
+        }
+    }
+
+    private void updateLowPowerModeLocked() {
+        if ((mIsPowered || !mBatteryLevelLow && !mBootCompleted) && mLowPowerModeSetting) {
             if (DEBUG_SPEW) {
-                Slog.d(TAG, "updateLowPowerModeLocked: powered, turning setting off");
+                Slog.d(TAG, "updateLowPowerModeLocked: powered or booting with sufficient battery,"
+                        + " turning setting off");
             }
             // Turn setting off if powered
             Settings.Global.putInt(mContext.getContentResolver(),
@@ -742,7 +825,7 @@ public final class PowerManagerService extends SystemService
         if (mLowPowerModeEnabled != lowPowerModeEnabled) {
             mLowPowerModeEnabled = lowPowerModeEnabled;
             powerHintInternal(POWER_HINT_LOW_POWER, lowPowerModeEnabled ? 1 : 0);
-            BackgroundThread.getHandler().post(new Runnable() {
+            postAfterBootCompleted(new Runnable() {
                 @Override
                 public void run() {
                     Intent intent = new Intent(PowerManager.ACTION_POWER_SAVE_MODE_CHANGING)
@@ -760,6 +843,10 @@ public final class PowerManagerService extends SystemService
                     intent = new Intent(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
                     intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
                     mContext.sendBroadcast(intent);
+                    // Send internal version that requires signature permission.
+                    mContext.sendBroadcastAsUser(new Intent(
+                            PowerManager.ACTION_POWER_SAVE_MODE_CHANGED_INTERNAL), UserHandle.ALL,
+                            Manifest.permission.DEVICE_POWER);
                 }
             });
         }
@@ -952,6 +1039,38 @@ public final class PowerManagerService extends SystemService
             mNotifier.onWakeLockAcquired(wakeLock.mFlags, wakeLock.mTag, wakeLock.mPackageName,
                     wakeLock.mOwnerUid, wakeLock.mOwnerPid, wakeLock.mWorkSource,
                     wakeLock.mHistoryTag);
+            restartNofifyLongTimerLocked(wakeLock);
+        }
+    }
+
+    private void enqueueNotifyLongMsgLocked(long time) {
+        mNotifyLongScheduled = time;
+        Message msg = mHandler.obtainMessage(MSG_CHECK_FOR_LONG_WAKELOCKS);
+        msg.setAsynchronous(true);
+        mHandler.sendMessageAtTime(msg, time);
+    }
+
+    private void restartNofifyLongTimerLocked(WakeLock wakeLock) {
+        wakeLock.mAcquireTime = SystemClock.uptimeMillis();
+        if ((wakeLock.mFlags & PowerManager.WAKE_LOCK_LEVEL_MASK)
+                == PowerManager.PARTIAL_WAKE_LOCK && mNotifyLongScheduled == 0) {
+            enqueueNotifyLongMsgLocked(wakeLock.mAcquireTime + MIN_LONG_WAKE_CHECK_INTERVAL);
+        }
+    }
+
+    private void notifyWakeLockLongStartedLocked(WakeLock wakeLock) {
+        if (mSystemReady && !wakeLock.mDisabled) {
+            wakeLock.mNotifiedLong = true;
+            mNotifier.onLongPartialWakeLockStart(wakeLock.mTag, wakeLock.mOwnerUid,
+                    wakeLock.mWorkSource, wakeLock.mHistoryTag);
+        }
+    }
+
+    private void notifyWakeLockLongFinishedLocked(WakeLock wakeLock) {
+        if (wakeLock.mNotifiedLong) {
+            wakeLock.mNotifiedLong = false;
+            mNotifier.onLongPartialWakeLockFinish(wakeLock.mTag, wakeLock.mOwnerUid,
+                    wakeLock.mWorkSource, wakeLock.mHistoryTag);
         }
     }
 
@@ -961,15 +1080,23 @@ public final class PowerManagerService extends SystemService
             mNotifier.onWakeLockChanging(wakeLock.mFlags, wakeLock.mTag, wakeLock.mPackageName,
                     wakeLock.mOwnerUid, wakeLock.mOwnerPid, wakeLock.mWorkSource,
                     wakeLock.mHistoryTag, flags, tag, packageName, uid, pid, ws, historyTag);
+            notifyWakeLockLongFinishedLocked(wakeLock);
+            // Changing the wake lock will count as releasing the old wake lock(s) and
+            // acquiring the new ones...  we do this because otherwise once a wakelock
+            // becomes long, if we just continued to treat it as long we can get in to
+            // situations where we spam battery stats with every following change to it.
+            restartNofifyLongTimerLocked(wakeLock);
         }
     }
 
     private void notifyWakeLockReleasedLocked(WakeLock wakeLock) {
         if (mSystemReady && wakeLock.mNotifiedAcquired) {
             wakeLock.mNotifiedAcquired = false;
+            wakeLock.mAcquireTime = 0;
             mNotifier.onWakeLockReleased(wakeLock.mFlags, wakeLock.mTag,
                     wakeLock.mPackageName, wakeLock.mOwnerUid, wakeLock.mOwnerPid,
                     wakeLock.mWorkSource, wakeLock.mHistoryTag);
+            notifyWakeLockLongFinishedLocked(wakeLock);
         }
     }
 
@@ -1027,6 +1154,11 @@ public final class PowerManagerService extends SystemService
             }
 
             mNotifier.onUserActivity(event, uid);
+
+            if (mUserInactiveOverrideFromWindowManager) {
+                mUserInactiveOverrideFromWindowManager = false;
+                mOverriddenTimeout = -1;
+            }
 
             if (mWakefulness == WAKEFULNESS_ASLEEP
                     || mWakefulness == WAKEFULNESS_DOZING
@@ -1243,11 +1375,27 @@ public final class PowerManagerService extends SystemService
         }
     }
 
+    /**
+     * Logs the time the device would have spent awake before user activity timeout,
+     * had the system not been told the user was inactive.
+     */
+    private void logSleepTimeoutRecapturedLocked() {
+        final long now = SystemClock.uptimeMillis();
+        final long savedWakeTimeMs = mOverriddenTimeout - now;
+        if (savedWakeTimeMs >= 0) {
+            EventLog.writeEvent(EventLogTags.POWER_SOFT_SLEEP_REQUESTED, savedWakeTimeMs);
+            mOverriddenTimeout = -1;
+        }
+    }
+
     private void finishWakefulnessChangeIfNeededLocked() {
         if (mWakefulnessChanging && mDisplayReady) {
             if (mWakefulness == WAKEFULNESS_DOZING
                     && (mWakeLockSummary & WAKE_LOCK_DOZE) == 0) {
                 return; // wait until dream has enabled dozing
+            }
+            if (mWakefulness == WAKEFULNESS_DOZING || mWakefulness == WAKEFULNESS_ASLEEP) {
+                logSleepTimeoutRecapturedLocked();
             }
             mWakefulnessChanging = false;
             mNotifier.onWakefulnessChangeFinished();
@@ -1505,6 +1653,42 @@ public final class PowerManagerService extends SystemService
         }
     }
 
+    void checkForLongWakeLocks() {
+        synchronized (mLock) {
+            final long now = SystemClock.uptimeMillis();
+            mNotifyLongDispatched = now;
+            final long when = now - MIN_LONG_WAKE_CHECK_INTERVAL;
+            long nextCheckTime = Long.MAX_VALUE;
+            final int numWakeLocks = mWakeLocks.size();
+            for (int i = 0; i < numWakeLocks; i++) {
+                final WakeLock wakeLock = mWakeLocks.get(i);
+                if ((wakeLock.mFlags & PowerManager.WAKE_LOCK_LEVEL_MASK)
+                        == PowerManager.PARTIAL_WAKE_LOCK) {
+                    if (wakeLock.mNotifiedAcquired && !wakeLock.mNotifiedLong) {
+                        if (wakeLock.mAcquireTime < when) {
+                            // This wake lock has exceeded the long acquire time, report!
+                            notifyWakeLockLongStartedLocked(wakeLock);
+                        } else {
+                            // This wake lock could still become a long one, at this time.
+                            long checkTime = wakeLock.mAcquireTime + MIN_LONG_WAKE_CHECK_INTERVAL;
+                            if (checkTime < nextCheckTime) {
+                                nextCheckTime = checkTime;
+                            }
+                        }
+                    }
+                }
+            }
+            mNotifyLongScheduled = 0;
+            mHandler.removeMessages(MSG_CHECK_FOR_LONG_WAKELOCKS);
+            if (nextCheckTime != Long.MAX_VALUE) {
+                mNotifyLongNextCheck = nextCheckTime;
+                enqueueNotifyLongMsgLocked(nextCheckTime);
+            } else {
+                mNotifyLongNextCheck = 0;
+            }
+        }
+    }
+
     /**
      * Updates the value of mUserActivitySummary to summarize the user requested
      * state of the system such as whether the screen should be bright or dim.
@@ -1525,6 +1709,7 @@ public final class PowerManagerService extends SystemService
                 final int sleepTimeout = getSleepTimeoutLocked();
                 final int screenOffTimeout = getScreenOffTimeoutLocked(sleepTimeout);
                 final int screenDimDuration = getScreenDimDurationLocked(screenOffTimeout);
+                final boolean userInactiveOverride = mUserInactiveOverrideFromWindowManager;
 
                 mUserActivitySummary = 0;
                 if (mLastUserActivityTime >= mLastWakeTime) {
@@ -1550,6 +1735,7 @@ public final class PowerManagerService extends SystemService
                         }
                     }
                 }
+
                 if (mUserActivitySummary == 0) {
                     if (sleepTimeout >= 0) {
                         final long anyUserActivity = Math.max(mLastUserActivityTime,
@@ -1565,6 +1751,20 @@ public final class PowerManagerService extends SystemService
                         nextTimeout = -1;
                     }
                 }
+
+                if (mUserActivitySummary != USER_ACTIVITY_SCREEN_DREAM && userInactiveOverride) {
+                    if ((mUserActivitySummary &
+                            (USER_ACTIVITY_SCREEN_BRIGHT | USER_ACTIVITY_SCREEN_DIM)) != 0) {
+                        // Device is being kept awake by recent user activity
+                        if (nextTimeout >= now && mOverriddenTimeout == -1) {
+                            // Save when the next timeout would have occurred
+                            mOverriddenTimeout = nextTimeout;
+                        }
+                    }
+                    mUserActivitySummary = USER_ACTIVITY_SCREEN_DREAM;
+                    nextTimeout = -1;
+                }
+
                 if (mUserActivitySummary != 0 && nextTimeout >= 0) {
                     Message msg = mHandler.obtainMessage(MSG_USER_ACTIVITY_TIMEOUT);
                     msg.setAsynchronous(true);
@@ -1886,7 +2086,12 @@ public final class PowerManagerService extends SystemService
             float screenAutoBrightnessAdjustment = 0.0f;
             boolean autoBrightness = (mScreenBrightnessModeSetting ==
                     Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
-            if (isValidBrightness(mScreenBrightnessOverrideFromWindowManager)) {
+            if (!mBootCompleted) {
+                // Keep the brightness steady during boot. This requires the
+                // bootloader brightness and the default brightness to be identical.
+                autoBrightness = false;
+                brightnessSetByUser = false;
+            } else if (isValidBrightness(mScreenBrightnessOverrideFromWindowManager)) {
                 screenBrightness = mScreenBrightnessOverrideFromWindowManager;
                 autoBrightness = false;
                 brightnessSetByUser = false;
@@ -1920,6 +2125,7 @@ public final class PowerManagerService extends SystemService
             mDisplayPowerRequest.useProximitySensor = shouldUseProximitySensorLocked();
             mDisplayPowerRequest.lowPowerMode = mLowPowerModeEnabled;
             mDisplayPowerRequest.boostScreenBrightness = mScreenBrightnessBoostInProgress;
+            mDisplayPowerRequest.useTwilight = mBrightnessUseTwilight;
 
             if (mDisplayPowerRequest.policy == DisplayPowerRequest.POLICY_DOZE) {
                 mDisplayPowerRequest.dozeScreenState = mDozeScreenStateOverrideFromDreamManager;
@@ -2247,9 +2453,15 @@ public final class PowerManagerService extends SystemService
         }
     }
 
-    private boolean isDeviceIdleModeInternal() {
+    boolean isDeviceIdleModeInternal() {
         synchronized (mLock) {
             return mDeviceIdleMode;
+        }
+    }
+
+    boolean isLightDeviceIdleModeInternal() {
+        synchronized (mLock) {
+            return mLightDeviceIdleMode;
         }
     }
 
@@ -2258,7 +2470,7 @@ public final class PowerManagerService extends SystemService
         updatePowerStateLocked();
     }
 
-    private void shutdownOrRebootInternal(final boolean shutdown, final boolean confirm,
+    private void shutdownOrRebootInternal(final @HaltMode int haltMode, final boolean confirm,
             final String reason, boolean wait) {
         if (mHandler == null || !mSystemReady) {
             throw new IllegalStateException("Too early to call shutdown() or reboot()");
@@ -2268,10 +2480,12 @@ public final class PowerManagerService extends SystemService
             @Override
             public void run() {
                 synchronized (this) {
-                    if (shutdown) {
-                        ShutdownThread.shutdown(mContext, confirm);
-                    } else {
+                    if (haltMode == HALT_MODE_REBOOT_SAFE_MODE) {
+                        ShutdownThread.rebootSafeMode(mContext, confirm);
+                    } else if (haltMode == HALT_MODE_REBOOT) {
                         ShutdownThread.reboot(mContext, reason, confirm);
+                    } else {
+                        ShutdownThread.shutdown(mContext, reason, confirm);
                     }
                 }
             }
@@ -2323,17 +2537,29 @@ public final class PowerManagerService extends SystemService
         }
     }
 
-    void setDeviceIdleModeInternal(boolean enabled) {
+    boolean setDeviceIdleModeInternal(boolean enabled) {
         synchronized (mLock) {
-            if (mDeviceIdleMode != enabled) {
-                mDeviceIdleMode = enabled;
-                updateWakeLockDisabledStatesLocked();
-                if (enabled) {
-                    EventLogTags.writeDeviceIdleOnPhase("power");
-                } else {
-                    EventLogTags.writeDeviceIdleOffPhase("power");
-                }
+            if (mDeviceIdleMode == enabled) {
+                return false;
             }
+            mDeviceIdleMode = enabled;
+            updateWakeLockDisabledStatesLocked();
+        }
+        if (enabled) {
+            EventLogTags.writeDeviceIdleOnPhase("power");
+        } else {
+            EventLogTags.writeDeviceIdleOffPhase("power");
+        }
+        return true;
+    }
+
+    boolean setLightDeviceIdleModeInternal(boolean enabled) {
+        synchronized (mLock) {
+            if (mLightDeviceIdleMode != enabled) {
+                mLightDeviceIdleMode = enabled;
+                return true;
+            }
+            return false;
         }
     }
 
@@ -2494,6 +2720,14 @@ public final class PowerManagerService extends SystemService
         }
     }
 
+    private void setUserInactiveOverrideFromWindowManagerInternal() {
+        synchronized (mLock) {
+            mUserInactiveOverrideFromWindowManager = true;
+            mDirty |= DIRTY_USER_ACTIVITY;
+            updatePowerStateLocked();
+        }
+    }
+
     private void setUserActivityTimeoutOverrideFromWindowManagerInternal(long timeoutMillis) {
         synchronized (mLock) {
             if (mUserActivityTimeoutOverrideFromWindowManager != timeoutMillis) {
@@ -2546,9 +2780,14 @@ public final class PowerManagerService extends SystemService
     /**
      * Low-level function turn the device off immediately, without trying
      * to be clean.  Most people should use {@link ShutdownThread} for a clean shutdown.
+     *
+     * @param reason code to pass to android_reboot() (e.g. "userrequested"), or null.
      */
-    public static void lowLevelShutdown() {
-        SystemProperties.set("sys.powerctl", "shutdown");
+    public static void lowLevelShutdown(String reason) {
+        if (reason == null) {
+            reason = "";
+        }
+        SystemProperties.set("sys.powerctl", "shutdown," + reason);
     }
 
     /**
@@ -2562,12 +2801,9 @@ public final class PowerManagerService extends SystemService
         if (reason == null) {
             reason = "";
         }
-        if (reason.equals(PowerManager.REBOOT_RECOVERY)) {
-            // If we are rebooting to go into recovery, instead of
-            // setting sys.powerctl directly we'll start the
-            // pre-recovery service which will do some preparation for
-            // recovery and then reboot for us.
-            SystemProperties.set("ctl.start", "pre-recovery");
+        if (reason.equals(PowerManager.REBOOT_RECOVERY)
+                || reason.equals(PowerManager.REBOOT_RECOVERY_UPDATE)) {
+            SystemProperties.set("sys.powerctl", "reboot,recovery");
         } else {
             SystemProperties.set("sys.powerctl", "reboot," + reason);
         }
@@ -2607,12 +2843,34 @@ public final class PowerManagerService extends SystemService
             pw.println("  mHalAutoSuspendModeEnabled=" + mHalAutoSuspendModeEnabled);
             pw.println("  mHalInteractiveModeEnabled=" + mHalInteractiveModeEnabled);
             pw.println("  mWakeLockSummary=0x" + Integer.toHexString(mWakeLockSummary));
+            pw.print("  mNotifyLongScheduled=");
+            if (mNotifyLongScheduled == 0) {
+                pw.print("(none)");
+            } else {
+                TimeUtils.formatDuration(mNotifyLongScheduled, SystemClock.uptimeMillis(), pw);
+            }
+            pw.println();
+            pw.print("  mNotifyLongDispatched=");
+            if (mNotifyLongDispatched == 0) {
+                pw.print("(none)");
+            } else {
+                TimeUtils.formatDuration(mNotifyLongDispatched, SystemClock.uptimeMillis(), pw);
+            }
+            pw.println();
+            pw.print("  mNotifyLongNextCheck=");
+            if (mNotifyLongNextCheck == 0) {
+                pw.print("(none)");
+            } else {
+                TimeUtils.formatDuration(mNotifyLongNextCheck, SystemClock.uptimeMillis(), pw);
+            }
+            pw.println();
             pw.println("  mUserActivitySummary=0x" + Integer.toHexString(mUserActivitySummary));
             pw.println("  mRequestWaitForNegativeProximity=" + mRequestWaitForNegativeProximity);
             pw.println("  mSandmanScheduled=" + mSandmanScheduled);
             pw.println("  mSandmanSummoned=" + mSandmanSummoned);
             pw.println("  mLowPowerModeEnabled=" + mLowPowerModeEnabled);
             pw.println("  mBatteryLevelLow=" + mBatteryLevelLow);
+            pw.println("  mLightDeviceIdleMode=" + mLightDeviceIdleMode);
             pw.println("  mDeviceIdleMode=" + mDeviceIdleMode);
             pw.println("  mDeviceIdleWhitelist=" + Arrays.toString(mDeviceIdleWhitelist));
             pw.println("  mDeviceIdleTempWhitelist=" + Arrays.toString(mDeviceIdleTempWhitelist));
@@ -2683,6 +2941,8 @@ public final class PowerManagerService extends SystemService
                     + mScreenBrightnessOverrideFromWindowManager);
             pw.println("  mUserActivityTimeoutOverrideFromWindowManager="
                     + mUserActivityTimeoutOverrideFromWindowManager);
+            pw.println("  mUserInactiveOverrideFromWindowManager="
+                    + mUserInactiveOverrideFromWindowManager);
             pw.println("  mTemporaryScreenBrightnessSettingOverride="
                     + mTemporaryScreenBrightnessSettingOverride);
             pw.println("  mTemporaryScreenAutoBrightnessAdjustmentSettingOverride="
@@ -2712,6 +2972,10 @@ public final class PowerManagerService extends SystemService
             }
 
             pw.println();
+            pw.println("Looper state:");
+            mHandler.getLooper().dump(new PrintWriterPrinter(pw), "  ");
+
+            pw.println();
             pw.println("Wake Locks: size=" + mWakeLocks.size());
             for (WakeLock wl : mWakeLocks) {
                 pw.println("  " + wl);
@@ -2738,6 +3002,20 @@ public final class PowerManagerService extends SystemService
         SuspendBlocker suspendBlocker = new SuspendBlockerImpl(name);
         mSuspendBlockers.add(suspendBlocker);
         return suspendBlocker;
+    }
+
+    private void incrementBootCount() {
+        synchronized (mLock) {
+            int count;
+            try {
+                count = Settings.Global.getInt(
+                        getContext().getContentResolver(), Settings.Global.BOOT_COUNT);
+            } catch (SettingNotFoundException e) {
+                count = 0;
+            }
+            Settings.Global.putInt(
+                    getContext().getContentResolver(), Settings.Global.BOOT_COUNT, count + 1);
+        }
     }
 
     private static WorkSource copyWorkSource(WorkSource workSource) {
@@ -2799,6 +3077,13 @@ public final class PowerManagerService extends SystemService
         }
     }
 
+    private final IVrStateCallbacks mVrStateCallbacks = new IVrStateCallbacks.Stub() {
+        @Override
+        public void onVrStateChanged(boolean enabled) {
+            powerHintInternal(POWER_HINT_VR_MODE, enabled ? 1 : 0);
+        }
+    };
+
     /**
      * Handler for asynchronous operations performed by the power manager.
      */
@@ -2819,6 +3104,9 @@ public final class PowerManagerService extends SystemService
                 case MSG_SCREEN_BRIGHTNESS_BOOST_TIMEOUT:
                     handleScreenBrightnessBoostTimeout();
                     break;
+                case MSG_CHECK_FOR_LONG_WAKELOCKS:
+                    checkForLongWakeLocks();
+                    break;
             }
         }
     }
@@ -2835,7 +3123,9 @@ public final class PowerManagerService extends SystemService
         public String mHistoryTag;
         public final int mOwnerUid;
         public final int mOwnerPid;
+        public long mAcquireTime;
         public boolean mNotifiedAcquired;
+        public boolean mNotifiedLong;
         public boolean mDisabled;
 
         public WakeLock(IBinder lock, int flags, String tag, String packageName,
@@ -2894,9 +3184,34 @@ public final class PowerManagerService extends SystemService
 
         @Override
         public String toString() {
-            return getLockLevelString()
-                    + " '" + mTag + "'" + getLockFlagsString() + (mDisabled ? " DISABLED" : "")
-                    + " (uid=" + mOwnerUid + ", pid=" + mOwnerPid + ", ws=" + mWorkSource + ")";
+            StringBuilder sb = new StringBuilder();
+            sb.append(getLockLevelString());
+            sb.append(" '");
+            sb.append(mTag);
+            sb.append("'");
+            sb.append(getLockFlagsString());
+            if (mDisabled) {
+                sb.append(" DISABLED");
+            }
+            if (mNotifiedAcquired) {
+                sb.append(" ACQ=");
+                TimeUtils.formatDuration(mAcquireTime-SystemClock.uptimeMillis(), sb);
+            }
+            if (mNotifiedLong) {
+                sb.append(" LONG");
+            }
+            sb.append(" (uid=");
+            sb.append(mOwnerUid);
+            if (mOwnerPid != 0) {
+                sb.append(" pid=");
+                sb.append(mOwnerPid);
+            }
+            if (mWorkSource != null) {
+                sb.append(" ws=");
+                sb.append(mWorkSource);
+            }
+            sb.append(")");
+            return sb.toString();
         }
 
         @SuppressWarnings("deprecation")
@@ -3248,6 +3563,16 @@ public final class PowerManagerService extends SystemService
             }
         }
 
+        @Override // Binder call
+        public boolean isLightDeviceIdleMode() {
+            final long ident = Binder.clearCallingIdentity();
+            try {
+                return isLightDeviceIdleModeInternal();
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
         /**
          * Reboots the device.
          *
@@ -3258,13 +3583,33 @@ public final class PowerManagerService extends SystemService
         @Override // Binder call
         public void reboot(boolean confirm, String reason, boolean wait) {
             mContext.enforceCallingOrSelfPermission(android.Manifest.permission.REBOOT, null);
-            if (PowerManager.REBOOT_RECOVERY.equals(reason)) {
+            if (PowerManager.REBOOT_RECOVERY.equals(reason)
+                    || PowerManager.REBOOT_RECOVERY_UPDATE.equals(reason)) {
                 mContext.enforceCallingOrSelfPermission(android.Manifest.permission.RECOVERY, null);
             }
 
             final long ident = Binder.clearCallingIdentity();
             try {
-                shutdownOrRebootInternal(false, confirm, reason, wait);
+                shutdownOrRebootInternal(HALT_MODE_REBOOT, confirm, reason, wait);
+            } finally {
+                Binder.restoreCallingIdentity(ident);
+            }
+        }
+
+        /**
+         * Reboots the device into safe mode
+         *
+         * @param confirm If true, shows a reboot confirmation dialog.
+         * @param wait If true, this call waits for the reboot to complete and does not return.
+         */
+        @Override // Binder call
+        public void rebootSafeMode(boolean confirm, boolean wait) {
+            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.REBOOT, null);
+
+            final long ident = Binder.clearCallingIdentity();
+            try {
+                shutdownOrRebootInternal(HALT_MODE_REBOOT_SAFE_MODE, confirm,
+                        PowerManager.REBOOT_SAFE_MODE, wait);
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }
@@ -3277,12 +3622,12 @@ public final class PowerManagerService extends SystemService
          * @param wait If true, this call waits for the shutdown to complete and does not return.
          */
         @Override // Binder call
-        public void shutdown(boolean confirm, boolean wait) {
+        public void shutdown(boolean confirm, String reason, boolean wait) {
             mContext.enforceCallingOrSelfPermission(android.Manifest.permission.REBOOT, null);
 
             final long ident = Binder.clearCallingIdentity();
             try {
-                shutdownOrRebootInternal(true, confirm, null, wait);
+                shutdownOrRebootInternal(HALT_MODE_SHUTDOWN, confirm, reason, wait);
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }
@@ -3487,6 +3832,11 @@ public final class PowerManagerService extends SystemService
         }
 
         @Override
+        public void setUserInactiveOverrideFromWindowManager() {
+            setUserInactiveOverrideFromWindowManagerInternal();
+        }
+
+        @Override
         public void setUserActivityTimeoutOverrideFromWindowManager(long timeoutMillis) {
             setUserActivityTimeoutOverrideFromWindowManagerInternal(timeoutMillis);
         }
@@ -3511,8 +3861,13 @@ public final class PowerManagerService extends SystemService
         }
 
         @Override
-        public void setDeviceIdleMode(boolean enabled) {
-            setDeviceIdleModeInternal(enabled);
+        public boolean setDeviceIdleMode(boolean enabled) {
+            return setDeviceIdleModeInternal(enabled);
+        }
+
+        @Override
+        public boolean setLightDeviceIdleMode(boolean enabled) {
+            return setLightDeviceIdleModeInternal(enabled);
         }
 
         @Override
@@ -3533,6 +3888,11 @@ public final class PowerManagerService extends SystemService
         @Override
         public void uidGone(int uid) {
             uidGoneInternal(uid);
+        }
+
+        @Override
+        public void powerHint(int hintId, int data) {
+            powerHintInternal(hintId, data);
         }
     }
 }

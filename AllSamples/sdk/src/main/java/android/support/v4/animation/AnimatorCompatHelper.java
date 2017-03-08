@@ -17,17 +17,24 @@
 package android.support.v4.animation;
 
 import android.os.Build;
+import android.support.annotation.RestrictTo;
 import android.view.View;
 
-abstract public class AnimatorCompatHelper {
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
-    static AnimatorProvider IMPL;
+/**
+ * @hide
+ */
+@RestrictTo(GROUP_ID)
+public final class AnimatorCompatHelper {
+
+    private final static AnimatorProvider IMPL;
 
     static {
         if (Build.VERSION.SDK_INT >= 12) {
             IMPL = new HoneycombMr1AnimatorCompatProvider();
         } else {
-            IMPL = new DonutAnimatorCompatProvider();
+            IMPL = new GingerbreadAnimatorCompatProvider();
         }
     }
 
@@ -35,9 +42,7 @@ abstract public class AnimatorCompatHelper {
         return IMPL.emptyValueAnimator();
     }
 
-    AnimatorCompatHelper() {
-
-    }
+    private AnimatorCompatHelper() {}
 
     public static void clearInterpolator(View view) {
         IMPL.clearInterpolator(view);

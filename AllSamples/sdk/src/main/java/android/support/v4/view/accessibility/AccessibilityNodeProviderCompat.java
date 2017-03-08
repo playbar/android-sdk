@@ -18,6 +18,7 @@ package android.support.v4.view.accessibility;
 
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.view.View;
 
 import java.util.ArrayList;
@@ -30,7 +31,7 @@ import java.util.List;
 public class AccessibilityNodeProviderCompat {
 
     interface AccessibilityNodeProviderImpl {
-        public Object newAccessibilityNodeProviderBridge(AccessibilityNodeProviderCompat compat);
+        Object newAccessibilityNodeProviderBridge(AccessibilityNodeProviderCompat compat);
     }
 
     static class AccessibilityNodeProviderStubImpl implements AccessibilityNodeProviderImpl {
@@ -40,7 +41,11 @@ public class AccessibilityNodeProviderCompat {
         }
     }
 
-    static class AccessibilityNodeProviderJellyBeanImpl extends AccessibilityNodeProviderStubImpl {
+    private static class AccessibilityNodeProviderJellyBeanImpl
+            extends AccessibilityNodeProviderStubImpl {
+        AccessibilityNodeProviderJellyBeanImpl() {
+        }
+
         @Override
         public Object newAccessibilityNodeProviderBridge(
                 final AccessibilityNodeProviderCompat compat) {
@@ -55,22 +60,26 @@ public class AccessibilityNodeProviderCompat {
                         @Override
                         public List<Object> findAccessibilityNodeInfosByText(
                                             String text, int virtualViewId) {
-                            List<AccessibilityNodeInfoCompat> compatInfos =
+                            final List<AccessibilityNodeInfoCompat> compatInfos =
                                 compat.findAccessibilityNodeInfosByText(text, virtualViewId);
-                            List<Object> infos = new ArrayList<Object>();
-                            final int infoCount = compatInfos.size();
-                            for (int i = 0; i < infoCount; i++) {
-                                AccessibilityNodeInfoCompat infoCompat = compatInfos.get(i);
-                                infos.add(infoCompat.getInfo());
+                            if (compatInfos == null) {
+                                return null;
+                            } else {
+                                final List<Object> infos = new ArrayList<>();
+                                final int infoCount = compatInfos.size();
+                                for (int i = 0; i < infoCount; i++) {
+                                    AccessibilityNodeInfoCompat infoCompat = compatInfos.get(i);
+                                    infos.add(infoCompat.getInfo());
+                                }
+                                return infos;
                             }
-                            return infos;
                         }
 
                         @Override
                         public Object createAccessibilityNodeInfo(
                                 int virtualViewId) {
-                            final AccessibilityNodeInfoCompat compatInfo = compat
-                                    .createAccessibilityNodeInfo(virtualViewId);
+                            final AccessibilityNodeInfoCompat compatInfo =
+                                    compat.createAccessibilityNodeInfo(virtualViewId);
                             if (compatInfo == null) {
                                 return null;
                             } else {
@@ -81,7 +90,11 @@ public class AccessibilityNodeProviderCompat {
         }
     }
 
-    static class AccessibilityNodeProviderKitKatImpl extends AccessibilityNodeProviderStubImpl {
+    private static class AccessibilityNodeProviderKitKatImpl
+            extends AccessibilityNodeProviderStubImpl {
+        AccessibilityNodeProviderKitKatImpl() {
+        }
+
         @Override
         public Object newAccessibilityNodeProviderBridge(
                 final AccessibilityNodeProviderCompat compat) {
@@ -96,15 +109,19 @@ public class AccessibilityNodeProviderCompat {
                         @Override
                         public List<Object> findAccessibilityNodeInfosByText(
                                 String text, int virtualViewId) {
-                            List<AccessibilityNodeInfoCompat> compatInfos =
+                            final List<AccessibilityNodeInfoCompat> compatInfos =
                                     compat.findAccessibilityNodeInfosByText(text, virtualViewId);
-                            List<Object> infos = new ArrayList<Object>();
-                            final int infoCount = compatInfos.size();
-                            for (int i = 0; i < infoCount; i++) {
-                                AccessibilityNodeInfoCompat infoCompat = compatInfos.get(i);
-                                infos.add(infoCompat.getInfo());
+                            if (compatInfos == null) {
+                                return null;
+                            } else {
+                                final List<Object> infos = new ArrayList<>();
+                                final int infoCount = compatInfos.size();
+                                for (int i = 0; i < infoCount; i++) {
+                                    AccessibilityNodeInfoCompat infoCompat = compatInfos.get(i);
+                                    infos.add(infoCompat.getInfo());
+                                }
+                                return infos;
                             }
-                            return infos;
                         }
 
                         @Override
@@ -130,6 +147,11 @@ public class AccessibilityNodeProviderCompat {
                     });
         }
     }
+
+    /**
+     * The virtual id for the hosting View.
+     */
+    public static final int HOST_VIEW_ID = -1;
 
     private static final AccessibilityNodeProviderImpl IMPL;
 
@@ -172,7 +194,7 @@ public class AccessibilityNodeProviderCompat {
     /**
      * Returns an {@link AccessibilityNodeInfoCompat} representing a virtual view,
      * i.e. a descendant of the host View, with the given <code>virtualViewId</code>
-     * or the host View itself if <code>virtualViewId</code> equals to {@link View#NO_ID}.
+     * or the host View itself if <code>virtualViewId</code> equals to {@link #HOST_VIEW_ID}.
      * <p>
      * A virtual descendant is an imaginary View that is reported as a part of the view
      * hierarchy for accessibility purposes. This enables custom views that draw complex
@@ -191,6 +213,7 @@ public class AccessibilityNodeProviderCompat {
      *
      * @see AccessibilityNodeInfoCompat
      */
+    @Nullable
     public AccessibilityNodeInfoCompat createAccessibilityNodeInfo(int virtualViewId) {
         return null;
     }
@@ -198,7 +221,7 @@ public class AccessibilityNodeProviderCompat {
     /**
      * Performs an accessibility action on a virtual view, i.e. a descendant of the
      * host View, with the given <code>virtualViewId</code> or the host View itself
-     * if <code>virtualViewId</code> equals to {@link View#NO_ID}.
+     * if <code>virtualViewId</code> equals to {@link #HOST_VIEW_ID}.
      *
      * @param virtualViewId A client defined virtual view id.
      * @param action The action to perform.
@@ -216,7 +239,7 @@ public class AccessibilityNodeProviderCompat {
      * Finds {@link AccessibilityNodeInfoCompat}s by text. The match is case insensitive
      * containment. The search is relative to the virtual view, i.e. a descendant of the
      * host View, with the given <code>virtualViewId</code> or the host View itself
-     * <code>virtualViewId</code> equals to {@link View#NO_ID}.
+     * <code>virtualViewId</code> equals to {@link #HOST_VIEW_ID}.
      *
      * @param virtualViewId A client defined virtual view id which defined
      *     the root of the tree in which to perform the search.
@@ -226,6 +249,7 @@ public class AccessibilityNodeProviderCompat {
      * @see #createAccessibilityNodeInfo(int)
      * @see AccessibilityNodeInfoCompat
      */
+    @Nullable
     public List<AccessibilityNodeInfoCompat> findAccessibilityNodeInfosByText(String text,
             int virtualViewId) {
         return null;
@@ -242,6 +266,7 @@ public class AccessibilityNodeProviderCompat {
      * @see AccessibilityNodeInfoCompat#FOCUS_INPUT
      * @see AccessibilityNodeInfoCompat#FOCUS_ACCESSIBILITY
      */
+    @Nullable
     public AccessibilityNodeInfoCompat findFocus(int focus) {
         return null;
     }

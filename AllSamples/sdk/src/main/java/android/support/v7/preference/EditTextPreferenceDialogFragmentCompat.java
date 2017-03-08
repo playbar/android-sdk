@@ -17,14 +17,20 @@
 package android.support.v7.preference;
 
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.widget.EditText;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 public class EditTextPreferenceDialogFragmentCompat extends PreferenceDialogFragmentCompat {
 
+    private static final String SAVE_STATE_TEXT = "EditTextPreferenceDialogFragment.text";
+
     private EditText mEditText;
+
+    private CharSequence mText;
 
     public static EditTextPreferenceDialogFragmentCompat newInstance(String key) {
         final EditTextPreferenceDialogFragmentCompat
@@ -36,22 +42,33 @@ public class EditTextPreferenceDialogFragmentCompat extends PreferenceDialogFrag
     }
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (savedInstanceState == null) {
+            mText = getEditTextPreference().getText();
+        } else {
+            mText = savedInstanceState.getCharSequence(SAVE_STATE_TEXT);
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putCharSequence(SAVE_STATE_TEXT, mText);
+    }
+
+    @Override
     protected void onBindDialogView(View view) {
         super.onBindDialogView(view);
 
-        mEditText = new EditText(view.getContext());
-        // Give it an ID so it can be saved/restored
-        mEditText.setId(android.R.id.edit);
+        mEditText = (EditText) view.findViewById(android.R.id.edit);
 
-        mEditText.setText(getEditTextPreference().getText());
-
-        ViewParent oldParent = mEditText.getParent();
-        if (oldParent != view) {
-            if (oldParent != null) {
-                ((ViewGroup) oldParent).removeView(mEditText);
-            }
-            onAddEditTextToDialogView(view, mEditText);
+        if (mEditText == null) {
+            throw new IllegalStateException("Dialog view must contain an EditText with id" +
+                    " @android:id/edit");
         }
+
+        mEditText.setText(mText);
     }
 
     private EditTextPreference getEditTextPreference() {
@@ -59,24 +76,11 @@ public class EditTextPreferenceDialogFragmentCompat extends PreferenceDialogFrag
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     @Override
     protected boolean needInputMethod() {
         // We want the input method to show, if possible, when dialog is displayed
         return true;
-    }
-
-    /**
-     * Adds the EditText widget of this preference to the dialog's view.
-     *
-     * @param dialogView The dialog view.
-     */
-    protected void onAddEditTextToDialogView(View dialogView, EditText editText) {
-        ViewGroup container = (ViewGroup) dialogView
-                .findViewById(R.id.edittext_container);
-        if (container != null) {
-            container.addView(editText, ViewGroup.LayoutParams.FILL_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT);
-        }
     }
 
     @Override

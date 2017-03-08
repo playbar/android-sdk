@@ -10,11 +10,12 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific languag`e governing permissions and
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
 package android.support.v7.widget;
+
 import android.view.View;
 
 /**
@@ -35,8 +36,11 @@ class LayoutState {
 
     final static int ITEM_DIRECTION_TAIL = 1;
 
-    final static int SCOLLING_OFFSET_NaN = Integer.MIN_VALUE;
-
+    /**
+     * We may not want to recycle children in some cases (e.g. layout)
+     */
+    boolean mRecycle = true;
+    
     /**
      * Number of pixels that we should fill, in the layout direction.
      */
@@ -68,6 +72,16 @@ class LayoutState {
      * This is the target pixel closest to the end of the layout that we are trying to fill
      */
     int mEndLine = 0;
+
+    /**
+     * If true, layout should stop if a focusable view is added
+     */
+    boolean mStopInFocusable;
+
+    /**
+     * If the content is not wrapped with any value
+     */
+    boolean mInfinite;
 
     /**
      * @return true if there are more items in the data adapter

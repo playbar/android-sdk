@@ -1,18 +1,26 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1998, 2001, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security.spec;
@@ -20,26 +28,29 @@ package java.security.spec;
 import java.math.BigInteger;
 
 /**
- * The key specification of a RSA private key.
- * <p>
- * Defined in the <a
- * href="http://www.rsa.com/rsalabs/pubs/PKCS/html/pkcs-1.html">PKCS #1 v2.1</a>
- * standard
+ * This class specifies an RSA private key.
+ *
+ * @author Jan Luehe
+ *
+ *
+ * @see java.security.Key
+ * @see java.security.KeyFactory
+ * @see KeySpec
+ * @see PKCS8EncodedKeySpec
+ * @see RSAPublicKeySpec
+ * @see RSAPrivateCrtKeySpec
  */
+
 public class RSAPrivateKeySpec implements KeySpec {
-    // Modulus
-    private final BigInteger modulus;
-    // Private Exponent
-    private final BigInteger privateExponent;
+
+    private BigInteger modulus;
+    private BigInteger privateExponent;
 
     /**
-     * Creates a new {@code RSAPrivateKeySpec} with the specified modulus and
-     * private exponent.
+     * Creates a new RSAPrivateKeySpec.
      *
-     * @param modulus
-     *            the modulus {@code n}.
-     * @param privateExponent
-     *            the private exponent {@code e}
+     * @param modulus the modulus
+     * @param privateExponent the private exponent
      */
     public RSAPrivateKeySpec(BigInteger modulus, BigInteger privateExponent) {
         this.modulus = modulus;
@@ -47,20 +58,20 @@ public class RSAPrivateKeySpec implements KeySpec {
     }
 
     /**
-     * Returns the modulus {@code n}.
+     * Returns the modulus.
      *
-     * @return the modulus {@code n}.
+     * @return the modulus
      */
     public BigInteger getModulus() {
-        return modulus;
+        return this.modulus;
     }
 
     /**
-     * Returns the private exponent {@code e}.
+     * Returns the private exponent.
      *
-     * @return the private exponent {@code e}.
+     * @return the private exponent
      */
     public BigInteger getPrivateExponent() {
-        return privateExponent;
+        return this.privateExponent;
     }
 }

@@ -1,141 +1,173 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security;
 
-import java.io.Serializable;
+import java.io.*;
 import java.security.cert.CertPath;
 
 /**
- * {@code CodeSigner} represents a signer of code. Instances are immutable.
+ * This class encapsulates information about a code signer.
+ * It is immutable.
+ *
+ * @since 1.5
+ * @author Vincent Ryan
  */
+
 public final class CodeSigner implements Serializable {
 
     private static final long serialVersionUID = 6819288105193937581L;
 
+    /**
+     * The signer's certificate path.
+     *
+     * @serial
+     */
     private CertPath signerCertPath;
 
+    /*
+     * The signature timestamp.
+     *
+     * @serial
+     */
     private Timestamp timestamp;
 
-    // Cached hash code value
-    private transient int hash;
+    /*
+     * Hash code for this code signer.
+     */
+    private transient int myhash = -1;
 
     /**
-     * Constructs a new instance of {@code CodeSigner}.
+     * Constructs a CodeSigner object.
      *
-     * @param signerCertPath
-     *            the certificate path associated with this code signer.
-     * @param timestamp
-     *            the time stamp associated with this code signer, maybe {@code
-     *            null}.
-     * @throws NullPointerException
-     *             if {@code signerCertPath} is {@code null}.
+     * @param signerCertPath The signer's certificate path.
+     *                       It must not be <code>null</code>.
+     * @param timestamp A signature timestamp.
+     *                  If <code>null</code> then no timestamp was generated
+     *                  for the signature.
+     * @throws NullPointerException if <code>signerCertPath</code> is
+     *                              <code>null</code>.
      */
     public CodeSigner(CertPath signerCertPath, Timestamp timestamp) {
         if (signerCertPath == null) {
-            throw new NullPointerException("signerCertPath == null");
+            throw new NullPointerException();
         }
         this.signerCertPath = signerCertPath;
         this.timestamp = timestamp;
     }
 
     /**
-     * Compares the specified object with this {@code CodeSigner} for equality.
-     * Returns {@code true} if the specified object is also an instance of
-     * {@code CodeSigner}, the two {@code CodeSigner} encapsulate the same
-     * certificate path and the same time stamp, if present in both.
+     * Returns the signer's certificate path.
      *
-     * @param obj
-     *            object to be compared for equality with this {@code
-     *            CodeSigner}.
-     * @return {@code true} if the specified object is equal to this {@code
-     *         CodeSigner}, otherwise {@code false}.
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) {
-            return true;
-        }
-        if (obj instanceof CodeSigner) {
-            CodeSigner that = (CodeSigner) obj;
-            if (!signerCertPath.equals(that.signerCertPath)) {
-                return false;
-            }
-            return timestamp == null ? that.timestamp == null : timestamp
-                    .equals(that.timestamp);
-        }
-        return false;
-    }
-
-    /**
-     * Returns the certificate path associated with this {@code CodeSigner}.
-     *
-     * @return the certificate path associated with this {@code CodeSigner}.
+     * @return A certificate path.
      */
     public CertPath getSignerCertPath() {
         return signerCertPath;
     }
 
     /**
-     * Returns the time stamp associated with this {@code CodeSigner}.
+     * Returns the signature timestamp.
      *
-     * @return the time stamp associated with this {@code CodeSigner}, maybe
-     *         {@code null}.
+     * @return The timestamp or <code>null</code> if none is present.
      */
     public Timestamp getTimestamp() {
         return timestamp;
     }
 
     /**
-     * Returns the hash code value for this {@code CodeSigner}. Returns the same
-     * hash code for {@code CodeSigner}s that are equal to each other as
-     * required by the general contract of {@link Object#hashCode}.
+     * Returns the hash code value for this code signer.
+     * The hash code is generated using the signer's certificate path and the
+     * timestamp, if present.
      *
-     * @return the hash code value for this {@code CodeSigner}.
-     * @see Object#equals(Object)
-     * @see CodeSigner#equals(Object)
+     * @return a hash code value for this code signer.
      */
-    @Override
     public int hashCode() {
-        if (hash == 0) {
-            hash = signerCertPath.hashCode()
-                    ^ (timestamp == null ? 0 : timestamp.hashCode());
+        if (myhash == -1) {
+            if (timestamp == null) {
+                myhash = signerCertPath.hashCode();
+            } else {
+                myhash = signerCertPath.hashCode() + timestamp.hashCode();
+            }
         }
-        return hash;
+        return myhash;
     }
 
     /**
-     * Returns a string containing a concise, human-readable description of the
-     * this {@code CodeSigner} including its first certificate and its time
-     * stamp, if present.
+     * Tests for equality between the specified object and this
+     * code signer. Two code signers are considered equal if their
+     * signer certificate paths are equal and if their timestamps are equal,
+     * if present in both.
      *
-     * @return a printable representation for this {@code CodeSigner}.
+     * @param obj the object to test for equality with this object.
+     *
+     * @return true if the objects are considered equal, false otherwise.
      */
-    @Override
-    public String toString() {
-        // There is no any special reason for '256' here, it's taken abruptly
-        StringBuilder buf = new StringBuilder(256);
-        // The javadoc says nothing, and the others implementations behavior seems as
-        // dumping only the first certificate. Well, let's do the same.
-        buf.append("CodeSigner [").append(signerCertPath.getCertificates().get(0));
-        if( timestamp != null ) {
-            buf.append("; ").append(timestamp);
+    public boolean equals(Object obj) {
+        if (obj == null || (!(obj instanceof CodeSigner))) {
+            return false;
         }
-        buf.append("]");
-        return buf.toString();
+        CodeSigner that = (CodeSigner)obj;
+
+        if (this == that) {
+            return true;
+        }
+        Timestamp thatTimestamp = that.getTimestamp();
+        if (timestamp == null) {
+            if (thatTimestamp != null) {
+                return false;
+            }
+        } else {
+            if (thatTimestamp == null ||
+                (! timestamp.equals(thatTimestamp))) {
+                return false;
+            }
+        }
+        return signerCertPath.equals(that.getSignerCertPath());
+    }
+
+    /**
+     * Returns a string describing this code signer.
+     *
+     * @return A string comprising the signer's certificate and a timestamp,
+     *         if present.
+     */
+    public String toString() {
+        StringBuffer sb = new StringBuffer();
+        sb.append("(");
+        sb.append("Signer: " + signerCertPath.getCertificates().get(0));
+        if (timestamp != null) {
+            sb.append("timestamp: " + timestamp);
+        }
+        sb.append(")");
+        return sb.toString();
+    }
+
+    // Explicitly reset hash code value to -1
+    private void readObject(ObjectInputStream ois)
+        throws IOException, ClassNotFoundException {
+     ois.defaultReadObject();
+     myhash = -1;
     }
 }

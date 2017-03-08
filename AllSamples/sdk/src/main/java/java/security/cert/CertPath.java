@@ -1,18 +1,26 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2000, 2011, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security.cert;
@@ -20,189 +28,291 @@ package java.security.cert;
 import java.io.ByteArrayInputStream;
 import java.io.NotSerializableException;
 import java.io.ObjectStreamException;
-import java.io.ObjectStreamField;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 
 /**
- * An immutable certificate path that can be validated. All certificates in the
- * path are of the same type (i.e., X509).
+ * An immutable sequence of certificates (a certification path).
  * <p>
- * A {@code CertPath} can be represented as a byte array in at least one
- * supported encoding scheme (i.e. PkiPath or PKCS7) when serialized.
+ * This is an abstract class that defines the methods common to all
+ * <code>CertPath</code>s. Subclasses can handle different kinds of
+ * certificates (X.509, PGP, etc.).
  * <p>
- * When a {@code List} of the certificates is obtained it must be immutable.
+ * All <code>CertPath</code> objects have a type, a list of
+ * <code>Certificate</code>s, and one or more supported encodings. Because the
+ * <code>CertPath</code> class is immutable, a <code>CertPath</code> cannot
+ * change in any externally visible way after being constructed. This
+ * stipulation applies to all public fields and methods of this class and any
+ * added or overridden by subclasses.
  * <p>
- * A {@code CertPath} must be thread-safe without requiring coordinated access.
+ * The type is a <code>String</code> that identifies the type of
+ * <code>Certificate</code>s in the certification path. For each
+ * certificate <code>cert</code> in a certification path <code>certPath</code>,
+ * <code>cert.getType().equals(certPath.getType())</code> must be
+ * <code>true</code>.
+ * <p>
+ * The list of <code>Certificate</code>s is an ordered <code>List</code> of
+ * zero or more <code>Certificate</code>s. This <code>List</code> and all
+ * of the <code>Certificate</code>s contained in it must be immutable.
+ * <p>
+ * Each <code>CertPath</code> object must support one or more encodings
+ * so that the object can be translated into a byte array for storage or
+ * transmission to other parties. Preferably, these encodings should be
+ * well-documented standards (such as PKCS#7). One of the encodings supported
+ * by a <code>CertPath</code> is considered the default encoding. This
+ * encoding is used if no encoding is explicitly requested (for the
+ * {@link #getEncoded() getEncoded()} method, for instance).
+ * <p>
+ * All <code>CertPath</code> objects are also <code>Serializable</code>.
+ * <code>CertPath</code> objects are resolved into an alternate
+ * {@link CertPathRep CertPathRep} object during serialization. This allows
+ * a <code>CertPath</code> object to be serialized into an equivalent
+ * representation regardless of its underlying implementation.
+ * <p>
+ * <code>CertPath</code> objects can be created with a
+ * <code>CertificateFactory</code> or they can be returned by other classes,
+ * such as a <code>CertPathBuilder</code>.
+ * <p>
+ * By convention, X.509 <code>CertPath</code>s (consisting of
+ * <code>X509Certificate</code>s), are ordered starting with the target
+ * certificate and ending with a certificate issued by the trust anchor. That
+ * is, the issuer of one certificate is the subject of the following one. The
+ * certificate representing the {@link TrustAnchor TrustAnchor} should not be
+ * included in the certification path. Unvalidated X.509 <code>CertPath</code>s
+ * may not follow these conventions. PKIX <code>CertPathValidator</code>s will
+ * detect any departure from these conventions that cause the certification
+ * path to be invalid and throw a <code>CertPathValidatorException</code>.
  *
- * @see Certificate
+ * <p> Every implementation of the Java platform is required to support the
+ * following standard <code>CertPath</code> encodings:
+ * <ul>
+ * <li><tt>PKCS7</tt></li>
+ * <li><tt>PkiPath</tt></li>
+ * </ul>
+ * These encodings are described in the <a href=
+ * "{@docRoot}openjdk-redirect.html?v=8&path=/technotes/guides/security/StandardNames.html#CertPathEncodings">
+ * CertPath Encodings section</a> of the
+ * Java Cryptography Architecture Standard Algorithm Name Documentation.
+ * Consult the release documentation for your implementation to see if any
+ * other encodings are supported.
+ * <p>
+ * <b>Concurrent Access</b>
+ * <p>
+ * All <code>CertPath</code> objects must be thread-safe. That is, multiple
+ * threads may concurrently invoke the methods defined in this class on a
+ * single <code>CertPath</code> object (or more than one) with no
+ * ill effects. This is also true for the <code>List</code> returned by
+ * <code>CertPath.getCertificates</code>.
+ * <p>
+ * Requiring <code>CertPath</code> objects to be immutable and thread-safe
+ * allows them to be passed around to various pieces of code without worrying
+ * about coordinating access.  Providing this thread-safety is
+ * generally not difficult, since the <code>CertPath</code> and
+ * <code>List</code> objects in question are immutable.
+ *
+ * @see CertificateFactory
+ * @see CertPathBuilder
+ *
+ * @author      Yassir Elley
+ * @since       1.4
  */
 public abstract class CertPath implements Serializable {
 
     private static final long serialVersionUID = 6068470306649138683L;
-    // Standard name of the type of certificates in this path
-    private final String type;
+
+    private String type;        // the type of certificates in this chain
 
     /**
-     * Creates a new {@code CertPath} instance for the specified certificate
-     * type.
+     * Creates a <code>CertPath</code> of the specified type.
+     * <p>
+     * This constructor is protected because most users should use a
+     * <code>CertificateFactory</code> to create <code>CertPath</code>s.
      *
-     * @param type
-     *            the certificate type.
+     * @param type the standard name of the type of
+     * <code>Certificate</code>s in this path
      */
     protected CertPath(String type) {
         this.type = type;
     }
 
     /**
-     * Returns the type of {@code Certificate} in this instance.
+     * Returns the type of <code>Certificate</code>s in this certification
+     * path. This is the same string that would be returned by
+     * {@link java.security.cert.Certificate#getType() cert.getType()}
+     * for all <code>Certificate</code>s in the certification path.
      *
-     * @return the certificate type.
+     * @return the type of <code>Certificate</code>s in this certification
+     * path (never null)
      */
     public String getType() {
         return type;
     }
 
     /**
-     * Returns {@code true} if {@code Certificate}s in the list are the same
-     * type and the lists are equal (and by implication the certificates
-     * contained within are the same).
+     * Returns an iteration of the encodings supported by this certification
+     * path, with the default encoding first. Attempts to modify the returned
+     * <code>Iterator</code> via its <code>remove</code> method result in an
+     * <code>UnsupportedOperationException</code>.
      *
-     * @param other
-     *            {@code CertPath} to be compared for equality.
-     * @return {@code true} if the object are equal, {@code false} otherwise.
+     * @return an <code>Iterator</code> over the names of the supported
+     *         encodings (as Strings)
+     */
+    public abstract Iterator<String> getEncodings();
+
+    /**
+     * Compares this certification path for equality with the specified
+     * object. Two <code>CertPath</code>s are equal if and only if their
+     * types are equal and their certificate <code>List</code>s (and by
+     * implication the <code>Certificate</code>s in those <code>List</code>s)
+     * are equal. A <code>CertPath</code> is never equal to an object that is
+     * not a <code>CertPath</code>.
+     * <p>
+     * This algorithm is implemented by this method. If it is overridden,
+     * the behavior specified here must be maintained.
+     *
+     * @param other the object to test for equality with this certification path
+     * @return true if the specified object is equal to this certification path,
+     * false otherwise
      */
     public boolean equals(Object other) {
-        if (this == other) {
+        if (this == other)
             return true;
-        }
-        if (other instanceof CertPath) {
-            CertPath o = (CertPath)other;
-            if (getType().equals(o.getType())) {
-                if (getCertificates().equals(o.getCertificates())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+
+        if (! (other instanceof CertPath))
+            return false;
+
+        CertPath otherCP = (CertPath) other;
+        if (! otherCP.getType().equals(type))
+            return false;
+
+        List<? extends Certificate> thisCertList = this.getCertificates();
+        List<? extends Certificate> otherCertList = otherCP.getCertificates();
+        return(thisCertList.equals(otherCertList));
     }
 
     /**
-     * Overrides {@code Object.hashCode()}. The function is defined as follows:
-     * <pre>
-     * {@code hashCode = 31 * path.getType().hashCode() +
-     * path.getCertificates().hashCode();}
-     * </pre>
+     * Returns the hashcode for this certification path. The hash code of
+     * a certification path is defined to be the result of the following
+     * calculation:
+     * <pre><code>
+     *  hashCode = path.getType().hashCode();
+     *  hashCode = 31*hashCode + path.getCertificates().hashCode();
+     * </code></pre>
+     * This ensures that <code>path1.equals(path2)</code> implies that
+     * <code>path1.hashCode()==path2.hashCode()</code> for any two certification
+     * paths, <code>path1</code> and <code>path2</code>, as required by the
+     * general contract of <code>Object.hashCode</code>.
      *
-     * @return the hash code for this instance.
+     * @return the hashcode value for this certification path
      */
     public int hashCode() {
-        int hash = getType().hashCode();
-        hash = hash*31 + getCertificates().hashCode();
-        return hash;
+        int hashCode = type.hashCode();
+        hashCode = 31*hashCode + getCertificates().hashCode();
+        return hashCode;
     }
 
     /**
-     * Returns a {@code String} representation of this {@code CertPath}
-     * instance. It is the result of calling {@code toString} on all {@code
-     * Certificate}s in the {@code List}.
+     * Returns a string representation of this certification path.
+     * This calls the <code>toString</code> method on each of the
+     * <code>Certificate</code>s in the path.
      *
-     * @return a string representation of this instance.
+     * @return a string representation of this certification path
      */
     public String toString() {
-        StringBuilder sb = new StringBuilder(getType());
-        sb.append(" Cert Path, len=");
-        sb.append(getCertificates().size());
-        sb.append(": [\n");
-        int n=1;
-        for (Iterator<? extends Certificate> i=getCertificates().iterator(); i.hasNext(); n++) {
-            sb.append("---------------certificate ");
-            sb.append(n);
-            sb.append("---------------\n");
-            sb.append(((Certificate)i.next()).toString());
+        StringBuffer sb = new StringBuffer();
+        Iterator<? extends Certificate> stringIterator =
+                                        getCertificates().iterator();
+
+        sb.append("\n" + type + " Cert Path: length = "
+            + getCertificates().size() + ".\n");
+        sb.append("[\n");
+        int i = 1;
+        while (stringIterator.hasNext()) {
+            sb.append("=========================================="
+                + "===============Certificate " + i + " start.\n");
+            Certificate stringCert = stringIterator.next();
+            sb.append(stringCert.toString());
+            sb.append("\n========================================"
+                + "=================Certificate " + i + " end.\n\n\n");
+            i++;
         }
+
         sb.append("\n]");
         return sb.toString();
     }
 
     /**
-     * Returns an immutable List of the {@code Certificate}s contained
-     * in the {@code CertPath}.
+     * Returns the encoded form of this certification path, using the default
+     * encoding.
      *
-     * @return a list of {@code Certificate}s in the {@code CertPath}.
-     */
-    public abstract List<? extends Certificate> getCertificates();
-
-    /**
-     * Returns an encoding of the {@code CertPath} using the default encoding.
-     *
-     * @return default encoding of the {@code CertPath}.
-     * @throws CertificateEncodingException
-     *             if the encoding fails.
+     * @return the encoded bytes
+     * @exception CertificateEncodingException if an encoding error occurs
      */
     public abstract byte[] getEncoded()
         throws CertificateEncodingException;
 
     /**
-     * Returns an encoding of this {@code CertPath} using the given
-     * {@code encoding} from {@link #getEncodings()}.
+     * Returns the encoded form of this certification path, using the
+     * specified encoding.
      *
-     * @throws CertificateEncodingException
-     *             if the encoding fails.
+     * @param encoding the name of the encoding to use
+     * @return the encoded bytes
+     * @exception CertificateEncodingException if an encoding error occurs or
+     *   the encoding requested is not supported
      */
-    public abstract byte[] getEncoded(String encoding) throws CertificateEncodingException;
+    public abstract byte[] getEncoded(String encoding)
+        throws CertificateEncodingException;
 
     /**
-     * Returns an {@code Iterator} over the supported encodings for a
-     * representation of the certificate path.
+     * Returns the list of certificates in this certification path.
+     * The <code>List</code> returned must be immutable and thread-safe.
      *
-     * @return {@code Iterator} over supported encodings (as {@code String}s).
+     * @return an immutable <code>List</code> of <code>Certificate</code>s
+     *         (may be empty, but not null)
      */
-    public abstract Iterator<String> getEncodings();
+    public abstract List<? extends Certificate> getCertificates();
 
     /**
-     * Returns an alternate object to be serialized.
+     * Replaces the <code>CertPath</code> to be serialized with a
+     * <code>CertPathRep</code> object.
      *
-     * @return an alternate object to be serialized.
-     * @throws ObjectStreamException
-     *             if the creation of the alternate object fails.
+     * @return the <code>CertPathRep</code> to be serialized
+     *
+     * @throws ObjectStreamException if a <code>CertPathRep</code> object
+     * representing this certification path could not be created
      */
     protected Object writeReplace() throws ObjectStreamException {
         try {
-            return new CertPathRep(getType(), getEncoded());
-        } catch (CertificateEncodingException e) {
-            throw new NotSerializableException("Could not create serialization object: " + e);
+            return new CertPathRep(type, getEncoded());
+        } catch (CertificateException ce) {
+            NotSerializableException nse =
+                new NotSerializableException
+                    ("java.security.cert.CertPath: " + type);
+            nse.initCause(ce);
+            throw nse;
         }
     }
 
     /**
-     * The alternate {@code Serializable} class to be used for serialization and
-     * deserialization on {@code CertPath} objects.
+     * Alternate <code>CertPath</code> class for serialization.
+     * @since 1.4
      */
     protected static class CertPathRep implements Serializable {
 
         private static final long serialVersionUID = 3015633072427920915L;
-        // Standard name of the type of certificates in this path
-        private final String type;
-        // cert path data
-        private final byte[] data;
 
-        // Force default serialization to use writeUnshared/readUnshared
-        // for cert path data
-        private static final ObjectStreamField[] serialPersistentFields = {
-            new ObjectStreamField("type", String.class),
-            new ObjectStreamField("data", byte[].class, true),
-        };
+        /** The Certificate type */
+        private String type;
+        /** The encoded form of the cert path */
+        private byte[] data;
 
         /**
-         * Creates a new {@code CertPathRep} instance with the specified type
-         * and encoded data.
+         * Creates a <code>CertPathRep</code> with the specified
+         * type and encoded form of a certification path.
          *
-         * @param type
-         *            the certificate type.
-         * @param data
-         *            the encoded data.
+         * @param type the standard name of a <code>CertPath</code> type
+         * @param data the encoded form of the certification path
          */
         protected CertPathRep(String type, byte[] data) {
             this.type = type;
@@ -210,19 +320,23 @@ public abstract class CertPath implements Serializable {
         }
 
         /**
-         * Deserializes a {@code CertPath} from a serialized {@code CertPathRep}
-         * object.
+         * Returns a <code>CertPath</code> constructed from the type and data.
          *
-         * @return the deserialized {@code CertPath}.
-         * @throws ObjectStreamException
-         *             if deserialization fails.
+         * @return the resolved <code>CertPath</code> object
+         *
+         * @throws ObjectStreamException if a <code>CertPath</code> could not
+         * be constructed
          */
         protected Object readResolve() throws ObjectStreamException {
             try {
                 CertificateFactory cf = CertificateFactory.getInstance(type);
                 return cf.generateCertPath(new ByteArrayInputStream(data));
-            } catch (Throwable t) {
-                throw new NotSerializableException("Could not resolve cert path: " + t);
+            } catch (CertificateException ce) {
+                NotSerializableException nse =
+                    new NotSerializableException
+                        ("java.security.cert.CertPath: " + type);
+                nse.initCause(ce);
+                throw nse;
             }
         }
     }

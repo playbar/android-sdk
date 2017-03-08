@@ -23,6 +23,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.NonNull;
+import android.support.v4.os.BuildCompat;
 
 import java.util.Arrays;
 
@@ -39,10 +40,13 @@ public class FragmentCompat {
     }
 
     static class BaseFragmentCompatImpl implements FragmentCompatImpl {
+        @Override
         public void setMenuVisibility(Fragment f, boolean visible) {
         }
+        @Override
         public void setUserVisibleHint(Fragment f, boolean deferStart) {
         }
+        @Override
         public void requestPermissions(final Fragment fragment, final String[] permissions,
                 final int requestCode) {
             Handler handler = new Handler(Looper.getMainLooper());
@@ -70,6 +74,7 @@ public class FragmentCompat {
                 }
             });
         }
+        @Override
         public boolean shouldShowRequestPermissionRationale(Fragment fragment, String permission) {
             return false;
         }
@@ -101,9 +106,18 @@ public class FragmentCompat {
         }
     }
 
+    static class NFragmentCompatImpl extends MncFragmentCompatImpl {
+        @Override
+        public void setUserVisibleHint(Fragment f, boolean deferStart) {
+            FragmentCompatApi24.setUserVisibleHint(f, deferStart);
+        }
+    }
+
     static final FragmentCompatImpl IMPL;
     static {
-        if (Build.VERSION.SDK_INT >= 23) {
+        if (BuildCompat.isAtLeastN()) {
+            IMPL = new NFragmentCompatImpl();
+        } else if (Build.VERSION.SDK_INT >= 23) {
             IMPL = new MncFragmentCompatImpl();
         } else if (android.os.Build.VERSION.SDK_INT >= 15) {
             IMPL = new ICSMR1FragmentCompatImpl();

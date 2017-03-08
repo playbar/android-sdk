@@ -18,6 +18,8 @@ package com.android.systemui.statusbar.policy;
 import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.UserInfo;
 import android.net.ConnectivityManager;
@@ -25,20 +27,17 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.IConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
 import android.net.NetworkRequest;
-import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.net.LegacyVpnInfo;
 import com.android.internal.net.VpnConfig;
-import com.android.internal.net.VpnInfo;
 import com.android.systemui.R;
 
 import java.io.FileDescriptor;
@@ -57,13 +56,17 @@ public class SecurityControllerImpl implements SecurityController {
             .build();
     private static final int NO_NETWORK = -1;
 
+    private static final String VPN_BRANDED_META_DATA = "com.android.systemui.IS_BRANDED";
+
     private final Context mContext;
     private final ConnectivityManager mConnectivityManager;
     private final IConnectivityManager mConnectivityManagerService;
     private final DevicePolicyManager mDevicePolicyManager;
+    private final PackageManager mPackageManager;
     private final UserManager mUserManager;
-    private final ArrayList<SecurityControllerCallback> mCallbacks
-            = new ArrayList<SecurityControllerCallback>();
+
+    @GuardedBy("mCallbacks")
+    private final ArrayList<SecurityControllerCallback> mCallbacks = new ArrayList<>();
 
     private SparseArray<VpnConfig> mCurrentVpns = new SparseArray<>();
     private int mCurrentUserId;
@@ -77,6 +80,7 @@ public class SecurityControllerImpl implements SecurityController {
                 context.getSystemService(Context.CONNECTIVITY_SERVICE);
         mConnectivityManagerService = IConnectivityManager.Stub.asInterface(
                 ServiceManager.getService(Context.CONNECTIVITY_SERVICE));
+        mPackageManager = context.getPackageManager();
         mUserManager = (UserManager)
                 context.getSystemService(Context.USER_SERVICE);
 
@@ -100,13 +104,13 @@ public class SecurityControllerImpl implements SecurityController {
     }
 
     @Override
-    public boolean hasDeviceOwner() {
-        return !TextUtils.isEmpty(mDevicePolicyManager.getDeviceOwner());
+    public boolean isDeviceManaged() {
+        return mDevicePolicyManager.isDeviceManaged();
     }
 
     @Override
     public String getDeviceOwnerName() {
-        return mDevicePolicyManager.getDeviceOwnerName();
+        return mDevicePolicyManager.getDeviceOwnerNameOnAnyUser();
     }
 
     @Override
@@ -116,8 +120,8 @@ public class SecurityControllerImpl implements SecurityController {
 
     @Override
     public String getProfileOwnerName() {
-        for (UserInfo profile : mUserManager.getProfiles(mCurrentUserId)) {
-            String name = mDevicePolicyManager.getProfileOwnerNameAsUser(profile.id);
+        for (int profileId : mUserManager.getProfileIdsWithDisabled(mCurrentUserId)) {
+            String name = mDevicePolicyManager.getProfileOwnerNameAsUser(profileId);
             if (name != null) {
                 return name;
             }
@@ -137,13 +141,13 @@ public class SecurityControllerImpl implements SecurityController {
 
     @Override
     public String getProfileVpnName() {
-        for (UserInfo profile : mUserManager.getProfiles(mVpnUserId)) {
-            if (profile.id == mVpnUserId) {
+        for (int profileId : mUserManager.getProfileIdsWithDisabled(mVpnUserId)) {
+            if (profileId == mVpnUserId) {
                 continue;
             }
-            VpnConfig cfg = mCurrentVpns.get(profile.id);
+            VpnConfig cfg = mCurrentVpns.get(profileId);
             if (cfg != null) {
-                return getNameForVpnConfig(cfg, profile.getUserHandle());
+                return getNameForVpnConfig(cfg, UserHandle.of(profileId));
             }
         }
         return null;
@@ -151,8 +155,8 @@ public class SecurityControllerImpl implements SecurityController {
 
     @Override
     public boolean isVpnEnabled() {
-        for (UserInfo profile : mUserManager.getProfiles(mVpnUserId)) {
-            if (mCurrentVpns.get(profile.id) != null) {
+        for (int profileId : mUserManager.getProfileIdsWithDisabled(mVpnUserId)) {
+            if (mCurrentVpns.get(profileId) != null) {
                 return true;
             }
         }
@@ -160,25 +164,52 @@ public class SecurityControllerImpl implements SecurityController {
     }
 
     @Override
+    public boolean isVpnRestricted() {
+        UserHandle currentUser = new UserHandle(mCurrentUserId);
+        return mUserManager.getUserInfo(mCurrentUserId).isRestricted()
+                || mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_VPN, currentUser);
+    }
+
+    @Override
+    public boolean isVpnBranded() {
+        VpnConfig cfg = mCurrentVpns.get(mVpnUserId);
+        if (cfg == null) {
+            return false;
+        }
+
+        String packageName = getPackageNameForVpnConfig(cfg);
+        if (packageName == null) {
+            return false;
+        }
+
+        return isVpnPackageBranded(packageName);
+    }
+
+    @Override
     public void removeCallback(SecurityControllerCallback callback) {
-        if (callback == null) return;
-        if (DEBUG) Log.d(TAG, "removeCallback " + callback);
-        mCallbacks.remove(callback);
+        synchronized (mCallbacks) {
+            if (callback == null) return;
+            if (DEBUG) Log.d(TAG, "removeCallback " + callback);
+            mCallbacks.remove(callback);
+        }
     }
 
     @Override
     public void addCallback(SecurityControllerCallback callback) {
-        if (callback == null || mCallbacks.contains(callback)) return;
-        if (DEBUG) Log.d(TAG, "addCallback " + callback);
-        mCallbacks.add(callback);
+        synchronized (mCallbacks) {
+            if (callback == null || mCallbacks.contains(callback)) return;
+            if (DEBUG) Log.d(TAG, "addCallback " + callback);
+            mCallbacks.add(callback);
+        }
     }
 
     @Override
     public void onUserSwitched(int newUserId) {
         mCurrentUserId = newUserId;
-        if (mUserManager.getUserInfo(newUserId).isRestricted()) {
+        final UserInfo newUserInfo = mUserManager.getUserInfo(newUserId);
+        if (newUserInfo.isRestricted()) {
             // VPN for a restricted profile is routed through its owner user
-            mVpnUserId = UserHandle.USER_OWNER;
+            mVpnUserId = newUserInfo.restrictedProfileParentId;
         } else {
             mVpnUserId = mCurrentUserId;
         }
@@ -202,8 +233,10 @@ public class SecurityControllerImpl implements SecurityController {
     }
 
     private void fireCallbacks() {
-        for (SecurityControllerCallback callback : mCallbacks) {
-            callback.onStateChanged();
+        synchronized (mCallbacks) {
+            for (SecurityControllerCallback callback : mCallbacks) {
+                callback.onStateChanged();
+            }
         }
     }
 
@@ -231,6 +264,28 @@ public class SecurityControllerImpl implements SecurityController {
             return;
         }
         mCurrentVpns = vpns;
+    }
+
+    private String getPackageNameForVpnConfig(VpnConfig cfg) {
+        if (cfg.legacy) {
+            return null;
+        }
+        return cfg.user;
+    }
+
+    private boolean isVpnPackageBranded(String packageName) {
+        boolean isBranded;
+        try {
+            ApplicationInfo info = mPackageManager.getApplicationInfo(packageName,
+                PackageManager.GET_META_DATA);
+            if (info == null || info.metaData == null || !info.isSystemApp()) {
+                return false;
+            }
+            isBranded = info.metaData.getBoolean(VPN_BRANDED_META_DATA, false);
+        } catch (NameNotFoundException e) {
+            return false;
+        }
+        return isBranded;
     }
 
     private final NetworkCallback mNetworkCallback = new NetworkCallback() {

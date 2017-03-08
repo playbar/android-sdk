@@ -25,24 +25,29 @@ import android.os.Build;
  */
 public class AccessibilityWindowInfoCompat {
 
-    private static interface AccessibilityWindowInfoImpl {
-        public Object obtain();
-        public Object obtain(Object info);
-        public int getType(Object info);
-        public int getLayer(Object info);
-        public Object getRoot(Object info);
-        public Object getParent(Object info);
-        public int getId(Object info);
-        public void getBoundsInScreen(Object info, Rect outBounds);
-        public boolean isActive(Object info);
-        public boolean isFocused(Object info);
-        public boolean isAccessibilityFocused(Object info);
-        public int getChildCount(Object info);
-        public Object getChild(Object info, int index);
-        public void recycle(Object info);
+    private interface AccessibilityWindowInfoImpl {
+        Object obtain();
+        Object obtain(Object info);
+        int getType(Object info);
+        int getLayer(Object info);
+        Object getRoot(Object info);
+        Object getParent(Object info);
+        int getId(Object info);
+        void getBoundsInScreen(Object info, Rect outBounds);
+        boolean isActive(Object info);
+        boolean isFocused(Object info);
+        boolean isAccessibilityFocused(Object info);
+        int getChildCount(Object info);
+        Object getChild(Object info, int index);
+        CharSequence getTitle(Object info);
+        Object getAnchor(Object info);
+        void recycle(Object info);
     }
 
-    private static class AccessibilityWindowInfoStubImpl implements  AccessibilityWindowInfoImpl {
+    private static class AccessibilityWindowInfoStubImpl implements AccessibilityWindowInfoImpl {
+
+        AccessibilityWindowInfoStubImpl() {
+        }
 
         @Override
         public Object obtain() {
@@ -111,9 +116,22 @@ public class AccessibilityWindowInfoCompat {
         @Override
         public void recycle(Object info) {
         }
+
+        @Override
+        public CharSequence getTitle(Object info) {
+            return null;
+        }
+
+        @Override
+        public Object getAnchor(Object info) {
+            return null;
+        }
     }
 
     private static class AccessibilityWindowInfoApi21Impl extends AccessibilityWindowInfoStubImpl {
+        AccessibilityWindowInfoApi21Impl() {
+        }
+
         @Override
         public Object obtain() {
             return AccessibilityWindowInfoCompatApi21.obtain();
@@ -185,8 +203,25 @@ public class AccessibilityWindowInfoCompat {
         }
     }
 
+    private static class AccessibilityWindowInfoApi24Impl extends AccessibilityWindowInfoApi21Impl {
+        AccessibilityWindowInfoApi24Impl() {
+        }
+
+        @Override
+        public CharSequence getTitle(Object info) {
+            return AccessibilityWindowInfoCompatApi24.getTitle(info);
+        }
+
+        @Override
+        public Object getAnchor(Object info) {
+            return AccessibilityWindowInfoCompatApi24.getAnchor(info);
+        }
+    }
+
     static {
-        if (Build.VERSION.SDK_INT >= 21) {
+        if (Build.VERSION.SDK_INT >= 24) {
+            IMPL = new AccessibilityWindowInfoApi24Impl();
+        } else  if (Build.VERSION.SDK_INT >= 21) {
             IMPL = new AccessibilityWindowInfoApi21Impl();
         } else {
             IMPL = new AccessibilityWindowInfoStubImpl();
@@ -228,6 +263,12 @@ public class AccessibilityWindowInfoCompat {
      * they are covered by a touchable window.
      */
     public static final int TYPE_ACCESSIBILITY_OVERLAY = 4;
+
+    /**
+     * Window type: A system window used to divide the screen in split-screen mode.
+     * This type of window is present only in split-screen mode.
+     */
+    public static final int TYPE_SPLIT_SCREEN_DIVIDER = 5;
 
     /**
      * Creates a wrapper for info implementation.
@@ -355,6 +396,25 @@ public class AccessibilityWindowInfoCompat {
     }
 
     /**
+     * Gets the title of the window.
+     *
+     * @return The title of the window, or the application label for the window if no title was
+     * explicitly set, or {@code null} if neither is available.
+     */
+    public CharSequence getTitle() {
+        return IMPL.getTitle(mInfo);
+    }
+
+    /**
+     * Gets the node that anchors this window to another.
+     *
+     * @return The anchor node, or {@code null} if none exists.
+     */
+    public AccessibilityNodeInfoCompat getAnchor() {
+        return AccessibilityNodeInfoCompat.wrapNonNullInstance(IMPL.getAnchor(mInfo));
+    }
+
+    /**
      * Returns a cached instance if such is available or a new one is
      * created.
      *
@@ -373,7 +433,7 @@ public class AccessibilityWindowInfoCompat {
      * @return An instance.
      */
     public static AccessibilityWindowInfoCompat obtain(AccessibilityWindowInfoCompat info) {
-        return wrapNonNullInstance(IMPL.obtain(info.mInfo));
+        return info == null ? null : wrapNonNullInstance(IMPL.obtain(info.mInfo));
     }
 
     /**

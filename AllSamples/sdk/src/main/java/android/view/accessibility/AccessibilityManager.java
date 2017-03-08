@@ -88,6 +88,9 @@ public final class AccessibilityManager {
     /** @hide */
     public static final int DALTONIZER_CORRECT_DEUTERANOMALY = 12;
 
+    /** @hide */
+    public static final int AUTOCLICK_DELAY_DEFAULT = 600;
+
     static final Object sInstanceSync = new Object();
 
     private static AccessibilityManager sInstance;
@@ -199,10 +202,7 @@ public final class AccessibilityManager {
                 } else {
                     userId = UserHandle.myUserId();
                 }
-                IBinder iBinder = ServiceManager.getService(Context.ACCESSIBILITY_SERVICE);
-                IAccessibilityManager service = iBinder == null
-                        ? null : IAccessibilityManager.Stub.asInterface(iBinder);
-                sInstance = new AccessibilityManager(context, service, userId);
+                sInstance = new AccessibilityManager(context, null, userId);
             }
         }
         return sInstance;
@@ -219,10 +219,9 @@ public final class AccessibilityManager {
      */
     public AccessibilityManager(Context context, IAccessibilityManager service, int userId) {
         mHandler = new MyHandler(context.getMainLooper());
-        mService = service;
         mUserId = userId;
         synchronized (mLock) {
-            tryConnectToServiceLocked();
+            tryConnectToServiceLocked(service);
         }
     }
 
@@ -306,7 +305,18 @@ public final class AccessibilityManager {
                 return;
             }
             if (!mIsEnabled) {
-                throw new IllegalStateException("Accessibility off. Did you forget to check that?");
+                Looper myLooper = Looper.myLooper();
+                if (myLooper == Looper.getMainLooper()) {
+                    throw new IllegalStateException(
+                            "Accessibility off. Did you forget to check that?");
+                } else {
+                    // If we're not running on the thread with the main looper, it's possible for
+                    // the state of accessibility to change between checking isEnabled and
+                    // calling this method. So just log the error rather than throwing the
+                    // exception.
+                    Log.e(LOG_TAG, "AccessibilityEvent sent with accessibility disabled");
+                    return;
+                }
             }
             userId = mUserId;
         }
@@ -612,17 +622,20 @@ public final class AccessibilityManager {
 
     private  IAccessibilityManager getServiceLocked() {
         if (mService == null) {
-            tryConnectToServiceLocked();
+            tryConnectToServiceLocked(null);
         }
         return mService;
     }
 
-    private void tryConnectToServiceLocked() {
-        IBinder iBinder = ServiceManager.getService(Context.ACCESSIBILITY_SERVICE);
-        if (iBinder == null) {
-            return;
+    private void tryConnectToServiceLocked(IAccessibilityManager service) {
+        if (service == null) {
+            IBinder iBinder = ServiceManager.getService(Context.ACCESSIBILITY_SERVICE);
+            if (iBinder == null) {
+                return;
+            }
+            service = IAccessibilityManager.Stub.asInterface(iBinder);
         }
-        IAccessibilityManager service = IAccessibilityManager.Stub.asInterface(iBinder);
+
         try {
             final int stateFlags = service.addClient(mClient, mUserId);
             setStateLocked(stateFlags);

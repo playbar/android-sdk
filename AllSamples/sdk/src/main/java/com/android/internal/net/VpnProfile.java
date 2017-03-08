@@ -125,7 +125,7 @@ public class VpnProfile implements Cloneable, Parcelable {
 
             VpnProfile profile = new VpnProfile(key);
             profile.name = values[0];
-            profile.type = Integer.valueOf(values[1]);
+            profile.type = Integer.parseInt(values[1]);
             if (profile.type < 0 || profile.type > TYPE_MAX) {
                 return null;
             }
@@ -176,6 +176,11 @@ public class VpnProfile implements Cloneable, Parcelable {
      * connection.
      */
     public boolean isValidLockdownProfile() {
+        // b/7064069: lockdown firewall blocks ports that would be used for PPTP
+        if (type == TYPE_PPTP) {
+            return false;
+        }
+
         try {
             InetAddress.parseNumericAddress(server);
 

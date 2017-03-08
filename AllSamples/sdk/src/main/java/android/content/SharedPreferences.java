@@ -30,8 +30,7 @@ import java.util.Set;
  * when they are committed to storage.  Objects that are returned from the
  * various <code>get</code> methods must be treated as immutable by the application.
  *
- * <p><em>Note: currently this class does not support use across multiple
- * processes.  This will be added later.</em>
+ * <p><em>Note: This class does not support use across multiple processes.</em>
  *
  * <div class="special reference">
  * <h3>Developer Guides</h3>
@@ -73,7 +72,9 @@ public interface SharedPreferences {
          * {@link #commit} or {@link #apply} are called.
          * 
          * @param key The name of the preference to modify.
-         * @param value The new value for the preference.
+         * @param value The new value for the preference.  Passing {@code null}
+         *    for this argument is equivalent to calling {@link #remove(String)} with
+         *    this key.
          * 
          * @return Returns a reference to the same Editor object, so you can
          * chain put calls together.

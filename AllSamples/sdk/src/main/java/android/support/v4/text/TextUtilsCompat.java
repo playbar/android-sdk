@@ -23,8 +23,11 @@ import android.support.v4.view.ViewCompat;
 
 import java.util.Locale;
 
-public class TextUtilsCompat {
+public final class TextUtilsCompat {
     private static class TextUtilsCompatImpl {
+        TextUtilsCompatImpl() {
+        }
+
         @NonNull
         public String htmlEncode(@NonNull String s) {
             StringBuilder sb = new StringBuilder();
@@ -64,6 +67,8 @@ public class TextUtilsCompat {
                 final String scriptSubtag = ICUCompat.maximizeAndGetScript(locale);
                 if (scriptSubtag == null) return getLayoutDirectionFromFirstChar(locale);
 
+                // This is intentionally limited to Arabic and Hebrew scripts, since older
+                // versions of Android platform only considered those scripts to be right-to-left.
                 if (scriptSubtag.equalsIgnoreCase(ARAB_SCRIPT_SUBTAG) ||
                         scriptSubtag.equalsIgnoreCase(HEBR_SCRIPT_SUBTAG)) {
                     return ViewCompat.LAYOUT_DIRECTION_RTL;
@@ -98,6 +103,10 @@ public class TextUtilsCompat {
     }
 
     private static class TextUtilsCompatJellybeanMr1Impl extends TextUtilsCompatImpl {
+        TextUtilsCompatJellybeanMr1Impl() {
+        }
+
+        @Override
         @NonNull
         public String htmlEncode(@NonNull String s) {
             return TextUtilsCompatJellybeanMr1.htmlEncode(s);
@@ -145,6 +154,8 @@ public class TextUtilsCompat {
 
     public static final Locale ROOT = new Locale("", "");
 
-    private static String ARAB_SCRIPT_SUBTAG = "Arab";
-    private static String HEBR_SCRIPT_SUBTAG = "Hebr";
+    static String ARAB_SCRIPT_SUBTAG = "Arab";
+    static String HEBR_SCRIPT_SUBTAG = "Hebr";
+
+    private TextUtilsCompat() {}
 }

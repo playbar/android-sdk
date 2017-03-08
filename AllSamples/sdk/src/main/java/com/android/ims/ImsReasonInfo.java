@@ -25,6 +25,7 @@ import android.os.Parcelable;
  * @hide
  */
 public class ImsReasonInfo implements Parcelable {
+
     /**
      * Specific code of each types
      */
@@ -84,6 +85,8 @@ public class ImsReasonInfo implements Parcelable {
     public static final int CODE_LOCAL_CALL_VOLTE_RETRY_REQUIRED = 147;
     // IMS call is already terminated (in TERMINATED state)
     public static final int CODE_LOCAL_CALL_TERMINATED = 148;
+    // Handover not feasible
+    public static final int CODE_LOCAL_HO_NOT_FEASIBLE = 149;
 
     /**
      * TIMEOUT (IMS -> Telephony)
@@ -98,6 +101,9 @@ public class ImsReasonInfo implements Parcelable {
     // MO : 200 OK to re-INVITE request is not received,
     // MT : No action from user after alerting the call
     public static final int CODE_TIMEOUT_NO_ANSWER_CALL_UPDATE = 203;
+
+    //Call failures for FDN
+    public static final int CODE_FDN_BLOCKED = 241;
 
     /**
      * STATUSCODE (SIP response code) (IMS -> Telephony)
@@ -150,6 +156,9 @@ public class ImsReasonInfo implements Parcelable {
     public static final int CODE_SIP_USER_REJECTED = 361;
     // Others
     public static final int CODE_SIP_GLOBAL_ERROR = 362;
+    // Emergency failure
+    public static final int CODE_EMERGENCY_TEMP_FAILURE = 363;
+    public static final int CODE_EMERGENCY_PERM_FAILURE = 364;
 
     /**
      * MEDIA (IMS -> Telephony)
@@ -209,6 +218,11 @@ public class ImsReasonInfo implements Parcelable {
     public static final int CODE_ECBM_NOT_SUPPORTED = 901;
 
     /**
+     * Fail code used to indicate that Multi-endpoint is not supported by the Ims framework.
+     */
+    public static final int CODE_MULTIENDPOINT_NOT_SUPPORTED = 902;
+
+    /**
      * Ims Registration error code
      */
     public static final int CODE_REGISTRATION_ERROR = 1000;
@@ -227,11 +241,79 @@ public class ImsReasonInfo implements Parcelable {
     public static final int CODE_CALL_DROP_IWLAN_TO_LTE_UNAVAILABLE = 1100;
 
     /**
+     * MT call has ended due to a release from the network
+     * because the call was answered elsewhere
+     */
+    public static final int CODE_ANSWERED_ELSEWHERE = 1014;
+
+    /**
+     * For MultiEndpoint - Call Pull request has failed
+     */
+    public static final int CODE_CALL_PULL_OUT_OF_SYNC = 1015;
+
+    /**
+     * For MultiEndpoint - Call has been pulled from primary to secondary
+     */
+    public static final int CODE_CALL_END_CAUSE_CALL_PULL = 1016;
+
+    /**
+     * Supplementary services (HOLD/RESUME) failure error codes.
+     * Values for Supplemetary services failure - Failed, Cancelled and Re-Invite collision.
+     */
+    public static final int CODE_SUPP_SVC_FAILED = 1201;
+    public static final int CODE_SUPP_SVC_CANCELLED = 1202;
+    public static final int CODE_SUPP_SVC_REINVITE_COLLISION = 1203;
+
+    /**
+     * DPD Procedure received no response or send failed
+     */
+    public static final int CODE_IWLAN_DPD_FAILURE = 1300;
+
+    /**
+     * Establishment of the ePDG Tunnel Failed
+     */
+    public static final int CODE_EPDG_TUNNEL_ESTABLISH_FAILURE = 1400;
+
+    /**
+     * Re-keying of the ePDG Tunnel Failed; may not always result in teardown
+     */
+    public static final int CODE_EPDG_TUNNEL_REKEY_FAILURE = 1401;
+
+    /**
+     * Connection to the packet gateway is lost
+     */
+    public static final int CODE_EPDG_TUNNEL_LOST_CONNECTION = 1402;
+
+    /**
+     * The maximum number of calls allowed has been reached.  Used in a multi-endpoint scenario
+     * where the number of calls across all connected devices has reached the maximum.
+     */
+    public static final int CODE_MAXIMUM_NUMBER_OF_CALLS_REACHED = 1403;
+
+    /**
+     * Similar to {@link #CODE_LOCAL_CALL_DECLINE}, except indicates that a remote device has
+     * declined the call.  Used in a multi-endpoint scenario where a remote device declined an
+     * incoming call.
+     */
+    public static final int CODE_REMOTE_CALL_DECLINE = 1404;
+
+    /**
+     * Indicates the call was disconnected due to the user reaching their data limit.
+     */
+    public static final int CODE_DATA_LIMIT_REACHED = 1405;
+
+    /**
+     * Indicates the call was disconnected due to the user disabling cellular data.
+     */
+    public static final int CODE_DATA_DISABLED = 1406;
+
+    /**
      * Network string error messages.
      * mExtraMessage may have these values.
      */
     public static final String EXTRA_MSG_SERVICE_NOT_AUTHORIZED
             = "Forbidden. Not Authorized for Service";
+
 
     // For main reason code
     public int mCode;

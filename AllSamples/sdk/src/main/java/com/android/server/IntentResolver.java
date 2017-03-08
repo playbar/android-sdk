@@ -226,7 +226,7 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
             final int N = a.length;
             boolean printedHeader = false;
             F filter;
-            if (collapseDuplicates) {
+            if (collapseDuplicates && !printFilter) {
                 found.clear();
                 for (int i=0; i<N && (filter=a[i]) != null; i++) {
                     if (packageName != null && !isPackageForFilter(packageName, filter)) {
@@ -364,6 +364,7 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
             buildResolveList(intent, categories, debug, defaultOnly,
                     resolvedType, scheme, listCut.get(i), resultList, userId);
         }
+        filterResults(resultList);
         sortResults(resultList);
         return resultList;
     }
@@ -457,6 +458,7 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
             buildResolveList(intent, categories, debug, defaultOnly,
                     resolvedType, scheme, schemeCut, finalList, userId);
         }
+        filterResults(finalList);
         sortResults(finalList);
 
         if (debug) {
@@ -519,6 +521,12 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
     @SuppressWarnings("unchecked")
     protected void sortResults(List<R> results) {
         Collections.sort(results, mResolvePrioritySorter);
+    }
+
+    /**
+     * Apply filtering to the results. This happens before the results are sorted.
+     */
+    protected void filterResults(List<R> results) {
     }
 
     protected void dumpFilter(PrintWriter out, String prefix, F filter) {
@@ -779,11 +787,11 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
             }
         }
 
-        if (hasNonDefaults) {
+        if (debug && hasNonDefaults) {
             if (dest.size() == 0) {
-                Slog.w(TAG, "resolveIntent failed: found match, but none with CATEGORY_DEFAULT");
+                Slog.v(TAG, "resolveIntent failed: found match, but none with CATEGORY_DEFAULT");
             } else if (dest.size() > 1) {
-                Slog.w(TAG, "resolveIntent: multiple matches, only some with CATEGORY_DEFAULT");
+                Slog.v(TAG, "resolveIntent: multiple matches, only some with CATEGORY_DEFAULT");
             }
         }
     }

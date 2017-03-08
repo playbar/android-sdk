@@ -18,7 +18,9 @@ package android.support.v14.preference;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.support.annotation.RestrictTo;
 import android.support.v4.content.res.TypedArrayUtils;
+import android.support.v7.preference.AndroidResources;
 import android.support.v7.preference.PreferenceViewHolder;
 import android.support.v7.preference.TwoStatePreference;
 import android.util.AttributeSet;
@@ -28,16 +30,18 @@ import android.widget.Checkable;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+
 /**
  * A {@link android.support.v7.preference.Preference} that provides a two-state toggleable option.
  * <p>
  * This preference will store a boolean into the SharedPreferences.
  *
- * @attr ref android.R.styleable#SwitchPreference_summaryOff
- * @attr ref android.R.styleable#SwitchPreference_summaryOn
- * @attr ref android.R.styleable#SwitchPreference_switchTextOff
- * @attr ref android.R.styleable#SwitchPreference_switchTextOn
- * @attr ref android.R.styleable#SwitchPreference_disableDependentsState
+ * @attr name android:summaryOff
+ * @attr name android:summaryOn
+ * @attr name android:switchTextOff
+ * @attr name android:switchTextOn
+ * @attr name android:disableDependentsState
  */
 public class SwitchPreference extends TwoStatePreference {
     private final Listener mListener = new Listener();
@@ -121,7 +125,9 @@ public class SwitchPreference extends TwoStatePreference {
      * @param attrs Style attributes that differ from the default
      */
     public SwitchPreference(Context context, AttributeSet attrs) {
-        this(context, attrs, R.attr.switchPreferenceStyle);
+        this(context, attrs, TypedArrayUtils.getAttr(context,
+                android.support.v7.preference.R.attr.switchPreferenceStyle,
+                android.R.attr.switchPreferenceStyle));
     }
 
     /**
@@ -136,7 +142,7 @@ public class SwitchPreference extends TwoStatePreference {
     @Override
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
-        View switchView = holder.findViewById(R.id.switchWidget);
+        View switchView = holder.findViewById(AndroidResources.ANDROID_R_SWITCH_WIDGET);
         syncSwitchView(switchView);
         syncSummaryView(holder);
     }
@@ -200,6 +206,7 @@ public class SwitchPreference extends TwoStatePreference {
     /**
      * @hide
      */
+    @RestrictTo(GROUP_ID)
     @Override
     protected void performClick(View view) {
         super.performClick(view);
@@ -214,7 +221,7 @@ public class SwitchPreference extends TwoStatePreference {
             return;
         }
 
-        View switchView = view.findViewById(R.id.switchWidget);
+        View switchView = view.findViewById(AndroidResources.ANDROID_R_SWITCH_WIDGET);
         syncSwitchView(switchView);
 
         View summaryView = view.findViewById(android.R.id.summary);

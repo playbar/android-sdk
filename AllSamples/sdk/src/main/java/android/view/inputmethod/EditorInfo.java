@@ -16,12 +16,16 @@
 
 package android.view.inputmethod;
 
+import android.annotation.Nullable;
 import android.os.Bundle;
+import android.os.LocaleList;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Printer;
+
+import java.util.Arrays;
 
 /**
  * An EditorInfo describes several attributes of a text editing object
@@ -340,6 +344,40 @@ public class EditorInfo implements InputType, Parcelable {
     public Bundle extras;
 
     /**
+     * List of the languages that the user is supposed to switch to no matter what input method
+     * subtype is currently used.  This special "hint" can be used mainly for, but not limited to,
+     * multilingual users who want IMEs to switch language context automatically.
+     *
+     * <p>{@code null} means that no special language "hint" is needed.</p>
+     *
+     * <p><strong>Editor authors:</strong> Specify this only when you are confident that the user
+     * will switch to certain languages in this context no matter what input method subtype is
+     * currently selected.  Otherwise, keep this {@code null}.  Explicit user actions and/or
+     * preferences would be good signals to specify this special "hint",  For example, a chat
+     * application may be able to put the last used language at the top of {@link #hintLocales}
+     * based on whom the user is going to talk, by remembering what language is used in the last
+     * conversation.  Do not specify {@link android.widget.TextView#getTextLocales()} only because
+     * it is used for text rendering.</p>
+     *
+     * @see android.widget.TextView#setImeHintLocales(LocaleList)
+     * @see android.widget.TextView#getImeHintLocales()
+     */
+    @Nullable
+    public LocaleList hintLocales = null;
+
+
+    /**
+     * List of acceptable MIME types for
+     * {@link InputConnection#commitContent(InputContentInfo, int, Bundle)}.
+     *
+     * <p>{@code null} or an empty array means that
+     * {@link InputConnection#commitContent(InputContentInfo, int, Bundle)} is not supported in this
+     * editor.</p>
+     */
+    @Nullable
+    public String[] contentMimeTypes = null;
+
+    /**
      * Ensure that the data in this EditorInfo is compatible with an application
      * that was developed against the given target API version.  This can
      * impact the following input types:
@@ -393,6 +431,8 @@ public class EditorInfo implements InputType, Parcelable {
                 + " fieldId=" + fieldId
                 + " fieldName=" + fieldName);
         pw.println(prefix + "extras=" + extras);
+        pw.println(prefix + "hintLocales=" + hintLocales);
+        pw.println(prefix + "contentMimeTypes=" + Arrays.toString(contentMimeTypes));
     }
 
     /**
@@ -416,6 +456,12 @@ public class EditorInfo implements InputType, Parcelable {
         dest.writeInt(fieldId);
         dest.writeString(fieldName);
         dest.writeBundle(extras);
+        if (hintLocales != null) {
+            hintLocales.writeToParcel(dest, flags);
+        } else {
+            LocaleList.getEmptyLocaleList().writeToParcel(dest, flags);
+        }
+        dest.writeStringArray(contentMimeTypes);
     }
 
     /**
@@ -439,6 +485,9 @@ public class EditorInfo implements InputType, Parcelable {
                     res.fieldId = source.readInt();
                     res.fieldName = source.readString();
                     res.extras = source.readBundle();
+                    LocaleList hintLocales = LocaleList.CREATOR.createFromParcel(source);
+                    res.hintLocales = hintLocales.isEmpty() ? null : hintLocales;
+                    res.contentMimeTypes = source.readStringArray();
                     return res;
                 }
 

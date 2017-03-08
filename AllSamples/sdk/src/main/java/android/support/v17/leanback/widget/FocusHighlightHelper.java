@@ -35,7 +35,7 @@ public class FocusHighlightHelper {
         return zoomIndex == ZOOM_FACTOR_NONE || getResId(zoomIndex) > 0;
     }
 
-    private static int getResId(int zoomIndex) {
+    static int getResId(int zoomIndex) {
         switch (zoomIndex) {
             case ZOOM_FACTOR_SMALL:
                 return R.fraction.lb_focus_zoom_factor_small;
@@ -85,7 +85,7 @@ public class FocusHighlightHelper {
                 mWrapper = null;
             }
             mAnimator.setTimeListener(this);
-            if (mWrapper != null && useDimmer) {
+            if (useDimmer) {
                 mDimmer = ColorOverlayDimmer.createDefault(view.getContext());
             } else {
                 mDimmer = null;
@@ -99,9 +99,16 @@ public class FocusHighlightHelper {
             mView.setScaleY(scale);
             if (mWrapper != null) {
                 mWrapper.setShadowFocusLevel(level);
-                if (mDimmer != null) {
-                    mDimmer.setActiveLevel(level);
-                    mWrapper.setOverlayColor(mDimmer.getPaint().getColor());
+            } else {
+                ShadowOverlayHelper.setNoneWrapperShadowFocusLevel(mView, level);
+            }
+            if (mDimmer != null) {
+                mDimmer.setActiveLevel(level);
+                int color = mDimmer.getPaint().getColor();
+                if (mWrapper != null) {
+                    mWrapper.setOverlayColor(color);
+                } else {
+                    ShadowOverlayHelper.setNoneWrapperOverlayColor(mView, color);
                 }
             }
         }
@@ -202,7 +209,7 @@ public class FocusHighlightHelper {
         private static boolean sInitialized;
         private static float sSelectScale;
         private static int sDuration;
-        private BaseGridView mGridView;
+        BaseGridView mGridView;
 
         HeaderItemFocusHighlight(BaseGridView gridView) {
             mGridView = gridView;

@@ -35,10 +35,13 @@ import android.nfc.tech.Ndef;
 import android.nfc.tech.NfcA;
 import android.nfc.tech.NfcF;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Log;
+
+import java.io.IOException;
 
 /**
  * Represents the local NFC adapter.
@@ -287,6 +290,7 @@ public final class NfcAdapter {
 
     // Guarded by NfcAdapter.class
     static boolean sIsInitialized = false;
+    static boolean sHasNfcFeature;
 
     // Final after first constructor, except for
     // attemptDeadServiceRecovery() when NFC crashes - we accept a best effort
@@ -294,6 +298,7 @@ public final class NfcAdapter {
     static INfcAdapter sService;
     static INfcTag sTagService;
     static INfcCardEmulation sCardEmulationService;
+    static INfcFCardEmulation sNfcFCardEmulationService;
 
     /**
      * The NfcAdapter object for each application context.
@@ -313,6 +318,8 @@ public final class NfcAdapter {
     final Context mContext;
     final HashMap<NfcUnlockHandler, INfcUnlockHandler> mNfcUnlockHandlers;
     final Object mLock;
+
+    ITagRemovedCallback mTagRemovedListener; // protected by mLock
 
     /**
      * A callback to be invoked when the system finds a tag while the foreground activity is
@@ -385,6 +392,14 @@ public final class NfcAdapter {
     }
 
     /**
+     * A callback that is invoked when a tag is removed from the field.
+     * @see NfcAdapter#ignore
+     */
+    public interface OnTagRemovedListener {
+        void onTagRemoved();
+    }
+
+    /**
      * A callback to be invoked when an application has registered as a
      * handler to unlock the device given an NFC tag at the lockscreen.
      * @hide
@@ -413,7 +428,27 @@ public final class NfcAdapter {
             return false;
         }
         try {
-            return pm.hasSystemFeature(PackageManager.FEATURE_NFC);
+            return pm.hasSystemFeature(PackageManager.FEATURE_NFC, 0);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Package manager query failed, assuming no NFC feature", e);
+            return false;
+        }
+    }
+
+    /**
+     * Helper to check if this device is NFC HCE capable, by checking for
+     * FEATURE_NFC_HOST_CARD_EMULATION and/or FEATURE_NFC_HOST_CARD_EMULATION_NFCF,
+     * but without using a context.
+     */
+    private static boolean hasNfcHceFeature() {
+        IPackageManager pm = ActivityThread.getPackageManager();
+        if (pm == null) {
+            Log.e(TAG, "Cannot get package manager, assuming no NFC feature");
+            return false;
+        }
+        try {
+            return pm.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION, 0)
+                || pm.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION_NFCF, 0);
         } catch (RemoteException e) {
             Log.e(TAG, "Package manager query failed, assuming no NFC feature", e);
             return false;
@@ -427,29 +462,39 @@ public final class NfcAdapter {
      */
     public static synchronized NfcAdapter getNfcAdapter(Context context) {
         if (!sIsInitialized) {
+            sHasNfcFeature = hasNfcFeature();
+            boolean hasHceFeature = hasNfcHceFeature();
             /* is this device meant to have NFC */
-            if (!hasNfcFeature()) {
+            if (!sHasNfcFeature && !hasHceFeature) {
                 Log.v(TAG, "this device does not have NFC support");
                 throw new UnsupportedOperationException();
             }
-
             sService = getServiceInterface();
             if (sService == null) {
                 Log.e(TAG, "could not retrieve NFC service");
                 throw new UnsupportedOperationException();
             }
-            try {
-                sTagService = sService.getNfcTagInterface();
-            } catch (RemoteException e) {
-                Log.e(TAG, "could not retrieve NFC Tag service");
-                throw new UnsupportedOperationException();
+            if (sHasNfcFeature) {
+                try {
+                    sTagService = sService.getNfcTagInterface();
+                } catch (RemoteException e) {
+                    Log.e(TAG, "could not retrieve NFC Tag service");
+                    throw new UnsupportedOperationException();
+                }
             }
-
-            try {
-                sCardEmulationService = sService.getNfcCardEmulationInterface();
-            } catch (RemoteException e) {
-                Log.e(TAG, "could not retrieve card emulation service");
-                throw new UnsupportedOperationException();
+            if (hasHceFeature) {
+                try {
+                    sNfcFCardEmulationService = sService.getNfcFCardEmulationInterface();
+                } catch (RemoteException e) {
+                    Log.e(TAG, "could not retrieve NFC-F card emulation service");
+                    throw new UnsupportedOperationException();
+                }
+                try {
+                    sCardEmulationService = sService.getNfcCardEmulationInterface();
+                } catch (RemoteException e) {
+                    Log.e(TAG, "could not retrieve card emulation service");
+                    throw new UnsupportedOperationException();
+                }
             }
 
             sIsInitialized = true;
@@ -533,6 +578,7 @@ public final class NfcAdapter {
         mContext = context;
         mNfcActivityManager = new NfcActivityManager(this);
         mNfcUnlockHandlers = new HashMap<NfcUnlockHandler, INfcUnlockHandler>();
+        mTagRemovedListener = null;
         mLock = new Object();
     }
 
@@ -571,6 +617,15 @@ public final class NfcAdapter {
     }
 
     /**
+     * Returns the binder interface to the NFC-F card emulation service.
+     * @hide
+     */
+    public INfcFCardEmulation getNfcFCardEmulationService() {
+        isEnabled();
+        return sNfcFCardEmulationService;
+    }
+
+    /**
      * NFC service dead - attempt best effort recovery
      * @hide
      */
@@ -599,6 +654,12 @@ public final class NfcAdapter {
             sCardEmulationService = service.getNfcCardEmulationInterface();
         } catch (RemoteException ee) {
             Log.e(TAG, "could not retrieve NFC card emulation service during service recovery");
+        }
+
+        try {
+            sNfcFCardEmulationService = service.getNfcFCardEmulationInterface();
+        } catch (RemoteException ee) {
+            Log.e(TAG, "could not retrieve NFC-F card emulation service during service recovery");
         }
 
         return;
@@ -801,8 +862,14 @@ public final class NfcAdapter {
      *
      * @param uris an array of Uri(s) to push over Android Beam
      * @param activity activity for which the Uri(s) will be pushed
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void setBeamPushUris(Uri[] uris, Activity activity) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         if (activity == null) {
             throw new NullPointerException("activity cannot be null");
         }
@@ -877,8 +944,14 @@ public final class NfcAdapter {
      *
      * @param callback callback, or null to disable
      * @param activity activity for which the Uri(s) will be pushed
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void setBeamPushUrisCallback(CreateBeamUrisCallback callback, Activity activity) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         if (activity == null) {
             throw new NullPointerException("activity cannot be null");
         }
@@ -914,7 +987,7 @@ public final class NfcAdapter {
      *
      * <p>If you want to prevent the Android OS from sending default NDEF
      * messages completely (for all activities), you can include a
-     * {@code &lt;meta-data>} element inside the {@code &lt;application>}
+     * {@code <meta-data>} element inside the {@code <application>}
      * element of your AndroidManifest.xml file, like this:
      * <pre>
      * &lt;application ...>
@@ -955,9 +1028,15 @@ public final class NfcAdapter {
      * @param activities optional additional activities, however we strongly recommend
      *        to only register one at a time, and to do so in that activity's
      *        {@link Activity#onCreate}
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void setNdefPushMessage(NdefMessage message, Activity activity,
             Activity ... activities) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         int targetSdkVersion = getSdkVersion();
         try {
             if (activity == null) {
@@ -987,6 +1066,11 @@ public final class NfcAdapter {
      */
     @SystemApi
     public void setNdefPushMessage(NdefMessage message, Activity activity, int flags) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         if (activity == null) {
             throw new NullPointerException("activity cannot be null");
         }
@@ -1022,7 +1106,7 @@ public final class NfcAdapter {
      *
      * <p>If you want to prevent the Android OS from sending default NDEF
      * messages completely (for all activities), you can include a
-     * {@code &lt;meta-data>} element inside the {@code &lt;application>}
+     * {@code <meta-data>} element inside the {@code <application>}
      * element of your AndroidManifest.xml file, like this:
      * <pre>
      * &lt;application ...>
@@ -1057,9 +1141,15 @@ public final class NfcAdapter {
      * @param activities optional additional activities, however we strongly recommend
      *        to only register one at a time, and to do so in that activity's
      *        {@link Activity#onCreate}
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void setNdefPushMessageCallback(CreateNdefMessageCallback callback, Activity activity,
             Activity ... activities) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         int targetSdkVersion = getSdkVersion();
         try {
             if (activity == null) {
@@ -1131,9 +1221,15 @@ public final class NfcAdapter {
      * @param activities optional additional activities, however we strongly recommend
      *        to only register one at a time, and to do so in that activity's
      *        {@link Activity#onCreate}
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void setOnNdefPushCompleteCallback(OnNdefPushCompleteCallback callback,
             Activity activity, Activity ... activities) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         int targetSdkVersion = getSdkVersion();
         try {
             if (activity == null) {
@@ -1190,9 +1286,15 @@ public final class NfcAdapter {
      * @param techLists the tech lists used to perform matching for dispatching of the
      *      {@link NfcAdapter#ACTION_TECH_DISCOVERED} intent
      * @throws IllegalStateException if the Activity is not currently in the foreground
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void enableForegroundDispatch(Activity activity, PendingIntent intent,
             IntentFilter[] filters, String[][] techLists) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         if (activity == null || intent == null) {
             throw new NullPointerException();
         }
@@ -1226,8 +1328,14 @@ public final class NfcAdapter {
      *
      * @param activity the Activity to disable dispatch to
      * @throws IllegalStateException if the Activity has already been paused
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void disableForegroundDispatch(Activity activity) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         ActivityThread.currentActivityThread().unregisterOnActivityPausedListener(activity,
                 mForegroundDispatchListener);
         disableForegroundDispatchInternal(activity, false);
@@ -1272,9 +1380,15 @@ public final class NfcAdapter {
      * @param callback the callback to be called when a tag is discovered
      * @param flags Flags indicating poll technologies and other optional parameters
      * @param extras Additional extras for configuring reader mode.
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void enableReaderMode(Activity activity, ReaderCallback callback, int flags,
             Bundle extras) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         mNfcActivityManager.enableReaderMode(activity, callback, flags, extras);
     }
 
@@ -1284,8 +1398,14 @@ public final class NfcAdapter {
      * all supported tag technologies.
      *
      * @param activity the Activity that currently has reader mode enabled
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public void disableReaderMode(Activity activity) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         mNfcActivityManager.disableReaderMode(activity);
     }
 
@@ -1312,8 +1432,14 @@ public final class NfcAdapter {
      *
      * @param activity the current foreground Activity that has registered data to share
      * @return whether the Beam animation was successfully invoked
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public boolean invokeBeam(Activity activity) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         if (activity == null) {
             throw new NullPointerException("activity may not be null.");
         }
@@ -1367,10 +1493,16 @@ public final class NfcAdapter {
      * @param activity foreground activity
      * @param message a NDEF Message to push over NFC
      * @throws IllegalStateException if the activity is not currently in the foreground
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      * @deprecated use {@link #setNdefPushMessage} instead
      */
     @Deprecated
     public void enableForegroundNdefPush(Activity activity, NdefMessage message) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         if (activity == null || message == null) {
             throw new NullPointerException();
         }
@@ -1395,10 +1527,16 @@ public final class NfcAdapter {
      *
      * @param activity the Foreground activity
      * @throws IllegalStateException if the Activity has already been paused
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      * @deprecated use {@link #setNdefPushMessage} instead
      */
     @Deprecated
     public void disableForegroundNdefPush(Activity activity) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         if (activity == null) {
             throw new NullPointerException();
         }
@@ -1415,6 +1553,9 @@ public final class NfcAdapter {
      */
     @SystemApi
     public boolean enableNdefPush() {
+        if (!sHasNfcFeature) {
+            throw new UnsupportedOperationException();
+        }
         try {
             return sService.enableNdefPush();
         } catch (RemoteException e) {
@@ -1430,6 +1571,11 @@ public final class NfcAdapter {
      */
     @SystemApi
     public boolean disableNdefPush() {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         try {
             return sService.disableNdefPush();
         } catch (RemoteException e) {
@@ -1460,12 +1606,87 @@ public final class NfcAdapter {
      *
      * @see android.provider.Settings#ACTION_NFCSHARING_SETTINGS
      * @return true if NDEF Push feature is enabled
+     * @throws UnsupportedOperationException if FEATURE_NFC is unavailable.
      */
     public boolean isNdefPushEnabled() {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         try {
             return sService.isNdefPushEnabled();
         } catch (RemoteException e) {
             attemptDeadServiceRecovery(e);
+            return false;
+        }
+    }
+
+    /**
+     * Signals that you are no longer interested in communicating with an NFC tag
+     * for as long as it remains in range.
+     *
+     * All future attempted communication to this tag will fail with {@link IOException}.
+     * The NFC controller will be put in a low-power polling mode, allowing the device
+     * to save power in cases where it's "attached" to a tag all the time (e.g. a tag in
+     * car dock).
+     *
+     * Additionally the debounceMs parameter allows you to specify for how long the tag needs
+     * to have gone out of range, before it will be dispatched again.
+     *
+     * Note: the NFC controller typically polls at a pretty slow interval (100 - 500 ms).
+     * This means that if the tag repeatedly goes in and out of range (for example, in
+     * case of a flaky connection), and the controller happens to poll every time the
+     * tag is out of range, it *will* re-dispatch the tag after debounceMs, despite the tag
+     * having been "in range" during the interval.
+     *
+     * Note 2: if a tag with another UID is detected after this API is called, its effect
+     * will be cancelled; if this tag shows up before the amount of time specified in
+     * debounceMs, it will be dispatched again.
+     *
+     * Note 3: some tags have a random UID, in which case this API won't work reliably.
+     *
+     * @param tag        the {@link android.nfc.Tag Tag} to ignore.
+     * @param debounceMs minimum amount of time the tag needs to be out of range before being
+     *                   dispatched again.
+     * @param tagRemovedListener listener to be called when the tag is removed from the field.
+     *                           Note that this will only be called if the tag has been out of range
+     *                           for at least debounceMs, or if another tag came into range before
+     *                           debounceMs. May be null in case you don't want a callback.
+     * @param handler the {@link android.os.Handler Handler} that will be used for delivering
+     *                the callback. if the handler is null, then the thread used for delivering
+     *                the callback is unspecified.
+     * @return false if the tag couldn't be found (or has already gone out of range), true otherwise
+     */
+    public boolean ignore(final Tag tag, int debounceMs,
+                          final OnTagRemovedListener tagRemovedListener, final Handler handler) {
+        ITagRemovedCallback.Stub iListener = null;
+        if (tagRemovedListener != null) {
+            iListener = new ITagRemovedCallback.Stub() {
+                @Override
+                public void onTagRemoved() throws RemoteException {
+                    if (handler != null) {
+                        handler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                tagRemovedListener.onTagRemoved();
+                            }
+                        });
+                    } else {
+                        tagRemovedListener.onTagRemoved();
+                    }
+                    synchronized (mLock) {
+                        mTagRemovedListener = null;
+                    }
+                }
+            };
+        }
+        synchronized (mLock) {
+            mTagRemovedListener = iListener;
+        }
+        try {
+            return sService.ignore(tag.getServiceHandle(), debounceMs, iListener);
+        } catch (RemoteException e) {
             return false;
         }
     }
@@ -1517,6 +1738,11 @@ public final class NfcAdapter {
     @SystemApi
     public boolean addNfcUnlockHandler(final NfcUnlockHandler unlockHandler,
                                        String[] tagTechnologies) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         // If there are no tag technologies, don't bother adding unlock handler
         if (tagTechnologies.length == 0) {
             return false;
@@ -1560,6 +1786,11 @@ public final class NfcAdapter {
      */
     @SystemApi
     public boolean removeNfcUnlockHandler(NfcUnlockHandler unlockHandler) {
+        synchronized (NfcAdapter.class) {
+            if (!sHasNfcFeature) {
+                throw new UnsupportedOperationException();
+            }
+        }
         try {
             synchronized (mLock) {
                 if (mNfcUnlockHandlers.containsKey(unlockHandler)) {

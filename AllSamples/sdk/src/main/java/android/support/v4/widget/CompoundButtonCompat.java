@@ -16,9 +16,7 @@
 
 package android.support.v4.widget;
 
-import android.content.Context;
 import android.content.res.ColorStateList;
-import android.graphics.Canvas;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
@@ -57,27 +55,27 @@ public final class CompoundButtonCompat {
     static class BaseCompoundButtonCompat implements CompoundButtonCompatImpl {
         @Override
         public void setButtonTintList(CompoundButton button, ColorStateList tint) {
-            CompoundButtonCompatDonut.setButtonTintList(button, tint);
+            CompoundButtonCompatGingerbread.setButtonTintList(button, tint);
         }
 
         @Override
         public ColorStateList getButtonTintList(CompoundButton button) {
-            return CompoundButtonCompatDonut.getButtonTintList(button);
+            return CompoundButtonCompatGingerbread.getButtonTintList(button);
         }
 
         @Override
         public void setButtonTintMode(CompoundButton button, PorterDuff.Mode tintMode) {
-            CompoundButtonCompatDonut.setButtonTintMode(button, tintMode);
+            CompoundButtonCompatGingerbread.setButtonTintMode(button, tintMode);
         }
 
         @Override
         public PorterDuff.Mode getButtonTintMode(CompoundButton button) {
-            return CompoundButtonCompatDonut.getButtonTintMode(button);
+            return CompoundButtonCompatGingerbread.getButtonTintMode(button);
         }
 
         @Override
         public Drawable getButtonDrawable(CompoundButton button) {
-            return CompoundButtonCompatDonut.getButtonDrawable(button);
+            return CompoundButtonCompatGingerbread.getButtonDrawable(button);
         }
     }
 
@@ -156,7 +154,7 @@ public final class CompoundButtonCompat {
 
     /**
      * @return the blending mode used to apply the tint to the button drawable
-     * @attr ref android.R.styleable#CompoundButton_buttonTintMode
+     * @attr name android:buttonTintMode
      * @see #setButtonTintMode(PorterDuff.Mode)
      */
     @Nullable

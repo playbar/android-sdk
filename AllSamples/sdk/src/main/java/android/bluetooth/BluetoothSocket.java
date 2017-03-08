@@ -27,6 +27,7 @@ import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.UUID;
 import android.net.LocalSocket;
@@ -234,9 +235,9 @@ public final class BluetoothSocket implements Closeable {
         BluetoothSocket as = new BluetoothSocket(this);
         as.mSocketState = SocketState.CONNECTED;
         FileDescriptor[] fds = mSocket.getAncillaryFileDescriptors();
-        if (DBG) Log.d(TAG, "socket fd passed by stack  fds: " + fds);
+        if (DBG) Log.d(TAG, "socket fd passed by stack fds: " + Arrays.toString(fds));
         if(fds == null || fds.length != 1) {
-            Log.e(TAG, "socket fd passed from stack failed, fds: " + fds);
+            Log.e(TAG, "socket fd passed from stack failed, fds: " + Arrays.toString(fds));
             as.close();
             throw new IOException("bt socket acept failed");
         }
@@ -531,22 +532,19 @@ public final class BluetoothSocket implements Closeable {
                 if(length <= mMaxTxPacketSize) {
                     mSocketOS.write(b, offset, length);
                 } else {
-                    int tmpOffset = offset;
-                    int tmpLength = mMaxTxPacketSize;
-                    int endIndex = offset + length;
-                    boolean done = false;
                     if(DBG) Log.w(TAG, "WARNING: Write buffer larger than L2CAP packet size!\n"
                             + "Packet will be divided into SDU packets of size "
                             + mMaxTxPacketSize);
-                    do{
+                    int tmpOffset = offset;
+                    int bytesToWrite = length;
+                    while (bytesToWrite > 0) {
+                        int tmpLength = (bytesToWrite > mMaxTxPacketSize)
+                                ? mMaxTxPacketSize
+                                : bytesToWrite;
                         mSocketOS.write(b, tmpOffset, tmpLength);
-                        tmpOffset += mMaxTxPacketSize;
-                        if((tmpOffset + mMaxTxPacketSize) > endIndex) {
-                            tmpLength = endIndex - tmpOffset;
-                            done = true;
-                        }
-                    } while(!done);
-
+                        tmpOffset += tmpLength;
+                        bytesToWrite -= tmpLength;
+                    }
                 }
             } else {
                 mSocketOS.write(b, offset, length);

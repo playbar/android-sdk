@@ -14,6 +14,13 @@ public final class LockPatternChecker {
      * Interface for a callback to be invoked after security check.
      */
     public interface OnCheckCallback {
+
+        /**
+         * Invoked as soon as possible we know that the credentials match. This will be called
+         * earlier than {@link #onChecked} but only if the credentials match.
+         */
+        default void onEarlyMatched() {}
+
         /**
          * Invoked when a security check is finished.
          *
@@ -92,7 +99,7 @@ public final class LockPatternChecker {
             @Override
             protected Boolean doInBackground(Void... args) {
                 try {
-                    return utils.checkPattern(pattern, userId);
+                    return utils.checkPattern(pattern, userId, callback::onEarlyMatched);
                 } catch (RequestThrottledException ex) {
                     mThrottleTimeout = ex.getTimeoutMs();
                     return false;
@@ -145,6 +152,43 @@ public final class LockPatternChecker {
     }
 
     /**
+     * Verify a password asynchronously.
+     *
+     * @param utils The LockPatternUtils instance to use.
+     * @param password The password to check.
+     * @param challenge The challenge to verify against the pattern.
+     * @param userId The user to check against the pattern.
+     * @param callback The callback to be invoked with the verification result.
+     */
+    public static AsyncTask<?, ?, ?> verifyTiedProfileChallenge(final LockPatternUtils utils,
+            final String password,
+            final boolean isPattern,
+            final long challenge,
+            final int userId,
+            final OnVerifyCallback callback) {
+        AsyncTask<Void, Void, byte[]> task = new AsyncTask<Void, Void, byte[]>() {
+            private int mThrottleTimeout;
+
+            @Override
+            protected byte[] doInBackground(Void... args) {
+                try {
+                    return utils.verifyTiedProfileChallenge(password, isPattern, challenge, userId);
+                } catch (RequestThrottledException ex) {
+                    mThrottleTimeout = ex.getTimeoutMs();
+                    return null;
+                }
+            }
+
+            @Override
+            protected void onPostExecute(byte[] result) {
+                callback.onVerified(result, mThrottleTimeout);
+            }
+        };
+        task.execute();
+        return task;
+    }
+
+    /**
      * Checks a password asynchronously.
      *
      * @param utils The LockPatternUtils instance to use.
@@ -162,7 +206,7 @@ public final class LockPatternChecker {
             @Override
             protected Boolean doInBackground(Void... args) {
                 try {
-                    return utils.checkPassword(password, userId);
+                    return utils.checkPassword(password, userId, callback::onEarlyMatched);
                 } catch (RequestThrottledException ex) {
                     mThrottleTimeout = ex.getTimeoutMs();
                     return false;

@@ -1,58 +1,73 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (c) 1994, 2008, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.lang;
 
 /**
- * Thrown when the a string is indexed with a value less than zero, or greater
- * than or equal to the size of the array.
+ * Thrown by <code>String</code> methods to indicate that an index
+ * is either negative or greater than the size of the string.  For
+ * some methods such as the charAt method, this exception also is
+ * thrown when the index is equal to the size of the string.
+ *
+ * @author  unascribed
+ * @see     java.lang.String#charAt(int)
+ * @since   JDK1.0
  */
-public class StringIndexOutOfBoundsException extends IndexOutOfBoundsException {
-
+public
+class StringIndexOutOfBoundsException extends IndexOutOfBoundsException {
     private static final long serialVersionUID = -6762910422159637258L;
 
     /**
-     * Constructs a new {@code StringIndexOutOfBoundsException} that includes
-     * the current stack trace.
+     * Constructs a <code>StringIndexOutOfBoundsException</code> with no
+     * detail message.
+     *
+     * @since   JDK1.0.
      */
     public StringIndexOutOfBoundsException() {
+        super();
     }
 
     /**
-     * Constructs a new {@code StringIndexOutOfBoundsException} with the current
-     * stack trace and a detail message that is based on the specified invalid
-     * {@code index}.
+     * Constructs a <code>StringIndexOutOfBoundsException</code> with
+     * the specified detail message.
      *
-     * @param index
-     *            the index which is out of bounds.
+     * @param   s   the detail message.
+     */
+    public StringIndexOutOfBoundsException(String s) {
+        super(s);
+    }
+
+    /**
+     * Constructs a new <code>StringIndexOutOfBoundsException</code>
+     * class with an argument indicating the illegal index.
+     *
+     * @param   index   the illegal index.
      */
     public StringIndexOutOfBoundsException(int index) {
         super("String index out of range: " + index);
-    }
-
-    /**
-     * Constructs a new {@code StringIndexOutOfBoundsException} with the current
-     * stack trace and the specified detail message.
-     *
-     * @param detailMessage
-     *            the detail message for this exception.
-     */
-    public StringIndexOutOfBoundsException(String detailMessage) {
-        super(detailMessage);
     }
 
     /**

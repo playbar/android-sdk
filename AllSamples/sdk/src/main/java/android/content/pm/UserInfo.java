@@ -20,6 +20,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemProperties;
 import android.os.UserHandle;
+import android.os.UserManager;
 
 /**
  * Per-user information.
@@ -27,8 +28,8 @@ import android.os.UserHandle;
  */
 public class UserInfo implements Parcelable {
 
-    /** 8 bits for user type */
-    public static final int FLAG_MASK_USER_TYPE = 0x000000FF;
+    /** 16 bits for user type */
+    public static final int FLAG_MASK_USER_TYPE = 0x0000FFFF;
 
     /**
      * *************************** NOTE ***************************
@@ -37,8 +38,8 @@ public class UserInfo implements Parcelable {
      */
 
     /**
-     * Primary user. Only one user can have this flag set. Meaning of this
-     * flag TBD.
+     * Primary user. Only one user can have this flag set. It identifies the first human user
+     * on a device.
      */
     public static final int FLAG_PRIMARY = 0x00000001;
 
@@ -72,11 +73,26 @@ public class UserInfo implements Parcelable {
 
     /**
      * Indicates that this user is disabled.
+     *
+     * <p>Note: If an ephemeral user is disabled, it shouldn't be later re-enabled. Ephemeral users
+     * are disabled as their removal is in progress to indicate that they shouldn't be re-entered.
      */
     public static final int FLAG_DISABLED = 0x00000040;
 
+    public static final int FLAG_QUIET_MODE = 0x00000080;
 
-    public static final int NO_PROFILE_GROUP_ID = -1;
+    /**
+     * Indicates that this user is ephemeral. I.e. the user will be removed after leaving
+     * the foreground.
+     */
+    public static final int FLAG_EPHEMERAL = 0x00000100;
+
+    /**
+     * User is for demo purposes only and can be removed at any time.
+     */
+    public static final int FLAG_DEMO = 0x00000200;
+
+    public static final int NO_PROFILE_GROUP_ID = UserHandle.USER_NULL;
 
     public int id;
     public int serialNumber;
@@ -85,7 +101,9 @@ public class UserInfo implements Parcelable {
     public int flags;
     public long creationTime;
     public long lastLoggedInTime;
+    public String lastLoggedInFingerprint;
     public int profileGroupId;
+    public int restrictedProfileParentId;
 
     /** User is only partially created. */
     public boolean partial;
@@ -101,6 +119,7 @@ public class UserInfo implements Parcelable {
         this.flags = flags;
         this.iconPath = iconPath;
         this.profileGroupId = NO_PROFILE_GROUP_ID;
+        this.restrictedProfileParentId = NO_PROFILE_GROUP_ID;
     }
 
     public boolean isPrimary() {
@@ -127,12 +146,71 @@ public class UserInfo implements Parcelable {
         return (flags & FLAG_DISABLED) != FLAG_DISABLED;
     }
 
+    public boolean isQuietModeEnabled() {
+        return (flags & FLAG_QUIET_MODE) == FLAG_QUIET_MODE;
+    }
+
+    public boolean isEphemeral() {
+        return (flags & FLAG_EPHEMERAL) == FLAG_EPHEMERAL;
+    }
+
+    public boolean isInitialized() {
+        return (flags & FLAG_INITIALIZED) == FLAG_INITIALIZED;
+    }
+
+    public boolean isDemo() {
+        return (flags & FLAG_DEMO) == FLAG_DEMO;
+    }
+
+    /**
+     * Returns true if the user is a split system user.
+     * <p>If {@link UserManager#isSplitSystemUser split system user mode} is not enabled,
+     * the method always returns false.
+     */
+    public boolean isSystemOnly() {
+        return isSystemOnly(id);
+    }
+
+    /**
+     * Returns true if the given user is a split system user.
+     * <p>If {@link UserManager#isSplitSystemUser split system user mode} is not enabled,
+     * the method always returns false.
+     */
+    public static boolean isSystemOnly(int userId) {
+        return userId == UserHandle.USER_SYSTEM && UserManager.isSplitSystemUser();
+    }
+
     /**
      * @return true if this user can be switched to.
      **/
     public boolean supportsSwitchTo() {
+        if (isEphemeral() && !isEnabled()) {
+            // Don't support switching to an ephemeral user with removal in progress.
+            return false;
+        }
         // TODO remove fw.show_hidden_users when we have finished developing managed profiles.
         return !isManagedProfile() || SystemProperties.getBoolean("fw.show_hidden_users", false);
+    }
+
+    /**
+     * @return true if this user can be switched to by end user through UI.
+     */
+    public boolean supportsSwitchToByUser() {
+        // Hide the system user when it does not represent a human user.
+        boolean hideSystemUser = UserManager.isSplitSystemUser();
+        return (!hideSystemUser || id != UserHandle.USER_SYSTEM) && supportsSwitchTo();
+    }
+
+    /* @hide */
+    public boolean canHaveProfile() {
+        if (isManagedProfile() || isGuest() || isRestricted()) {
+            return false;
+        }
+        if (UserManager.isSplitSystemUser()) {
+            return id != UserHandle.USER_SYSTEM;
+        } else {
+            return id == UserHandle.USER_SYSTEM;
+        }
     }
 
     public UserInfo() {
@@ -146,8 +224,10 @@ public class UserInfo implements Parcelable {
         serialNumber = orig.serialNumber;
         creationTime = orig.creationTime;
         lastLoggedInTime = orig.lastLoggedInTime;
+        lastLoggedInFingerprint = orig.lastLoggedInFingerprint;
         partial = orig.partial;
         profileGroupId = orig.profileGroupId;
+        restrictedProfileParentId = orig.restrictedProfileParentId;
         guestToRemove = orig.guestToRemove;
     }
 
@@ -172,9 +252,11 @@ public class UserInfo implements Parcelable {
         dest.writeInt(serialNumber);
         dest.writeLong(creationTime);
         dest.writeLong(lastLoggedInTime);
+        dest.writeString(lastLoggedInFingerprint);
         dest.writeInt(partial ? 1 : 0);
         dest.writeInt(profileGroupId);
         dest.writeInt(guestToRemove ? 1 : 0);
+        dest.writeInt(restrictedProfileParentId);
     }
 
     public static final Parcelable.Creator<UserInfo> CREATOR
@@ -195,8 +277,10 @@ public class UserInfo implements Parcelable {
         serialNumber = source.readInt();
         creationTime = source.readLong();
         lastLoggedInTime = source.readLong();
+        lastLoggedInFingerprint = source.readString();
         partial = source.readInt() != 0;
         profileGroupId = source.readInt();
         guestToRemove = source.readInt() != 0;
+        restrictedProfileParentId = source.readInt();
     }
 }

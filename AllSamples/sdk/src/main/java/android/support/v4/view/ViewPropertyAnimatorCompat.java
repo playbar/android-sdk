@@ -15,22 +15,22 @@
  */
 package android.support.v4.view;
 
+import android.os.Build;
 import android.view.View;
 import android.view.animation.Interpolator;
 
 import java.lang.ref.WeakReference;
 import java.util.WeakHashMap;
 
-public class ViewPropertyAnimatorCompat {
+public final class ViewPropertyAnimatorCompat {
     private static final String TAG = "ViewAnimatorCompat";
     private WeakReference<View> mView;
-    private Runnable mStartAction = null;
-    private Runnable mEndAction = null;
-    private int mOldLayerType = -1;
+    Runnable mStartAction = null;
+    Runnable mEndAction = null;
+    int mOldLayerType = -1;
     // HACK ALERT! Choosing this id knowing that the framework does not use it anywhere
     // internally and apps should use ids higher than it
     static final int LISTENER_TAG_ID = 0x7e000000;
-
 
     ViewPropertyAnimatorCompat(View view) {
         mView = new WeakReference<View>(view);
@@ -290,7 +290,7 @@ public class ViewPropertyAnimatorCompat {
             // noop
         }
 
-        private void startAnimation(ViewPropertyAnimatorCompat vpa, View view) {
+        void startAnimation(ViewPropertyAnimatorCompat vpa, View view) {
             Object listenerTag = view.getTag(LISTENER_TAG_ID);
             ViewPropertyAnimatorListener listener = null;
             if (listenerTag instanceof ViewPropertyAnimatorListener) {
@@ -298,6 +298,8 @@ public class ViewPropertyAnimatorCompat {
             }
             Runnable startAction = vpa.mStartAction;
             Runnable endAction = vpa.mEndAction;
+            vpa.mStartAction = null;
+            vpa.mEndAction = null;
             if (startAction != null) {
                 startAction.run();
             }
@@ -317,7 +319,7 @@ public class ViewPropertyAnimatorCompat {
             WeakReference<View> mViewRef;
             ViewPropertyAnimatorCompat mVpa;
 
-            private Starter(ViewPropertyAnimatorCompat vpa, View view) {
+            Starter(ViewPropertyAnimatorCompat vpa, View view) {
                 mViewRef = new WeakReference<View>(view);
                 mVpa = vpa;
             }
@@ -522,8 +524,8 @@ public class ViewPropertyAnimatorCompat {
         }
 
         static class MyVpaListener implements ViewPropertyAnimatorListener {
-
             ViewPropertyAnimatorCompat mVpa;
+            boolean mAnimEndCalled;
 
             MyVpaListener(ViewPropertyAnimatorCompat vpa) {
                 mVpa = vpa;
@@ -531,11 +533,16 @@ public class ViewPropertyAnimatorCompat {
 
             @Override
             public void onAnimationStart(View view) {
+                // Reset our end called flag, since this is a new animation...
+                mAnimEndCalled = false;
+
                 if (mVpa.mOldLayerType >= 0) {
                     ViewCompat.setLayerType(view, ViewCompat.LAYER_TYPE_HARDWARE, null);
                 }
                 if (mVpa.mStartAction != null) {
-                    mVpa.mStartAction.run();
+                    Runnable startAction = mVpa.mStartAction;
+                    mVpa.mStartAction = null;
+                    startAction.run();
                 }
                 Object listenerTag = view.getTag(LISTENER_TAG_ID);
                 ViewPropertyAnimatorListener listener = null;
@@ -553,16 +560,23 @@ public class ViewPropertyAnimatorCompat {
                     ViewCompat.setLayerType(view, mVpa.mOldLayerType, null);
                     mVpa.mOldLayerType = -1;
                 }
-                if (mVpa.mEndAction != null) {
-                    mVpa.mEndAction.run();
-                }
-                Object listenerTag = view.getTag(LISTENER_TAG_ID);
-                ViewPropertyAnimatorListener listener = null;
-                if (listenerTag instanceof ViewPropertyAnimatorListener) {
-                    listener = (ViewPropertyAnimatorListener) listenerTag;
-                }
-                if (listener != null) {
-                    listener.onAnimationEnd(view);
+                if (Build.VERSION.SDK_INT >= 16 || !mAnimEndCalled) {
+                    // Pre-v16 seems to have a bug where onAnimationEnd is called
+                    // twice, therefore we only dispatch on the first call
+                    if (mVpa.mEndAction != null) {
+                        Runnable endAction = mVpa.mEndAction;
+                        mVpa.mEndAction = null;
+                        endAction.run();
+                    }
+                    Object listenerTag = view.getTag(LISTENER_TAG_ID);
+                    ViewPropertyAnimatorListener listener = null;
+                    if (listenerTag instanceof ViewPropertyAnimatorListener) {
+                        listener = (ViewPropertyAnimatorListener) listenerTag;
+                    }
+                    if (listener != null) {
+                        listener.onAnimationEnd(view);
+                    }
+                    mAnimEndCalled = true;
                 }
             }
 

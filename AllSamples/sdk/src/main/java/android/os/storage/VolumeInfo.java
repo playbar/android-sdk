@@ -341,6 +341,7 @@ public class VolumeInfo implements Parcelable {
         }
 
         String description = null;
+        String derivedFsUuid = fsUuid;
         long mtpReserveSize = 0;
         long maxFileSize = 0;
         int mtpStorageId = StorageVolume.STORAGE_ID_INVALID;
@@ -351,6 +352,7 @@ public class VolumeInfo implements Parcelable {
             final VolumeInfo privateVol = storage.findPrivateForEmulated(this);
             if (privateVol != null) {
                 description = storage.getBestVolumeDescription(privateVol);
+                derivedFsUuid = privateVol.fsUuid;
             }
 
             if (isPrimary()) {
@@ -393,7 +395,7 @@ public class VolumeInfo implements Parcelable {
 
         return new StorageVolume(id, mtpStorageId, userPath, description, isPrimary(), removable,
                 emulated, mtpReserveSize, allowMassStorage, maxFileSize, new UserHandle(userId),
-                fsUuid, envState);
+                derivedFsUuid, envState);
     }
 
     public static int buildStableMtpStorageId(String fsUuid) {
@@ -433,9 +435,15 @@ public class VolumeInfo implements Parcelable {
             return null;
         }
 
-        final Intent intent = new Intent(DocumentsContract.ACTION_BROWSE_DOCUMENT_ROOT);
+        final Intent intent = new Intent(DocumentsContract.ACTION_BROWSE);
         intent.addCategory(Intent.CATEGORY_DEFAULT);
-        intent.setData(uri);
+        intent.setDataAndType(uri, DocumentsContract.Root.MIME_TYPE_ITEM);
+
+        // note that docsui treats this as *force* show advanced. So sending
+        // false permits advanced to be shown based on user preferences.
+        intent.putExtra(DocumentsContract.EXTRA_SHOW_ADVANCED, isPrimary());
+        intent.putExtra(DocumentsContract.EXTRA_FANCY_FEATURES, true);
+        intent.putExtra(DocumentsContract.EXTRA_SHOW_FILESIZE, true);
         return intent;
     }
 

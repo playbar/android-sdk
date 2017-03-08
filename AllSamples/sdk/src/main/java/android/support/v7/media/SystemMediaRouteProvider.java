@@ -49,6 +49,9 @@ abstract class SystemMediaRouteProvider extends MediaRouteProvider {
     }
 
     public static SystemMediaRouteProvider obtain(Context context, SyncCallback syncCallback) {
+        if (Build.VERSION.SDK_INT >= 24) {
+            return new Api24Impl(context, syncCallback);
+        }
         if (Build.VERSION.SDK_INT >= 18) {
             return new JellybeanMr2Impl(context, syncCallback);
         }
@@ -100,7 +103,7 @@ abstract class SystemMediaRouteProvider extends MediaRouteProvider {
      * Legacy implementation for platform versions prior to Jellybean.
      */
     static class LegacyImpl extends SystemMediaRouteProvider {
-        private static final int PLAYBACK_STREAM = AudioManager.STREAM_MUSIC;
+        static final int PLAYBACK_STREAM = AudioManager.STREAM_MUSIC;
 
         private static final ArrayList<IntentFilter> CONTROL_FILTERS;
         static {
@@ -112,9 +115,9 @@ abstract class SystemMediaRouteProvider extends MediaRouteProvider {
             CONTROL_FILTERS.add(f);
         }
 
-        private final AudioManager mAudioManager;
+        final AudioManager mAudioManager;
         private final VolumeChangeReceiver mVolumeChangeReceiver;
-        private int mLastReportedVolume = -1;
+        int mLastReportedVolume = -1;
 
         public LegacyImpl(Context context) {
             super(context);
@@ -126,7 +129,7 @@ abstract class SystemMediaRouteProvider extends MediaRouteProvider {
             publishRoutes();
         }
 
-        private void publishRoutes() {
+        void publishRoutes() {
             Resources r = getContext().getResources();
             int maxVolume = mAudioManager.getStreamMaxVolume(PLAYBACK_STREAM);
             mLastReportedVolume = mAudioManager.getStreamVolume(PLAYBACK_STREAM);
@@ -293,7 +296,6 @@ abstract class SystemMediaRouteProvider extends MediaRouteProvider {
             if (mRouteTypes != newRouteTypes || mActiveScan != newActiveScan) {
                 mRouteTypes = newRouteTypes;
                 mActiveScan = newActiveScan;
-                updateCallback();
                 updateSystemRoutes();
             }
         }
@@ -306,6 +308,7 @@ abstract class SystemMediaRouteProvider extends MediaRouteProvider {
         }
 
         private void updateSystemRoutes() {
+            updateCallback();
             boolean changed = false;
             for (Object routeObj : MediaRouterJellybean.getRoutes(mRouterObj)) {
                 changed |= addSystemRouteNoPublish(routeObj);
@@ -834,6 +837,23 @@ abstract class SystemMediaRouteProvider extends MediaRouteProvider {
         @Override
         protected boolean isConnecting(SystemRouteRecord record) {
             return MediaRouterJellybeanMr2.RouteInfo.isConnecting(record.mRouteObj);
+        }
+    }
+
+    /**
+     * Api24 implementation.
+     */
+    private static class Api24Impl extends JellybeanMr2Impl {
+        public Api24Impl(Context context, SyncCallback syncCallback) {
+            super(context, syncCallback);
+        }
+
+        @Override
+        protected void onBuildSystemRouteDescriptor(SystemRouteRecord record,
+                                                    MediaRouteDescriptor.Builder builder) {
+            super.onBuildSystemRouteDescriptor(record, builder);
+
+            builder.setDeviceType(MediaRouterApi24.RouteInfo.getDeviceType(record.mRouteObj));
         }
     }
 }

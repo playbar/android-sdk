@@ -13,6 +13,7 @@
  */
 package android.support.v17.leanback.widget;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -21,6 +22,7 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.media.SoundPool;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
@@ -43,8 +45,9 @@ import android.view.View;
 import android.widget.ImageView;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.RelativeLayout;
-import android.support.v17.leanback.R;
 import android.widget.TextView;
+
+import android.support.v17.leanback.R;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,17 +55,22 @@ import java.util.List;
 /**
  * A search widget containing a search orb and a text entry view.
  *
- * <p>Note: Your application will need to request android.permission.RECORD_AUDIO</p>
+ * <p>
+ * Note: When {@link SpeechRecognitionCallback} is not used, i.e. using {@link SpeechRecognizer},
+ * your application will need to declare android.permission.RECORD_AUDIO in manifest file.
+ * If your application target >= 23 and the device is running >= 23, it needs implement
+ * {@link SearchBarPermissionListener} where requests runtime permission.
+ * </p>
  */
 public class SearchBar extends RelativeLayout {
-    private static final String TAG = SearchBar.class.getSimpleName();
-    private static final boolean DEBUG = false;
+    static final String TAG = SearchBar.class.getSimpleName();
+    static final boolean DEBUG = false;
 
-    private static final float FULL_LEFT_VOLUME = 1.0f;
-    private static final float FULL_RIGHT_VOLUME = 1.0f;
-    private static final int DEFAULT_PRIORITY = 1;
-    private static final int DO_NOT_LOOP = 0;
-    private static final float DEFAULT_RATE = 1.0f;
+    static final float FULL_LEFT_VOLUME = 1.0f;
+    static final float FULL_RIGHT_VOLUME = 1.0f;
+    static final int DEFAULT_PRIORITY = 1;
+    static final int DO_NOT_LOOP = 0;
+    static final float DEFAULT_RATE = 1.0f;
 
     /**
      * Interface for receiving notification of search query changes.
@@ -92,6 +100,21 @@ public class SearchBar extends RelativeLayout {
          * @param query The query set in the search bar at the time the IME is being dismissed.
          */
         public void onKeyboardDismiss(String query);
+
+    }
+
+    /**
+     * Interface that handles runtime permissions requests. App sets listener on SearchBar via
+     * {@link #setPermissionListener(SearchBarPermissionListener)}.
+     */
+    public interface SearchBarPermissionListener {
+
+        /**
+         * Method invoked when SearchBar asks for "android.permission.RECORD_AUDIO" runtime
+         * permission.
+         */
+        void requestAudioPermission();
+
     }
 
     private AudioManager.OnAudioFocusChangeListener mAudioFocusChangeListener =
@@ -102,17 +125,17 @@ public class SearchBar extends RelativeLayout {
                 }
             };
 
-    private SearchBarListener mSearchBarListener;
-    private SearchEditText mSearchTextEditor;
-    private SpeechOrbView mSpeechOrbView;
+    SearchBarListener mSearchBarListener;
+    SearchEditText mSearchTextEditor;
+    SpeechOrbView mSpeechOrbView;
     private ImageView mBadgeView;
-    private String mSearchQuery;
+    String mSearchQuery;
     private String mHint;
     private String mTitle;
     private Drawable mBadgeDrawable;
-    private final Handler mHandler = new Handler();
+    final Handler mHandler = new Handler();
     private final InputMethodManager mInputMethodManager;
-    private boolean mAutoStartRecognition = false;
+    boolean mAutoStartRecognition = false;
     private Drawable mBarBackground;
 
     private final int mTextColor;
@@ -125,11 +148,12 @@ public class SearchBar extends RelativeLayout {
     private SpeechRecognizer mSpeechRecognizer;
     private SpeechRecognitionCallback mSpeechRecognitionCallback;
     private boolean mListening;
-    private SoundPool mSoundPool;
-    private SparseIntArray mSoundMap = new SparseIntArray();
-    private boolean mRecognizing = false;
+    SoundPool mSoundPool;
+    SparseIntArray mSoundMap = new SparseIntArray();
+    boolean mRecognizing = false;
     private final Context mContext;
     private AudioManager mAudioManager;
+    private SearchBarPermissionListener mPermissionListener;
 
     public SearchBar(Context context) {
         this(context, null);
@@ -342,7 +366,7 @@ public class SearchBar extends RelativeLayout {
         setSearchQueryInternal(query);
     }
 
-    private void setSearchQueryInternal(String query) {
+    void setSearchQueryInternal(String query) {
         if (DEBUG) Log.v(TAG, "setSearchQueryInternal " + query);
         if (TextUtils.equals(mSearchQuery, query)) {
             return;
@@ -406,15 +430,23 @@ public class SearchBar extends RelativeLayout {
      * @param completions list of completions shown in the IME, can be null or empty to clear them
      */
     public void displayCompletions(List<String> completions) {
-        List<CompletionInfo> infos = new ArrayList<CompletionInfo>();
+        List<CompletionInfo> infos = new ArrayList<>();
         if (null != completions) {
             for (String completion : completions) {
                 infos.add(new CompletionInfo(infos.size(), infos.size(), completion));
             }
         }
+        CompletionInfo[] array = new CompletionInfo[infos.size()];
+        displayCompletions(infos.toArray(array));
+    }
 
-        mInputMethodManager.displayCompletions(mSearchTextEditor,
-                infos.toArray(new CompletionInfo[] {}));
+    /**
+     * Updates the completion list shown by the IME
+     *
+     * @param completions list of completions shown in the IME, can be null or empty to clear them
+     */
+    public void displayCompletions(CompletionInfo[] completions) {
+        mInputMethodManager.displayCompletions(mSearchTextEditor, completions);
     }
 
     /**
@@ -433,9 +465,6 @@ public class SearchBar extends RelativeLayout {
             }
         }
         mSpeechRecognizer = recognizer;
-        if (mSpeechRecognizer != null) {
-            enforceAudioRecordPermission();
-        }
         if (mSpeechRecognitionCallback != null && mSpeechRecognizer != null) {
             throw new IllegalStateException("Can't have speech recognizer and request");
         }
@@ -451,12 +480,12 @@ public class SearchBar extends RelativeLayout {
         }
     }
 
-    private void hideNativeKeyboard() {
+    void hideNativeKeyboard() {
         mInputMethodManager.hideSoftInputFromWindow(mSearchTextEditor.getWindowToken(),
                 InputMethodManager.RESULT_UNCHANGED_SHOWN);
     }
 
-    private void showNativeKeyboard() {
+    void showNativeKeyboard() {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -491,12 +520,20 @@ public class SearchBar extends RelativeLayout {
         }
     }
 
-    private void toggleRecognition() {
+    void toggleRecognition() {
         if (mRecognizing) {
             stopRecognition();
         } else {
             startRecognition();
         }
+    }
+
+    /**
+     * Returns true if is not running Recognizer, false otherwise.
+     * @return True if is not running Recognizer, false otherwise.
+     */
+    public boolean isRecognizing() {
+        return mRecognizing;
     }
 
     /**
@@ -508,7 +545,7 @@ public class SearchBar extends RelativeLayout {
 
         if (!mRecognizing) return;
 
-        // Edit text content was cleared when starting recogition; ensure the content is restored
+        // Edit text content was cleared when starting recognition; ensure the content is restored
         // in error cases
         mSearchTextEditor.setText(mSearchQuery);
         mSearchTextEditor.setHint(mHint);
@@ -529,14 +566,18 @@ public class SearchBar extends RelativeLayout {
     }
 
     /**
-     * Starts the voice recognition.
+     * Sets listener that handles runtime permission requests.
+     * @param listener Listener that handles runtime permission requests.
      */
+    public void setPermissionListener(SearchBarPermissionListener listener) {
+        mPermissionListener = listener;
+    }
+
     public void startRecognition() {
         if (DEBUG) Log.v(TAG, String.format("startRecognition (listening: %s, recognizing: %s)",
                 mListening, mRecognizing));
 
         if (mRecognizing) return;
-        mRecognizing = true;
         if (!hasFocus()) {
             requestFocus();
         }
@@ -544,10 +585,22 @@ public class SearchBar extends RelativeLayout {
             mSearchTextEditor.setText("");
             mSearchTextEditor.setHint("");
             mSpeechRecognitionCallback.recognizeSpeech();
+            mRecognizing = true;
             return;
         }
         if (null == mSpeechRecognizer) return;
+        int res = getContext().checkCallingOrSelfPermission(Manifest.permission.RECORD_AUDIO);
+        if (PackageManager.PERMISSION_GRANTED != res) {
+            if (Build.VERSION.SDK_INT >= 23 && mPermissionListener != null) {
+                mPermissionListener.requestAudioPermission();
+                return;
+            } else {
+                throw new IllegalStateException(Manifest.permission.RECORD_AUDIO +
+                        " required for search");
+            }
+        }
 
+        mRecognizing = true;
         // Request audio focus
         int result = mAudioManager.requestAudioFocus(mAudioFocusChangeListener,
                 // Use the music stream.
@@ -688,7 +741,7 @@ public class SearchBar extends RelativeLayout {
         mSpeechRecognizer.startListening(recognizerIntent);
     }
 
-    private void updateUi(boolean hasFocus) {
+    void updateUi(boolean hasFocus) {
         if (hasFocus) {
             mBarBackground.setAlpha(mBackgroundSpeechAlpha);
             if (isVoiceMode()) {
@@ -711,17 +764,9 @@ public class SearchBar extends RelativeLayout {
         return mSpeechOrbView.isFocused();
     }
 
-    private void submitQuery() {
+    void submitQuery() {
         if (!TextUtils.isEmpty(mSearchQuery) && null != mSearchBarListener) {
             mSearchBarListener.onSearchQuerySubmit(mSearchQuery);
-        }
-    }
-
-    private void enforceAudioRecordPermission() {
-        String permission = "android.permission.RECORD_AUDIO";
-        int res = getContext().checkCallingOrSelfPermission(permission);
-        if (PackageManager.PERMISSION_GRANTED != res) {
-            throw new IllegalStateException("android.permission.RECORD_AUDIO required for search");
         }
     }
 
@@ -748,11 +793,11 @@ public class SearchBar extends RelativeLayout {
         });
     }
 
-    private void playSearchOpen() {
+    void playSearchOpen() {
         play(R.raw.lb_voice_open);
     }
 
-    private void playSearchFailure() {
+    void playSearchFailure() {
         play(R.raw.lb_voice_failure);
     }
 
@@ -760,7 +805,7 @@ public class SearchBar extends RelativeLayout {
         play(R.raw.lb_voice_no_input);
     }
 
-    private void playSearchSuccess() {
+    void playSearchSuccess() {
         play(R.raw.lb_voice_success);
     }
 

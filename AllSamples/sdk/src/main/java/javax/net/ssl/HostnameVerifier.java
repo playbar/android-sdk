@@ -1,40 +1,56 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2001, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package javax.net.ssl;
 
 /**
- * The interface to be used to provide hostname verification functionality.
- * <p>
- * This is an extended verification option that implementers can provide. It is to be used
- * during a handshake if the URL's hostname does not match the peer's
- * identification hostname.
+ * This class is the base interface for hostname verification.
+ * <P>
+ * During handshaking, if the URL's hostname and
+ * the server's identification hostname mismatch, the
+ * verification mechanism can call back to implementers of this
+ * interface to determine if this connection should be allowed.
+ * <P>
+ * The policies can be certificate-based
+ * or may depend on other authentication schemes.
+ * <P>
+ * These callbacks are used when the default rules for URL hostname
+ * verification fail.
+ *
+ * @author Brad R. Wetmore
+ * @since 1.4
  */
+
 public interface HostnameVerifier {
     /**
-     * Verifies that the specified hostname is allowed within the specified SSL
-     * session.
+     * Verify that the host name is an acceptable match with
+     * the server's authentication scheme.
      *
-     * @param hostname
-     *            the hostname.
-     * @param session
-     *            the SSL session of the connection.
-     * @return {@code true} if the specified hostname is allowed, otherwise
-     *         {@code false}.
+     * @param hostname the host name
+     * @param session SSLSession used on the connection to host
+     * @return true if the host name is acceptable
      */
-    boolean verify(String hostname, SSLSession session);
+    public boolean verify(String hostname, SSLSession session);
 }

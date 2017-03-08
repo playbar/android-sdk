@@ -1,68 +1,76 @@
-/* Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+/*
+ * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.net;
 
 /**
- * CookiePolicy has three pre-defined policy. They are ACCEPT_ALL, ACCEPT_NONE
- * and ACCEPT_ORIGINAL_SERVER respectively. They are used to decide which
- * cookies should be accepted and which should not be.
+ * CookiePolicy implementations decide which cookies should be accepted
+ * and which should be rejected. Three pre-defined policy implementations
+ * are provided, namely ACCEPT_ALL, ACCEPT_NONE and ACCEPT_ORIGINAL_SERVER.
  *
- * See <a href="http://www.ietf.org/rfc/rfc2965.txt">RFC 2965</a> sections 3.3 and 7 for more detail.
+ * <p>See RFC 2965 sec. 3.3 & 7 for more detail.
  *
+ * @author Edward Wang
  * @since 1.6
  */
 public interface CookiePolicy {
-
     /**
-     * A pre-defined policy, accepts all cookies.
+     * One pre-defined policy which accepts all cookies.
      */
-    static final CookiePolicy ACCEPT_ALL = new CookiePolicy() {
+    public static final CookiePolicy ACCEPT_ALL = new CookiePolicy(){
         public boolean shouldAccept(URI uri, HttpCookie cookie) {
             return true;
         }
     };
 
     /**
-     * A pre-defined policy, accepts no cookies at all.
+     * One pre-defined policy which accepts no cookies.
      */
-    static final CookiePolicy ACCEPT_NONE = new CookiePolicy() {
+    public static final CookiePolicy ACCEPT_NONE = new CookiePolicy(){
         public boolean shouldAccept(URI uri, HttpCookie cookie) {
             return false;
         }
     };
 
     /**
-     * A pre-defined policy, only accepts cookies from original server.
+     * One pre-defined policy which only accepts cookies from original server.
      */
-    static final CookiePolicy ACCEPT_ORIGINAL_SERVER = new CookiePolicy() {
+    public static final CookiePolicy ACCEPT_ORIGINAL_SERVER  = new CookiePolicy(){
         public boolean shouldAccept(URI uri, HttpCookie cookie) {
             return HttpCookie.domainMatches(cookie.getDomain(), uri.getHost());
         }
     };
 
+
     /**
-     * This method is used to determine whether or not the specified cookie
-     * should be accepted.
+     * Will be called to see whether or not this cookie should be accepted.
      *
-     * @param uri
-     *            the URI to used to determine acceptability
-     * @param cookie
-     *            the HttpCookie to be determined
-     * @return true if this cookie should be accepted; false otherwise
+     * @param uri       the URI to consult accept policy with
+     * @param cookie    the HttpCookie object in question
+     * @return          <tt>true</tt> if this cookie should be accepted;
+     *                  otherwise, <tt>false</tt>
      */
-    boolean shouldAccept(URI uri, HttpCookie cookie);
+    public boolean shouldAccept(URI uri, HttpCookie cookie);
 }

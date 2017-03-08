@@ -77,6 +77,8 @@ import com.android.server.hdmi.HdmiAnnotations.ServiceThreadOnly;
 import com.android.server.hdmi.HdmiCecController.AllocateAddressCallback;
 import com.android.server.hdmi.HdmiCecLocalDevice.ActiveSource;
 import com.android.server.hdmi.HdmiCecLocalDevice.PendingActionClearedCallback;
+import com.android.server.hdmi.SelectRequestBuffer.DeviceSelectRequest;
+import com.android.server.hdmi.SelectRequestBuffer.PortSelectRequest;
 
 import libcore.util.EmptyArray;
 
@@ -360,7 +362,9 @@ public final class HdmiControlService extends SystemService {
         }
     }
 
-    private CecMessageBuffer mCecMessageBuffer = new CecMessageBuffer();
+    private final CecMessageBuffer mCecMessageBuffer = new CecMessageBuffer();
+
+    private final SelectRequestBuffer mSelectRequestBuffer = new SelectRequestBuffer();
 
     public HdmiControlService(Context context) {
         super(context);
@@ -415,6 +419,7 @@ public final class HdmiControlService extends SystemService {
             IntentFilter filter = new IntentFilter();
             filter.addAction(Intent.ACTION_SCREEN_OFF);
             filter.addAction(Intent.ACTION_SCREEN_ON);
+            filter.addAction(Intent.ACTION_SHUTDOWN);
             filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
             getContext().registerReceiver(mHdmiControlBroadcastReceiver, filter);
 
@@ -519,7 +524,9 @@ public final class HdmiControlService extends SystemService {
                 case Global.HDMI_CONTROL_AUTO_DEVICE_OFF_ENABLED:
                     for (int type : mLocalDevices) {
                         HdmiCecLocalDevice localDevice = mCecController.getLocalDevice(type);
-                        localDevice.setAutoDeviceOff(enabled);
+                        if (localDevice != null) {
+                            localDevice.setAutoDeviceOff(enabled);
+                        }
                     }
                     // No need to propagate to HAL.
                     break;
@@ -582,6 +589,12 @@ public final class HdmiControlService extends SystemService {
         final int[] finished = new int[1];
         mAddressAllocated = allocatingDevices.isEmpty();
 
+        // For TV device, select request can be invoked while address allocation or device
+        // discovery is in progress. Initialize the request here at the start of allocation,
+        // and process the collected requests later when the allocation and device discovery
+        // is all completed.
+        mSelectRequestBuffer.clear();
+
         for (final HdmiCecLocalDevice localDevice : allocatingDevices) {
             mCecController.allocateLogicalAddress(localDevice.getType(),
                     localDevice.getPreferredAddress(), new AllocateAddressCallback() {
@@ -623,6 +636,13 @@ public final class HdmiControlService extends SystemService {
             int address = device.getDeviceInfo().getLogicalAddress();
             device.handleAddressAllocated(address, initiatedBy);
         }
+        if (isTvDeviceEnabled()) {
+            tv().setSelectRequestBuffer(mSelectRequestBuffer);
+        }
+    }
+
+    boolean isAddressAllocated() {
+        return mAddressAllocated;
     }
 
     // Initialize HDMI port information. Combine the information from CEC and MHL HAL and
@@ -1173,7 +1193,9 @@ public final class HdmiControlService extends SystemService {
         @Override
         public void binderDied() {
             synchronized (mLock) {
-                mRecordListenerRecord = null;
+                if (mRecordListenerRecord == this) {
+                    mRecordListenerRecord = null;
+                }
             }
         }
     }
@@ -1228,6 +1250,11 @@ public final class HdmiControlService extends SystemService {
                     }
                     HdmiCecLocalDeviceTv tv = tv();
                     if (tv == null) {
+                        if (!mAddressAllocated) {
+                            mSelectRequestBuffer.set(SelectRequestBuffer.newDeviceSelect(
+                                    HdmiControlService.this, deviceId, callback));
+                            return;
+                        }
                         Slog.w(TAG, "Local tv device not available");
                         invokeCallback(callback, HdmiControlManager.RESULT_SOURCE_NOT_AVAILABLE);
                         return;
@@ -1262,6 +1289,11 @@ public final class HdmiControlService extends SystemService {
                     }
                     HdmiCecLocalDeviceTv tv = tv();
                     if (tv == null) {
+                        if (!mAddressAllocated) {
+                            mSelectRequestBuffer.set(SelectRequestBuffer.newPortSelect(
+                                    HdmiControlService.this, portId, callback));
+                            return;
+                        }
                         Slog.w(TAG, "Local tv device not available");
                         invokeCallback(callback, HdmiControlManager.RESULT_SOURCE_NOT_AVAILABLE);
                         return;
@@ -1787,7 +1819,9 @@ public final class HdmiControlService extends SystemService {
         @Override
         public void binderDied() {
             synchronized (mLock) {
-                mInputChangeListenerRecord = null;
+                if (mInputChangeListenerRecord == this) {
+                    mInputChangeListenerRecord = null;
+                }
             }
         }
     }
@@ -1912,7 +1946,7 @@ public final class HdmiControlService extends SystemService {
         }
     }
 
-    private HdmiCecLocalDeviceTv tv() {
+    public HdmiCecLocalDeviceTv tv() {
         return (HdmiCecLocalDeviceTv) mCecController.getLocalDevice(HdmiDeviceInfo.DEVICE_TV);
     }
 
@@ -1977,6 +2011,9 @@ public final class HdmiControlService extends SystemService {
     @ServiceThreadOnly
     void standby() {
         assertRunOnServiceThread();
+        if (!canGoToStandby()) {
+            return;
+        }
         mStandbyMessageReceived = true;
         mPowerManager.goToSleep(SystemClock.uptimeMillis(), PowerManager.GO_TO_SLEEP_REASON_HDMI, 0);
         // PowerManger will send the broadcast Intent.ACTION_SCREEN_OFF and after this gets
@@ -2004,10 +2041,13 @@ public final class HdmiControlService extends SystemService {
     @ServiceThreadOnly
     private void onStandby(final int standbyAction) {
         assertRunOnServiceThread();
-        if (!canGoToStandby()) return;
         mPowerStatus = HdmiControlManager.POWER_STATUS_TRANSIENT_TO_STANDBY;
         invokeVendorCommandListenersOnControlStateChanged(false,
                 HdmiControlManager.CONTROL_STATE_CHANGED_REASON_STANDBY);
+        if (!canGoToStandby()) {
+            mPowerStatus = HdmiControlManager.POWER_STATUS_STANDBY;
+            return;
+        }
 
         final List<HdmiCecLocalDevice> devices = getAllLocalDevices();
         disableDevices(new PendingActionClearedCallback() {

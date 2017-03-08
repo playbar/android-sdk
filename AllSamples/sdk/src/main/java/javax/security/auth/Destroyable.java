@@ -1,43 +1,62 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1999, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package javax.security.auth;
 
 /**
- * Allows for special treatment of sensitive information, when it comes to
- * destroying or clearing of the data.
+ * Objects such as credentials may optionally implement this interface
+ * to provide the capability to destroy its contents.
+ *
+ * @see javax.security.auth.Subject
  */
 public interface Destroyable {
 
     /**
-     * Erases the sensitive information. Once an object is destroyed any calls
-     * to its methods will throw an {@code IllegalStateException}. If it does
-     * not succeed a DestroyFailedException is thrown.
+     * Destroy this <code>Object</code>.
      *
-     * @throws DestroyFailedException
-     *             if the information cannot be erased.
+     * <p> Sensitive information associated with this <code>Object</code>
+     * is destroyed or cleared.  Subsequent calls to certain methods
+     * on this <code>Object</code> will result in an
+     * <code>IllegalStateException</code> being thrown.
+     *
+     * <p>
+     *
+     * @exception DestroyFailedException if the destroy operation fails. <p>
+     *
+     * @exception SecurityException if the caller does not have permission
+     *          to destroy this <code>Object</code>.
      */
     void destroy() throws DestroyFailedException;
 
     /**
-     * Returns {@code true} once an object has been safely destroyed.
+     * Determine if this <code>Object</code> has been destroyed.
      *
-     * @return whether the object has been safely destroyed.
+     * <p>
+     *
+     * @return true if this <code>Object</code> has been destroyed,
+     *          false otherwise.
      */
     boolean isDestroyed();
-
 }

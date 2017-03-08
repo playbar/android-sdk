@@ -16,6 +16,8 @@
 
 package android.database.sqlite;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.DatabaseErrorHandler;
@@ -1369,6 +1371,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
 
     /**
      * Convenience method for replacing a row in the database.
+     * Inserts a new row if a row does not already exist.
      *
      * @param table the table in which to replace the row
      * @param nullColumnHack optional; may be <code>null</code>.
@@ -1379,7 +1382,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      *            provides the name of nullable column name to explicitly insert a NULL into
      *            in the case where your <code>initialValues</code> is empty.
      * @param initialValues this map contains the initial column values for
-     *   the row.
+     *   the row. The keys should be the column names and the values the column values.
      * @return the row ID of the newly inserted row, or -1 if an error occurred
      */
     public long replace(String table, String nullColumnHack, ContentValues initialValues) {
@@ -1394,6 +1397,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
 
     /**
      * Convenience method for replacing a row in the database.
+     * Inserts a new row if a row does not already exist.
      *
      * @param table the table in which to replace the row
      * @param nullColumnHack optional; may be <code>null</code>.
@@ -1404,7 +1408,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      *            provides the name of nullable column name to explicitly insert a NULL into
      *            in the case where your <code>initialValues</code> is empty.
      * @param initialValues this map contains the initial column values for
-     *   the row. The key
+     *   the row. The keys should be the column names and the values the column values.
      * @throws SQLException
      * @return the row ID of the newly inserted row, or -1 if an error occurred
      */
@@ -1429,10 +1433,9 @@ public final class SQLiteDatabase extends SQLiteClosable {
      *            row. The keys should be the column names and the values the
      *            column values
      * @param conflictAlgorithm for insert conflict resolver
-     * @return the row ID of the newly inserted row
-     * OR the primary key of the existing row if the input param 'conflictAlgorithm' =
-     * {@link #CONFLICT_IGNORE}
-     * OR -1 if any error
+     * @return the row ID of the newly inserted row OR <code>-1</code> if either the
+     *            input parameter <code>conflictAlgorithm</code> = {@link #CONFLICT_IGNORE}
+     *            or an error occurred.
      */
     public long insertWithOnConflict(String table, String nullColumnHack,
             ContentValues initialValues, int conflictAlgorithm) {
@@ -1683,6 +1686,21 @@ public final class SQLiteDatabase extends SQLiteClosable {
     }
 
     /**
+     * Verifies that a SQL SELECT statement is valid by compiling it.
+     * If the SQL statement is not valid, this method will throw a {@link SQLiteException}.
+     *
+     * @param sql SQL to be validated
+     * @param cancellationSignal A signal to cancel the operation in progress, or null if none.
+     * If the operation is canceled, then {@link OperationCanceledException} will be thrown
+     * when the query is executed.
+     * @throws SQLiteException if {@code sql} is invalid
+     */
+    public void validateSql(@NonNull String sql, @Nullable CancellationSignal cancellationSignal) {
+        getThreadSession().prepare(sql,
+                getThreadDefaultConnectionFlags(/* readOnly =*/ true), cancellationSignal, null);
+    }
+
+    /**
      * Returns true if the database is opened as read only.
      *
      * @return True if database is opened as read only.
@@ -1724,7 +1742,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * Returns true if the new version code is greater than the current database version.
      *
      * @param newVersion The new version code.
-     * @return True if the new version code is greater than the current database version. 
+     * @return True if the new version code is greater than the current database version.
      */
     public boolean needUpgrade(int newVersion) {
         return newVersion > getVersion();

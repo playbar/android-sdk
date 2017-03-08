@@ -17,6 +17,7 @@
 package android.support.v4.widget;
 
 import android.graphics.drawable.Drawable;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.widget.TextView;
@@ -36,8 +37,13 @@ class TextViewCompatJbMr2 {
     }
 
     public static void setCompoundDrawablesRelativeWithIntrinsicBounds(@NonNull TextView textView,
-            int start, int top, int end, int bottom) {
+            @DrawableRes int start, @DrawableRes int top, @DrawableRes int end,
+            @DrawableRes int bottom) {
         textView.setCompoundDrawablesRelativeWithIntrinsicBounds(start, top, end, bottom);
+    }
+
+    public static Drawable[] getCompoundDrawablesRelative(@NonNull TextView textView) {
+        return textView.getCompoundDrawablesRelative();
     }
 
 }

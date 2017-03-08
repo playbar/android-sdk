@@ -48,6 +48,7 @@ public final class NetworkCapabilities implements Parcelable {
             mLinkUpBandwidthKbps = nc.mLinkUpBandwidthKbps;
             mLinkDownBandwidthKbps = nc.mLinkDownBandwidthKbps;
             mNetworkSpecifier = nc.mNetworkSpecifier;
+            mSignalStrength = nc.mSignalStrength;
         }
     }
 
@@ -60,6 +61,7 @@ public final class NetworkCapabilities implements Parcelable {
         mNetworkCapabilities = mTransportTypes = 0;
         mLinkUpBandwidthKbps = mLinkDownBandwidthKbps = 0;
         mNetworkSpecifier = null;
+        mSignalStrength = SIGNAL_STRENGTH_UNSPECIFIED;
     }
 
     /**
@@ -180,8 +182,50 @@ public final class NetworkCapabilities implements Parcelable {
      */
     public static final int NET_CAPABILITY_CAPTIVE_PORTAL = 17;
 
+    /**
+     * Indicates that this network is available for use by apps, and not a network that is being
+     * kept up in the background to facilitate fast network switching.
+     * @hide
+     */
+    public static final int NET_CAPABILITY_FOREGROUND = 18;
+
     private static final int MIN_NET_CAPABILITY = NET_CAPABILITY_MMS;
-    private static final int MAX_NET_CAPABILITY = NET_CAPABILITY_CAPTIVE_PORTAL;
+    private static final int MAX_NET_CAPABILITY = NET_CAPABILITY_FOREGROUND;
+
+    /**
+     * Network capabilities that are expected to be mutable, i.e., can change while a particular
+     * network is connected.
+     */
+    private static final long MUTABLE_CAPABILITIES =
+            // TRUSTED can change when user explicitly connects to an untrusted network in Settings.
+            // http://b/18206275
+            (1 << NET_CAPABILITY_TRUSTED) |
+            (1 << NET_CAPABILITY_VALIDATED) |
+            (1 << NET_CAPABILITY_CAPTIVE_PORTAL) |
+            (1 << NET_CAPABILITY_FOREGROUND);
+
+    /**
+     * Network specifier for factories which want to match any network specifier
+     * (NS) in a request. Behavior:
+     * <li>Empty NS in request matches any network factory NS</li>
+     * <li>Empty NS in the network factory NS only matches a request with an
+     * empty NS</li>
+     * <li>"*" (this constant) NS in the network factory matches requests with
+     * any NS</li>
+     *
+     * @hide
+     */
+    public static final String MATCH_ALL_REQUESTS_NETWORK_SPECIFIER = "*";
+
+    /**
+     * Network capabilities that are not allowed in NetworkRequests. This exists because the
+     * NetworkFactory / NetworkAgent model does not deal well with the situation where a
+     * capability's presence cannot be known in advance. If such a capability is requested, then we
+     * can get into a cycle where the NetworkFactory endlessly churns out NetworkAgents that then
+     * get immediately torn down because they do not have the requested capability.
+     */
+    private static final long NON_REQUESTABLE_CAPABILITIES =
+            MUTABLE_CAPABILITIES & ~(1 << NET_CAPABILITY_TRUSTED);
 
     /**
      * Capabilities that are set by default when the object is constructed.
@@ -211,7 +255,7 @@ public final class NetworkCapabilities implements Parcelable {
      * for a network to satisfy a request, all capabilities requested must be satisfied.
      *
      * @param capability the {@code NetworkCapabilities.NET_CAPABILITY_*} to be added.
-     * @return This NetworkCapability to facilitate chaining.
+     * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
     public NetworkCapabilities addCapability(int capability) {
@@ -226,7 +270,7 @@ public final class NetworkCapabilities implements Parcelable {
      * Removes (if found) the given capability from this {@code NetworkCapability} instance.
      *
      * @param capability the {@code NetworkCapabilities.NET_CAPABILTIY_*} to be removed.
-     * @return This NetworkCapability to facilitate chaining.
+     * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
     public NetworkCapabilities removeCapability(int capability) {
@@ -278,13 +322,47 @@ public final class NetworkCapabilities implements Parcelable {
         this.mNetworkCapabilities |= nc.mNetworkCapabilities;
     }
 
-    private boolean satisfiedByNetCapabilities(NetworkCapabilities nc) {
-        return ((nc.mNetworkCapabilities & this.mNetworkCapabilities) == this.mNetworkCapabilities);
+    /**
+     * Convenience function that returns a human-readable description of the first mutable
+     * capability we find. Used to present an error message to apps that request mutable
+     * capabilities.
+     *
+     * @hide
+     */
+    public String describeFirstNonRequestableCapability() {
+        if (hasCapability(NET_CAPABILITY_VALIDATED)) return "NET_CAPABILITY_VALIDATED";
+        if (hasCapability(NET_CAPABILITY_CAPTIVE_PORTAL)) return "NET_CAPABILITY_CAPTIVE_PORTAL";
+        if (hasCapability(NET_CAPABILITY_FOREGROUND)) return "NET_CAPABILITY_FOREGROUND";
+        // This cannot happen unless the preceding checks are incomplete.
+        if ((mNetworkCapabilities & NON_REQUESTABLE_CAPABILITIES) != 0) {
+            return "unknown non-requestable capabilities " + Long.toHexString(mNetworkCapabilities);
+        }
+        if (mLinkUpBandwidthKbps != 0 || mLinkDownBandwidthKbps != 0) return "link bandwidth";
+        if (hasSignalStrength()) return "signalStrength";
+        return null;
+    }
+
+    private boolean satisfiedByNetCapabilities(NetworkCapabilities nc, boolean onlyImmutable) {
+        long networkCapabilities = this.mNetworkCapabilities;
+        if (onlyImmutable) {
+            networkCapabilities = networkCapabilities & ~MUTABLE_CAPABILITIES;
+        }
+        return ((nc.mNetworkCapabilities & networkCapabilities) == networkCapabilities);
     }
 
     /** @hide */
     public boolean equalsNetCapabilities(NetworkCapabilities nc) {
         return (nc.mNetworkCapabilities == this.mNetworkCapabilities);
+    }
+
+    private boolean equalsNetCapabilitiesImmutable(NetworkCapabilities that) {
+        return ((this.mNetworkCapabilities & ~MUTABLE_CAPABILITIES) ==
+                (that.mNetworkCapabilities & ~MUTABLE_CAPABILITIES));
+    }
+
+    private boolean equalsNetCapabilitiesRequestable(NetworkCapabilities that) {
+        return ((this.mNetworkCapabilities & ~NON_REQUESTABLE_CAPABILITIES) ==
+                (that.mNetworkCapabilities & ~NON_REQUESTABLE_CAPABILITIES));
     }
 
     /**
@@ -299,8 +377,12 @@ public final class NetworkCapabilities implements Parcelable {
     public void maybeMarkCapabilitiesRestricted() {
         // If all the capabilities are typically provided by restricted networks, conclude that this
         // network is restricted.
-        if ((mNetworkCapabilities & ~(DEFAULT_CAPABILITIES | RESTRICTED_CAPABILITIES)) == 0)
+        if ((mNetworkCapabilities & ~(DEFAULT_CAPABILITIES | RESTRICTED_CAPABILITIES)) == 0 &&
+                // Must have at least some restricted capabilities, otherwise a request for an
+                // internet-less network will get marked restricted.
+                (mNetworkCapabilities & RESTRICTED_CAPABILITIES) != 0) {
             removeCapability(NET_CAPABILITY_NOT_RESTRICTED);
+        }
     }
 
     /**
@@ -349,7 +431,7 @@ public final class NetworkCapabilities implements Parcelable {
      * {@code NetworkCapabilities.NET_CAPABILITY_*} listed above.
      *
      * @param transportType the {@code NetworkCapabilities.TRANSPORT_*} to be added.
-     * @return This NetworkCapability to facilitate chaining.
+     * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
     public NetworkCapabilities addTransportType(int transportType) {
@@ -365,7 +447,7 @@ public final class NetworkCapabilities implements Parcelable {
      * Removes (if found) the given transport from this {@code NetworkCapability} instance.
      *
      * @param transportType the {@code NetworkCapabilities.TRANSPORT_*} to be removed.
-     * @return This NetworkCapability to facilitate chaining.
+     * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
     public NetworkCapabilities removeTransportType(int transportType) {
@@ -509,14 +591,16 @@ public final class NetworkCapabilities implements Parcelable {
      * @param networkSpecifier An {@code String} of opaque format used to specify the bearer
      *                         specific network specifier where the bearer has a choice of
      *                         networks.
+     * @return This NetworkCapabilities instance, to facilitate chaining.
      * @hide
      */
-    public void setNetworkSpecifier(String networkSpecifier) {
+    public NetworkCapabilities setNetworkSpecifier(String networkSpecifier) {
         if (TextUtils.isEmpty(networkSpecifier) == false && Long.bitCount(mTransportTypes) != 1) {
             throw new IllegalStateException("Must have a single transport specified to use " +
                     "setNetworkSpecifier");
         }
         mNetworkSpecifier = networkSpecifier;
+        return this;
     }
 
     /**
@@ -540,7 +624,8 @@ public final class NetworkCapabilities implements Parcelable {
     }
     private boolean satisfiedBySpecifier(NetworkCapabilities nc) {
         return (TextUtils.isEmpty(mNetworkSpecifier) ||
-                mNetworkSpecifier.equals(nc.mNetworkSpecifier));
+                mNetworkSpecifier.equals(nc.mNetworkSpecifier) ||
+                MATCH_ALL_REQUESTS_NETWORK_SPECIFIER.equals(nc.mNetworkSpecifier));
     }
     private boolean equalsSpecifier(NetworkCapabilities nc) {
         if (TextUtils.isEmpty(mNetworkSpecifier)) {
@@ -551,26 +636,143 @@ public final class NetworkCapabilities implements Parcelable {
     }
 
     /**
+     * Magic value that indicates no signal strength provided. A request specifying this value is
+     * always satisfied.
+     *
+     * @hide
+     */
+    public static final int SIGNAL_STRENGTH_UNSPECIFIED = Integer.MIN_VALUE;
+
+    /**
+     * Signal strength. This is a signed integer, and higher values indicate better signal.
+     * The exact units are bearer-dependent. For example, Wi-Fi uses RSSI.
+     */
+    private int mSignalStrength;
+
+    /**
+     * Sets the signal strength. This is a signed integer, with higher values indicating a stronger
+     * signal. The exact units are bearer-dependent. For example, Wi-Fi uses the same RSSI units
+     * reported by WifiManager.
+     * <p>
+     * Note that when used to register a network callback, this specifies the minimum acceptable
+     * signal strength. When received as the state of an existing network it specifies the current
+     * value. A value of code SIGNAL_STRENGTH_UNSPECIFIED} means no value when received and has no
+     * effect when requesting a callback.
+     *
+     * @param signalStrength the bearer-specific signal strength.
+     * @hide
+     */
+    public void setSignalStrength(int signalStrength) {
+        mSignalStrength = signalStrength;
+    }
+
+    /**
+     * Returns {@code true} if this object specifies a signal strength.
+     *
+     * @hide
+     */
+    public boolean hasSignalStrength() {
+        return mSignalStrength > SIGNAL_STRENGTH_UNSPECIFIED;
+    }
+
+    /**
+     * Retrieves the signal strength.
+     *
+     * @return The bearer-specific signal strength.
+     * @hide
+     */
+    public int getSignalStrength() {
+        return mSignalStrength;
+    }
+
+    private void combineSignalStrength(NetworkCapabilities nc) {
+        this.mSignalStrength = Math.max(this.mSignalStrength, nc.mSignalStrength);
+    }
+
+    private boolean satisfiedBySignalStrength(NetworkCapabilities nc) {
+        return this.mSignalStrength <= nc.mSignalStrength;
+    }
+
+    private boolean equalsSignalStrength(NetworkCapabilities nc) {
+        return this.mSignalStrength == nc.mSignalStrength;
+    }
+
+    /**
      * Combine a set of Capabilities to this one.  Useful for coming up with the complete set
-     * {@hide}
+     * @hide
      */
     public void combineCapabilities(NetworkCapabilities nc) {
         combineNetCapabilities(nc);
         combineTransportTypes(nc);
         combineLinkBandwidths(nc);
         combineSpecifiers(nc);
+        combineSignalStrength(nc);
     }
 
     /**
-     * Check if our requirements are satisfied by the given Capabilities.
-     * {@hide}
+     * Check if our requirements are satisfied by the given {@code NetworkCapabilities}.
+     *
+     * @param nc the {@code NetworkCapabilities} that may or may not satisfy our requirements.
+     * @param onlyImmutable if {@code true}, do not consider mutable requirements such as link
+     *         bandwidth, signal strength, or validation / captive portal status.
+     *
+     * @hide
+     */
+    private boolean satisfiedByNetworkCapabilities(NetworkCapabilities nc, boolean onlyImmutable) {
+        return (nc != null &&
+                satisfiedByNetCapabilities(nc, onlyImmutable) &&
+                satisfiedByTransportTypes(nc) &&
+                (onlyImmutable || satisfiedByLinkBandwidths(nc)) &&
+                satisfiedBySpecifier(nc) &&
+                (onlyImmutable || satisfiedBySignalStrength(nc)));
+    }
+
+    /**
+     * Check if our requirements are satisfied by the given {@code NetworkCapabilities}.
+     *
+     * @param nc the {@code NetworkCapabilities} that may or may not satisfy our requirements.
+     *
+     * @hide
      */
     public boolean satisfiedByNetworkCapabilities(NetworkCapabilities nc) {
-        return (nc != null &&
-                satisfiedByNetCapabilities(nc) &&
-                satisfiedByTransportTypes(nc) &&
-                satisfiedByLinkBandwidths(nc) &&
-                satisfiedBySpecifier(nc));
+        return satisfiedByNetworkCapabilities(nc, false);
+    }
+
+    /**
+     * Check if our immutable requirements are satisfied by the given {@code NetworkCapabilities}.
+     *
+     * @param nc the {@code NetworkCapabilities} that may or may not satisfy our requirements.
+     *
+     * @hide
+     */
+    public boolean satisfiedByImmutableNetworkCapabilities(NetworkCapabilities nc) {
+        return satisfiedByNetworkCapabilities(nc, true);
+    }
+
+    /**
+     * Checks that our immutable capabilities are the same as those of the given
+     * {@code NetworkCapabilities}.
+     *
+     * @hide
+     */
+    public boolean equalImmutableCapabilities(NetworkCapabilities nc) {
+        if (nc == null) return false;
+        return (equalsNetCapabilitiesImmutable(nc) &&
+                equalsTransportTypes(nc) &&
+                equalsSpecifier(nc));
+    }
+
+    /**
+     * Checks that our requestable capabilities are the same as those of the given
+     * {@code NetworkCapabilities}.
+     *
+     * @hide
+     */
+    public boolean equalRequestableCapabilities(NetworkCapabilities nc) {
+        if (nc == null) return false;
+        return (equalsNetCapabilitiesRequestable(nc) &&
+                equalsTransportTypes(nc) &&
+                equalsSpecifier(nc));
     }
 
     @Override
@@ -580,6 +782,7 @@ public final class NetworkCapabilities implements Parcelable {
         return (equalsNetCapabilities(that) &&
                 equalsTransportTypes(that) &&
                 equalsLinkBandwidths(that) &&
+                equalsSignalStrength(that) &&
                 equalsSpecifier(that));
     }
 
@@ -591,7 +794,8 @@ public final class NetworkCapabilities implements Parcelable {
                 ((int)(mTransportTypes >> 32) * 7) +
                 (mLinkUpBandwidthKbps * 11) +
                 (mLinkDownBandwidthKbps * 13) +
-                (TextUtils.isEmpty(mNetworkSpecifier) ? 0 : mNetworkSpecifier.hashCode() * 17));
+                (TextUtils.isEmpty(mNetworkSpecifier) ? 0 : mNetworkSpecifier.hashCode() * 17) +
+                (mSignalStrength * 19));
     }
 
     @Override
@@ -605,7 +809,9 @@ public final class NetworkCapabilities implements Parcelable {
         dest.writeInt(mLinkUpBandwidthKbps);
         dest.writeInt(mLinkDownBandwidthKbps);
         dest.writeString(mNetworkSpecifier);
+        dest.writeInt(mSignalStrength);
     }
+
     public static final Creator<NetworkCapabilities> CREATOR =
         new Creator<NetworkCapabilities>() {
             @Override
@@ -617,6 +823,7 @@ public final class NetworkCapabilities implements Parcelable {
                 netCap.mLinkUpBandwidthKbps = in.readInt();
                 netCap.mLinkDownBandwidthKbps = in.readInt();
                 netCap.mNetworkSpecifier = in.readString();
+                netCap.mSignalStrength = in.readInt();
                 return netCap;
             }
             @Override
@@ -628,17 +835,7 @@ public final class NetworkCapabilities implements Parcelable {
     @Override
     public String toString() {
         int[] types = getTransportTypes();
-        String transports = (types.length > 0 ? " Transports: " : "");
-        for (int i = 0; i < types.length;) {
-            switch (types[i]) {
-                case TRANSPORT_CELLULAR:    transports += "CELLULAR"; break;
-                case TRANSPORT_WIFI:        transports += "WIFI"; break;
-                case TRANSPORT_BLUETOOTH:   transports += "BLUETOOTH"; break;
-                case TRANSPORT_ETHERNET:    transports += "ETHERNET"; break;
-                case TRANSPORT_VPN:         transports += "VPN"; break;
-            }
-            if (++i < types.length) transports += "|";
-        }
+        String transports = (types.length > 0) ? " Transports: " + transportNamesOf(types) : "";
 
         types = getCapabilities();
         String capabilities = (types.length > 0 ? " Capabilities: " : "");
@@ -662,6 +859,7 @@ public final class NetworkCapabilities implements Parcelable {
                 case NET_CAPABILITY_NOT_VPN:        capabilities += "NOT_VPN"; break;
                 case NET_CAPABILITY_VALIDATED:      capabilities += "VALIDATED"; break;
                 case NET_CAPABILITY_CAPTIVE_PORTAL: capabilities += "CAPTIVE_PORTAL"; break;
+                case NET_CAPABILITY_FOREGROUND:     capabilities += "FOREGROUND"; break;
             }
             if (++i < types.length) capabilities += "&";
         }
@@ -674,6 +872,26 @@ public final class NetworkCapabilities implements Parcelable {
         String specifier = (mNetworkSpecifier == null ?
                 "" : " Specifier: <" + mNetworkSpecifier + ">");
 
-        return "[" + transports + capabilities + upBand + dnBand + specifier + "]";
+        String signalStrength = (hasSignalStrength() ? " SignalStrength: " + mSignalStrength : "");
+
+        return "[" + transports + capabilities + upBand + dnBand + specifier + signalStrength + "]";
+    }
+
+    /**
+     * @hide
+     */
+    public static String transportNamesOf(int[] types) {
+        String transports = "";
+        for (int i = 0; i < types.length;) {
+            switch (types[i]) {
+                case TRANSPORT_CELLULAR:    transports += "CELLULAR"; break;
+                case TRANSPORT_WIFI:        transports += "WIFI"; break;
+                case TRANSPORT_BLUETOOTH:   transports += "BLUETOOTH"; break;
+                case TRANSPORT_ETHERNET:    transports += "ETHERNET"; break;
+                case TRANSPORT_VPN:         transports += "VPN"; break;
+            }
+            if (++i < types.length) transports += "|";
+        }
+        return transports;
     }
 }

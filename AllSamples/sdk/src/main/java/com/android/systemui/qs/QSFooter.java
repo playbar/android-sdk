@@ -19,6 +19,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -36,11 +37,11 @@ import com.android.systemui.statusbar.phone.QSTileHost;
 import com.android.systemui.statusbar.phone.SystemUIDialog;
 import com.android.systemui.statusbar.policy.SecurityController;
 
+import static android.provider.Settings.ACTION_VPN_SETTINGS;
+
 public class QSFooter implements OnClickListener, DialogInterface.OnClickListener {
     protected static final String TAG = "QSFooter";
     protected static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-
-    private static final String ACTION_VPN_SETTINGS = "android.net.vpn.SETTINGS";
 
     private final View mRootView;
     private final TextView mFooterText;
@@ -57,6 +58,7 @@ public class QSFooter implements OnClickListener, DialogInterface.OnClickListene
     private boolean mIsVisible;
     private boolean mIsIconVisible;
     private int mFooterTextId;
+    private int mFooterIconId;
 
     public QSFooter(QSPanel qsPanel, Context context) {
         mRootView = LayoutInflater.from(context)
@@ -64,6 +66,7 @@ public class QSFooter implements OnClickListener, DialogInterface.OnClickListene
         mRootView.setOnClickListener(this);
         mFooterText = (TextView) mRootView.findViewById(R.id.footer_text);
         mFooterIcon = (ImageView) mRootView.findViewById(R.id.footer_icon);
+        mFooterIconId = R.drawable.ic_qs_vpn;
         mContext = context;
         mMainHandler = new Handler();
     }
@@ -111,11 +114,20 @@ public class QSFooter implements OnClickListener, DialogInterface.OnClickListene
 
     private void handleRefreshState() {
         mIsIconVisible = mSecurityController.isVpnEnabled();
-        if (mSecurityController.hasDeviceOwner()) {
+        // If the device has device owner, show "Device may be monitored", but --
+        // TODO See b/25779452 -- device owner doesn't actually have monitoring power.
+        if (mSecurityController.isDeviceManaged()) {
             mFooterTextId = R.string.device_owned_footer;
             mIsVisible = true;
         } else {
-            mFooterTextId = R.string.vpn_footer;
+            boolean isBranded = mSecurityController.isVpnBranded();
+            mFooterTextId = isBranded ? R.string.branded_vpn_footer : R.string.vpn_footer;
+            // Update the VPN footer icon, if needed.
+            int footerIconId = isBranded ? R.drawable.ic_qs_branded_vpn : R.drawable.ic_qs_vpn;
+            if (mFooterIconId != footerIconId) {
+                mFooterIconId = footerIconId;
+                mMainHandler.post(mUpdateIcon);
+            }
             mIsVisible = mIsIconVisible;
         }
         mMainHandler.post(mUpdateDisplayState);
@@ -125,7 +137,7 @@ public class QSFooter implements OnClickListener, DialogInterface.OnClickListene
     public void onClick(DialogInterface dialog, int which) {
         if (which == DialogInterface.BUTTON_NEGATIVE) {
             final Intent settingsIntent = new Intent(ACTION_VPN_SETTINGS);
-            mContext.startActivityAsUser(settingsIntent, UserHandle.CURRENT);
+            mHost.startActivityDismissingKeyguard(settingsIntent);
         }
     }
 
@@ -135,27 +147,33 @@ public class QSFooter implements OnClickListener, DialogInterface.OnClickListene
         String primaryVpn = mSecurityController.getPrimaryVpnName();
         String profileVpn = mSecurityController.getProfileVpnName();
         boolean managed = mSecurityController.hasProfileOwner();
+        boolean isBranded = deviceOwner == null && mSecurityController.isVpnBranded();
 
         mDialog = new SystemUIDialog(mContext);
-        mDialog.setTitle(getTitle(deviceOwner));
-        mDialog.setMessage(getMessage(deviceOwner, profileOwner, primaryVpn, profileVpn, managed));
-        mDialog.setButton(DialogInterface.BUTTON_POSITIVE, getPositiveButton(), this);
-        if (mSecurityController.isVpnEnabled()) {
-            mDialog.setButton(DialogInterface.BUTTON_NEGATIVE, getNegativeButton(), this);
+        if (!isBranded) {
+            mDialog.setTitle(getTitle(deviceOwner));
+        }
+        mDialog.setMessage(getMessage(deviceOwner, profileOwner, primaryVpn, profileVpn, managed,
+                isBranded));
+        mDialog.setButton(DialogInterface.BUTTON_POSITIVE, getPositiveButton(isBranded), this);
+        if (mSecurityController.isVpnEnabled() && !mSecurityController.isVpnRestricted()) {
+            mDialog.setButton(DialogInterface.BUTTON_NEGATIVE, getSettingsButton(), this);
         }
         mDialog.show();
     }
 
-    private String getNegativeButton() {
+    private String getSettingsButton() {
         return mContext.getString(R.string.status_bar_settings_settings_button);
     }
 
-    private String getPositiveButton() {
-        return mContext.getString(R.string.quick_settings_done);
+    private String getPositiveButton(boolean isBranded) {
+        return mContext.getString(isBranded ? android.R.string.ok : R.string.quick_settings_done);
     }
 
     private String getMessage(String deviceOwner, String profileOwner, String primaryVpn,
-            String profileVpn, boolean primaryUserIsManaged) {
+            String profileVpn, boolean primaryUserIsManaged, boolean isBranded) {
+        // Show a special warning when the device has device owner, but --
+        // TODO See b/25779452 -- device owner doesn't actually have monitoring power.
         if (deviceOwner != null) {
             if (primaryVpn != null) {
                 return mContext.getString(R.string.monitoring_description_vpn_app_device_owned,
@@ -169,8 +187,13 @@ public class QSFooter implements OnClickListener, DialogInterface.OnClickListene
                 return mContext.getString(R.string.monitoring_description_app_personal_work,
                         profileOwner, profileVpn, primaryVpn);
             } else {
-                return mContext.getString(R.string.monitoring_description_app_personal,
-                        primaryVpn);
+                if (isBranded) {
+                    return mContext.getString(R.string.branded_monitoring_description_app_personal,
+                            primaryVpn);
+                } else {
+                    return mContext.getString(R.string.monitoring_description_app_personal,
+                            primaryVpn);
+                }
             }
         } else if (profileVpn != null) {
             return mContext.getString(R.string.monitoring_description_app_work,
@@ -191,6 +214,13 @@ public class QSFooter implements OnClickListener, DialogInterface.OnClickListene
             return R.string.monitoring_title;
         }
     }
+
+    private final Runnable mUpdateIcon = new Runnable() {
+        @Override
+        public void run() {
+            mFooterIcon.setImageResource(mFooterIconId);
+        }
+    };
 
     private final Runnable mUpdateDisplayState = new Runnable() {
         @Override

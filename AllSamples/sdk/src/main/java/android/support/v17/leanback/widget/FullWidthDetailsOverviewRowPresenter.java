@@ -71,11 +71,11 @@ import java.util.Collection;
  */
 public class FullWidthDetailsOverviewRowPresenter extends RowPresenter {
 
-    private static final String TAG = "FullWidthDetailsOverviewRowPresenter";
-    private static final boolean DEBUG = false;
+    static final String TAG = "FullWidthDetailsOverviewRowPresenter";
+    static final boolean DEBUG = false;
 
     private static Rect sTmpRect = new Rect();
-    private static final Handler sHandler = new Handler();
+    static final Handler sHandler = new Handler();
 
     /**
      * This is the default state corresponding to layout file.  The view takes full width
@@ -290,7 +290,7 @@ public class FullWidthDetailsOverviewRowPresenter extends RowPresenter {
             return (view.getRight() - view.getLeft()) / 2;
         }
 
-        private void checkFirstAndLastPosition(boolean fromScroll) {
+        void checkFirstAndLastPosition(boolean fromScroll) {
             RecyclerView.ViewHolder viewHolder;
 
             viewHolder = mActionsRow.findViewHolderForPosition(mNumItems - 1);
@@ -383,9 +383,9 @@ public class FullWidthDetailsOverviewRowPresenter extends RowPresenter {
 
     protected int mInitialState = STATE_HALF;
 
-    private final Presenter mDetailsPresenter;
-    private final DetailsOverviewLogoPresenter mDetailsOverviewLogoPresenter;
-    private OnActionClickedListener mActionClickedListener;
+    final Presenter mDetailsPresenter;
+    final DetailsOverviewLogoPresenter mDetailsOverviewLogoPresenter;
+    OnActionClickedListener mActionClickedListener;
 
     private int mBackgroundColor = Color.TRANSPARENT;
     private int mActionsBackgroundColor = Color.TRANSPARENT;
@@ -528,19 +528,6 @@ public class FullWidthDetailsOverviewRowPresenter extends RowPresenter {
         mListener = listener;
     }
 
-    private int getDefaultBackgroundColor(Context context) {
-        TypedValue outValue = new TypedValue();
-        if (context.getTheme().resolveAttribute(R.attr.defaultBrandColor, outValue, true)) {
-            return context.getResources().getColor(outValue.resourceId);
-        }
-        return context.getResources().getColor(R.color.lb_default_brand_color);
-    }
-
-    private int getDefaultActionsBackgroundColor(Context context) {
-        int c = getDefaultBackgroundColor(context);
-        return Color.argb(Color.alpha(c), Color.red(c) / 2, Color.green(c) / 2, Color.blue(c) / 2);
-    }
-
     /**
      * Get resource id to inflate the layout.  The layout must match {@link #STATE_HALF}
      */
@@ -558,13 +545,13 @@ public class FullWidthDetailsOverviewRowPresenter extends RowPresenter {
 
         vh.mActionBridgeAdapter = new ActionsItemBridgeAdapter(vh);
         final View overview = vh.mOverviewFrame;
-        final int bgColor = mBackgroundColorSet ? mBackgroundColor :
-                getDefaultBackgroundColor(overview.getContext());
-        overview.setBackgroundColor(bgColor);
-        final int actionBgColor = mActionsBackgroundColorSet ? mActionsBackgroundColor :
-                getDefaultActionsBackgroundColor(overview.getContext());
-        overview.findViewById(R.id.details_overview_actions_background)
-                .setBackgroundColor(actionBgColor);
+        if (mBackgroundColorSet) {
+            overview.setBackgroundColor(mBackgroundColor);
+        }
+        if (mActionsBackgroundColorSet) {
+            overview.findViewById(R.id.details_overview_actions_background)
+                    .setBackgroundColor(mActionsBackgroundColor);
+        }
         RoundedRectHelper.getInstance().setClipToRoundedOutline(overview, true);
 
         if (!getSelectEffectEnabled()) {

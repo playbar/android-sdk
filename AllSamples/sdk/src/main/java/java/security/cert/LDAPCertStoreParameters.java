@@ -1,128 +1,149 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2000, 2001, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security.cert;
 
 /**
- * The parameters to initialize a LDAP {@code CertStore} instance.
+ * Parameters used as input for the LDAP <code>CertStore</code> algorithm.
+ * <p>
+ * This class is used to provide necessary configuration parameters (server
+ * name and port number) to implementations of the LDAP <code>CertStore</code>
+ * algorithm.
+ * <p>
+ * <b>Concurrent Access</b>
+ * <p>
+ * Unless otherwise specified, the methods defined in this class are not
+ * thread-safe. Multiple threads that need to access a single
+ * object concurrently should synchronize amongst themselves and
+ * provide the necessary locking. Multiple threads each manipulating
+ * separate objects need not synchronize.
+ *
+ * @since       1.4
+ * @author      Steve Hanna
+ * @see         CertStore
  */
 public class LDAPCertStoreParameters implements CertStoreParameters {
-    // Default LDAP server name
-    private static final String DEFAULT_LDAP_SERVER_NAME = "localhost";
-    // Default LDAP server port number
-    private static final int DEFAULT_LDAP_PORT  = 389;
 
-    // LDAP server name for this cert store
-    private final String serverName;
-    // LDAP server port number for this cert store
-    private final int port;
+    private static final int LDAP_DEFAULT_PORT = 389;
 
     /**
-     * Creates a new {@code LDAPCertStoreParameters} instance with the specified
-     * server name and port.
+     * the port number of the LDAP server
+     */
+    private int port;
+
+    /**
+     * the DNS name of the LDAP server
+     */
+    private String serverName;
+
+    /**
+     * Creates an instance of <code>LDAPCertStoreParameters</code> with the
+     * specified parameter values.
      *
-     * @param serverName
-     *            the LDAP server name.
-     * @param port
-     *            the port.
-     * @throws NullPointerException
-     *             is {@code serverName} is {@code null}.
+     * @param serverName the DNS name of the LDAP server
+     * @param port the port number of the LDAP server
+     * @exception NullPointerException if <code>serverName</code> is
+     * <code>null</code>
      */
     public LDAPCertStoreParameters(String serverName, int port) {
-        if (serverName == null) {
-            throw new NullPointerException("serverName == null");
-        }
-        this.port = port;
+        if (serverName == null)
+            throw new NullPointerException();
         this.serverName = serverName;
+        this.port = port;
     }
 
     /**
-     * Creates a new {@code LDAPCertStoreParameters} instance with default
-     * parameters.
-     * <p>
-     * The default parameters are server name "localhost" and port 389.
-     */
-    public LDAPCertStoreParameters() {
-        this.serverName = DEFAULT_LDAP_SERVER_NAME;
-        this.port = DEFAULT_LDAP_PORT;
-    }
-
-    /**
-     * Creates a new {@code LDAPCertStoreParameters} instance with the specified
-     * server name and default port 389.
+     * Creates an instance of <code>LDAPCertStoreParameters</code> with the
+     * specified server name and a default port of 389.
      *
-     * @param serverName
-     *            the LDAP server name.
-     * @throws NullPointerException
-     *             if {@code serverName} is {@code null}.
+     * @param serverName the DNS name of the LDAP server
+     * @exception NullPointerException if <code>serverName</code> is
+     * <code>null</code>
      */
     public LDAPCertStoreParameters(String serverName) {
-        if (serverName == null) {
-            throw new NullPointerException("serverName == null");
-        }
-        this.port = DEFAULT_LDAP_PORT;
-        this.serverName = serverName;
+        this(serverName, LDAP_DEFAULT_PORT);
     }
 
     /**
-     * Clones this {@code LDAPCertStoreParameters} instance.
-     *
-     * @return the cloned instance.
+     * Creates an instance of <code>LDAPCertStoreParameters</code> with the
+     * default parameter values (server name "localhost", port 389).
      */
-    public Object clone() {
-        try {
-            return super.clone();
-        } catch (CloneNotSupportedException e) {
-            return null;
-        }
+    public LDAPCertStoreParameters() {
+        this("localhost", LDAP_DEFAULT_PORT);
     }
 
     /**
-     * Returns the LDAP server port.
+     * Returns the DNS name of the LDAP server.
      *
-     * @return the LDAP server port.
-     */
-    public int getPort() {
-        return port;
-    }
-
-    /**
-     * Returns the LDAP server name.
-     *
-     * @return the LDAP server name.
+     * @return the name (not <code>null</code>)
      */
     public String getServerName() {
         return serverName;
     }
 
     /**
-     * Returns the string representation of this {@code LDAPCertStoreParameters}
-     * instance.
+     * Returns the port number of the LDAP server.
      *
-     * @return the string representation of this {@code LDAPCertStoreParameters}
-     *         instance.
+     * @return the port number
+     */
+    public int getPort() {
+        return port;
+    }
+
+    /**
+     * Returns a copy of this object. Changes to the copy will not affect
+     * the original and vice versa.
+     * <p>
+     * Note: this method currently performs a shallow copy of the object
+     * (simply calls <code>Object.clone()</code>). This may be changed in a
+     * future revision to perform a deep copy if new parameters are added
+     * that should not be shared.
+     *
+     * @return the copy
+     */
+    public Object clone() {
+        try {
+            return super.clone();
+        } catch (CloneNotSupportedException e) {
+            /* Cannot happen */
+            throw new InternalError(e.toString());
+        }
+    }
+
+    /**
+     * Returns a formatted string describing the parameters.
+     *
+     * @return a formatted string describing the parameters
      */
     public String toString() {
-        StringBuilder sb =
-            new StringBuilder("LDAPCertStoreParameters: [\n serverName: ");
-        sb.append(getServerName());
-        sb.append("\n port: ");
-        sb.append(getPort());
-        sb.append("\n]");
+        StringBuffer sb = new StringBuffer();
+        sb.append("LDAPCertStoreParameters: [\n");
+
+        sb.append("  serverName: " + serverName + "\n");
+        sb.append("  port: " + port + "\n");
+        sb.append("]");
         return sb.toString();
     }
 }

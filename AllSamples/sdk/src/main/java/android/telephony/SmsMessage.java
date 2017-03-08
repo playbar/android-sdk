@@ -204,7 +204,12 @@ public class SmsMessage {
             return null;
         }
 
-        return new SmsMessage(wrappedMessage);
+        if (wrappedMessage != null) {
+            return new SmsMessage(wrappedMessage);
+        } else {
+            Rlog.e(LOG_TAG, "createFromPdu(): wrappedMessage is null");
+            return null;
+        }
     }
 
     /**
@@ -221,7 +226,12 @@ public class SmsMessage {
         SmsMessageBase wrappedMessage =
                 com.android.internal.telephony.gsm.SmsMessage.newFromCMT(lines);
 
-        return new SmsMessage(wrappedMessage);
+        if (wrappedMessage != null) {
+            return new SmsMessage(wrappedMessage);
+        } else {
+            Rlog.e(LOG_TAG, "newFromCMT(): wrappedMessage is null");
+            return null;
+        }
     }
 
     /** @hide */
@@ -254,7 +264,12 @@ public class SmsMessage {
                     index, data);
         }
 
-        return wrappedMessage != null ? new SmsMessage(wrappedMessage) : null;
+        if (wrappedMessage != null) {
+            return new SmsMessage(wrappedMessage);
+        } else {
+            Rlog.e(LOG_TAG, "createFromEfRecord(): wrappedMessage is null");
+            return null;
+        }
     }
 
     /**
@@ -786,14 +801,16 @@ public class SmsMessage {
             Binder.restoreCallingIdentity(identity);
         }
 
-        for (NoEmsSupportConfig currentConfig : mNoEmsSupportConfigList) {
-            if (simOperator.startsWith(currentConfig.mOperatorNumber) &&
-                (TextUtils.isEmpty(currentConfig.mGid1) ||
-                (!TextUtils.isEmpty(currentConfig.mGid1)
-                && currentConfig.mGid1.equalsIgnoreCase(gid)))) {
-                return false;
+        if (!TextUtils.isEmpty(simOperator)) {
+            for (NoEmsSupportConfig currentConfig : mNoEmsSupportConfigList) {
+                if (simOperator.startsWith(currentConfig.mOperatorNumber) &&
+                        (TextUtils.isEmpty(currentConfig.mGid1) ||
+                                (!TextUtils.isEmpty(currentConfig.mGid1) &&
+                                        currentConfig.mGid1.equalsIgnoreCase(gid)))) {
+                    return false;
+                }
             }
-         }
+        }
         return true;
     }
 

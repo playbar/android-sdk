@@ -1,18 +1,26 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1998, 2003, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security.interfaces;
@@ -20,54 +28,58 @@ package java.security.interfaces;
 import java.math.BigInteger;
 
 /**
- * The interface for a PKCS#1 RSA private key using CRT information values.
+ * The interface to an RSA private key, as defined in the PKCS#1 standard,
+ * using the <i>Chinese Remainder Theorem</i> (CRT) information values.
+ *
+ * @author Jan Luehe
+ *
+ *
+ * @see RSAPrivateKey
  */
+
 public interface RSAPrivateCrtKey extends RSAPrivateKey {
 
-    /**
-     * The serial version identifier.
-     */
-    public static final long serialVersionUID = -5682214253527700368L;
+    static final long serialVersionUID = -5682214253527700368L;
 
     /**
-     * Returns the CRT coefficient, {@code q^-1 mod p}.
+     * Returns the public exponent.
      *
-     * @return the CRT coefficient.
+     * @return the public exponent
      */
-    public BigInteger getCrtCoefficient();
+    public BigInteger getPublicExponent();
 
     /**
-     * Returns the prime factor {@code p} of {@code n}.
-     *
-     * @return the prime factor {@code p} of {@code n}.
+     * Returns the primeP.
+
+     * @return the primeP
      */
     public BigInteger getPrimeP();
 
     /**
-     * Returns the prime factor {@code q} of {@code n}.
+     * Returns the primeQ.
      *
-     * @return the prime factor {@code q} of {@code n}.
+     * @return the primeQ
      */
     public BigInteger getPrimeQ();
 
     /**
-     * Returns the CRT exponent of the primet {@code p}.
+     * Returns the primeExponentP.
      *
-     * @return the CRT exponent of the prime {@code p}.
+     * @return the primeExponentP
      */
     public BigInteger getPrimeExponentP();
 
     /**
-     * Returns the CRT exponent of the prime {@code q}.
+     * Returns the primeExponentQ.
      *
-     * @return the CRT exponent of the prime {@code q}.
+     * @return the primeExponentQ
      */
     public BigInteger getPrimeExponentQ();
 
     /**
-     * Returns the public exponent {@code e}.
+     * Returns the crtCoefficient.
      *
-     * @return the public exponent {@code e}.
+     * @return the crtCoefficient
      */
-    public BigInteger getPublicExponent();
+    public BigInteger getCrtCoefficient();
 }

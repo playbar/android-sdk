@@ -24,9 +24,9 @@ import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StringRes;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.GravityCompat;
 import android.support.v7.appcompat.R;
@@ -42,6 +42,8 @@ import android.widget.SpinnerAdapter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+
 /**
  * A primary toolbar within the activity that may display the activity title, application-level
  * navigation affordances, and other interactive items.
@@ -50,16 +52,15 @@ import java.lang.annotation.RetentionPolicy;
  * AppCompat's {@link R.style#Theme_AppCompat AppCompat} theme (or one of its descendant themes).
  * You may otherwise add the action bar by calling {@link
  * AppCompatDelegate#requestWindowFeature(int)  requestFeature(FEATURE_SUPPORT_ACTION_BAR)} or by
- * declaring it in a custom theme with the {@link R.styleable#Theme_windowActionBar windowActionBar}
- * property.
- * </p>
+ * declaring it in a custom theme with the
+ * {@link R.styleable#AppCompatTheme_windowActionBar windowActionBar} property.</p>
  *
  * <p>The action bar may be represented by any Toolbar widget within the application layout.
  * The application may signal to the Activity which Toolbar should be treated as the Activity's
  * action bar. Activities that use this feature should use one of the supplied
  * <code>.NoActionBar</code> themes, set the
- * {@link R.styleable#Theme_windowActionBar windowActionBar} attribute to <code>false</code>
- * or otherwise not request the window feature.</p>
+ * {@link R.styleable#AppCompatTheme_windowActionBar windowActionBar} attribute to
+ * <code>false</code> or otherwise not request the window feature.</p>
  *
  * <p>If your activity has an options menu, you can make select items accessible directly from the
  * action bar as "action items". You can also  modify various characteristics of the action bar or
@@ -90,6 +91,7 @@ import java.lang.annotation.RetentionPolicy;
 public abstract class ActionBar {
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({NAVIGATION_MODE_STANDARD, NAVIGATION_MODE_LIST, NAVIGATION_MODE_TABS})
     public @interface NavigationMode {}
@@ -105,6 +107,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public static final int NAVIGATION_MODE_STANDARD = 0;
 
     /**
@@ -117,6 +120,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public static final int NAVIGATION_MODE_LIST = 1;
 
     /**
@@ -128,9 +132,11 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public static final int NAVIGATION_MODE_TABS = 2;
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     @IntDef(flag=true, value={
             DISPLAY_USE_LOGO,
             DISPLAY_SHOW_HOME,
@@ -328,6 +334,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void setListNavigationCallbacks(SpinnerAdapter adapter,
             OnNavigationListener callback);
 
@@ -341,6 +348,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void setSelectedNavigationItem(int position);
 
     /**
@@ -353,6 +361,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract int getSelectedNavigationIndex();
 
     /**
@@ -365,6 +374,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract int getNavigationItemCount();
 
     /**
@@ -568,6 +578,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     @NavigationMode
     public abstract int getNavigationMode();
 
@@ -584,6 +595,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void setNavigationMode(@NavigationMode int mode);
 
     /**
@@ -596,12 +608,6 @@ public abstract class ActionBar {
      * Create and return a new {@link Tab}.
      * This tab will not be included in the action bar until it is added.
      *
-     * <p>Very often tabs will be used to switch between {@link Fragment}
-     * objects.  Here is a typical implementation of such tabs:</p>
-     *
-     * {@sample development/samples/ApiDemos/src/com/example/android/apis/app/FragmentTabs.java
-     *      complete}
-     *
      * @return A new Tab
      *
      * @see #addTab(Tab)
@@ -611,6 +617,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract Tab newTab();
 
     /**
@@ -624,6 +631,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void addTab(Tab tab);
 
     /**
@@ -637,6 +645,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void addTab(Tab tab, boolean setSelected);
 
     /**
@@ -652,10 +661,11 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void addTab(Tab tab, int position);
 
     /**
-     * Add a tab for use in tabbed navigation mode. The tab will be insterted at
+     * Add a tab for use in tabbed navigation mode. The tab will be inserted at
      * <code>position</code>.
      *
      * @param tab The tab to add
@@ -667,6 +677,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void addTab(Tab tab, int position, boolean setSelected);
 
     /**
@@ -680,6 +691,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void removeTab(Tab tab);
 
     /**
@@ -693,6 +705,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void removeTabAt(int position);
 
     /**
@@ -703,6 +716,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void removeAllTabs();
 
     /**
@@ -717,6 +731,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract void selectTab(Tab tab);
 
     /**
@@ -730,6 +745,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     @Nullable
     public abstract Tab getSelectedTab();
 
@@ -744,6 +760,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract Tab getTabAt(int index);
 
     /**
@@ -756,6 +773,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public abstract int getTabCount();
 
     /**
@@ -813,7 +831,7 @@ public abstract class ActionBar {
 
     /**
      * Enable or disable the "home" button in the corner of the action bar. (Note that this
-     * is the application home/up affordance on the action bar, not the systemwide home
+     * is the application home/up affordance on the action bar, not the system wide home
      * button.)
      *
      * <p>This defaults to true for packages targeting &lt; API 14. For packages targeting
@@ -847,6 +865,7 @@ public abstract class ActionBar {
      * @return true if the Title field has been truncated
      * @hide pending API approval
      */
+    @RestrictTo(GROUP_ID)
     public boolean isTitleTruncated() { return false; }
 
     /**
@@ -1017,53 +1036,79 @@ public abstract class ActionBar {
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public void setDefaultDisplayHomeAsUpEnabled(boolean enabled) {
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public void setShowHideAnimationEnabled(boolean enabled) {
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public void onConfigurationChanged(Configuration config) {
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public void dispatchMenuVisibilityChanged(boolean visible) {
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public ActionMode startActionMode(ActionMode.Callback callback) {
         return null;
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public boolean openOptionsMenu() {
         return false;
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public boolean invalidateOptionsMenu() {
         return false;
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public boolean onMenuKeyEvent(KeyEvent event) {
         return false;
     }
 
     /** @hide **/
+    @RestrictTo(GROUP_ID)
     public boolean onKeyShortcut(int keyCode, KeyEvent ev) {
         return false;
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public boolean collapseActionView() {
         return false;
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     public void setWindowTitle(CharSequence title) {
+    }
+
+    /**
+     * Attempts to move focus to the ActionBar if it does not already contain the focus.
+     *
+     * @return {@code true} if focus changes or {@code false} if focus doesn't change.
+     */
+    boolean requestFocus() {
+        return false;
+    }
+
+    /**
+     * Clean up any resources
+     */
+    void onDestroy() {
     }
 
     /**
@@ -1074,6 +1119,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public interface OnNavigationListener {
         /**
          * This method is called whenever a navigation item in your action bar
@@ -1112,6 +1158,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public static abstract class Tab {
 
         /**
@@ -1269,6 +1316,7 @@ public abstract class ActionBar {
      * <a href="http://developer.android.com/design/patterns/navigation.html">common
      * navigation patterns</a> instead.
      */
+    @Deprecated
     public interface TabListener {
 
         /**

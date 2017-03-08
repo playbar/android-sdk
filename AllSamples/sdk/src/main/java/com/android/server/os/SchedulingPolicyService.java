@@ -40,12 +40,13 @@ public class SchedulingPolicyService extends ISchedulingPolicyService.Stub {
     public int requestPriority(int pid, int tid, int prio) {
         //Log.i(TAG, "requestPriority(pid=" + pid + ", tid=" + tid + ", prio=" + prio + ")");
 
-        // Verify that caller is mediaserver, priority is in range, and that the
-        // callback thread specified by app belongs to the app that called mediaserver.
-        // Once we've verified that the caller is mediaserver, we can trust the pid but
+        // Verify that the caller uid is permitted, priority is in range,
+        // and that the callback thread specified by app belongs to the app that
+        // called mediaserver or audioserver.
+        // Once we've verified that the caller uid is permitted, we can trust the pid but
         // we can't trust the tid.  No need to explicitly check for pid == 0 || tid == 0,
         // since if not the case then the getThreadGroupLeader() test will also fail.
-        if (Binder.getCallingUid() != Process.MEDIA_UID || prio < PRIORITY_MIN ||
+        if (!isPermittedCallingUid() || prio < PRIORITY_MIN ||
                 prio > PRIORITY_MAX || Process.getThreadGroupLeader(tid) != pid) {
             return PackageManager.PERMISSION_DENIED;
         }
@@ -54,11 +55,22 @@ public class SchedulingPolicyService extends ISchedulingPolicyService.Stub {
             Process.setThreadGroup(tid, Binder.getCallingPid() == pid ?
                     Process.THREAD_GROUP_AUDIO_SYS : Process.THREAD_GROUP_AUDIO_APP);
             // must be in this order or it fails the schedulability constraint
-            Process.setThreadScheduler(tid, Process.SCHED_FIFO, prio);
+            Process.setThreadScheduler(tid, Process.SCHED_FIFO | Process.SCHED_RESET_ON_FORK,
+                prio);
         } catch (RuntimeException e) {
             return PackageManager.PERMISSION_DENIED;
         }
         return PackageManager.PERMISSION_GRANTED;
     }
 
+    private boolean isPermittedCallingUid() {
+        final int callingUid = Binder.getCallingUid();
+        switch (callingUid) {
+        case Process.AUDIOSERVER_UID: // fastcapture, fastmixer
+        case Process.CAMERASERVER_UID: // camera high frame rate recording
+            return true;
+        default:
+            return false;
+        }
+    }
 }

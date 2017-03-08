@@ -19,7 +19,6 @@ package com.android.systemui.statusbar.stack;
 import android.view.View;
 
 import com.android.systemui.statusbar.ActivatableNotificationView;
-import com.android.systemui.statusbar.ExpandableNotificationRow;
 import com.android.systemui.statusbar.policy.HeadsUpManager;
 
 import java.util.ArrayList;
@@ -44,6 +43,7 @@ public class AmbientState {
     private boolean mShadeExpanded;
     private float mMaxHeadsUpTranslation;
     private boolean mDismissAllInProgress;
+    private int mLayoutMinHeight;
 
     public int getScrollY() {
         return mScrollY;
@@ -138,10 +138,6 @@ public class AmbientState {
         mStackTranslation = stackTranslation;
     }
 
-    public int getLayoutHeight() {
-        return mLayoutHeight;
-    }
-
     public void setLayoutHeight(int layoutHeight) {
         mLayoutHeight = layoutHeight;
     }
@@ -155,13 +151,7 @@ public class AmbientState {
     }
 
     public int getInnerHeight() {
-        return mLayoutHeight - mTopPadding - getTopHeadsUpPushIn();
-    }
-
-    private int getTopHeadsUpPushIn() {
-        ExpandableNotificationRow topHeadsUpEntry = getTopHeadsUpEntry();
-        return topHeadsUpEntry != null ? topHeadsUpEntry.getHeadsUpHeight()
-                - topHeadsUpEntry.getMinHeight(): 0;
+        return Math.max(mLayoutHeight - mTopPadding, mLayoutMinHeight);
     }
 
     public boolean isShadeExpanded() {
@@ -180,16 +170,15 @@ public class AmbientState {
         return mMaxHeadsUpTranslation;
     }
 
-    public ExpandableNotificationRow getTopHeadsUpEntry() {
-        HeadsUpManager.HeadsUpEntry topEntry = mHeadsUpManager.getTopEntry();
-        return topEntry == null ? null : topEntry.entry.row;
-    }
-
     public void setDismissAllInProgress(boolean dismissAllInProgress) {
         mDismissAllInProgress = dismissAllInProgress;
     }
 
     public boolean isDismissAllInProgress() {
         return mDismissAllInProgress;
+    }
+
+    public void setLayoutMinHeight(int layoutMinHeight) {
+        mLayoutMinHeight = layoutMinHeight;
     }
 }

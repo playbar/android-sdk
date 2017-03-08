@@ -19,9 +19,12 @@ package android.support.v4.widget;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.support.annotation.RestrictTo;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Static library support version of the framework's {@link android.widget.SimpleCursorAdapter}.
@@ -36,12 +39,14 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected int[] mFrom;
     /**
      * A list of View ids representing the views to which the data must be bound.
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected int[] mTo;
 
     private int mStringConversionColumn = -1;
@@ -63,19 +68,19 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
         super(context, layout, c);
         mTo = to;
         mOriginalFrom = from;
-        findColumns(from);
+        findColumns(c, from);
     }
 
     /**
      * Standard constructor.
-     * 
+     *
      * @param context The context where the ListView associated with this
      *            SimpleListItemFactory is running
      * @param layout resource identifier of a layout file that defines the views
      *            for this list item. The layout file should include at least
      *            those named views defined in "to"
      * @param c The database cursor.  Can be null if the cursor is not available yet.
-     * @param from A list of column names representing the data to bind to the UI.  Can be null 
+     * @param from A list of column names representing the data to bind to the UI.  Can be null
      *            if the cursor is not available yet.
      * @param to The views that should display column in the "from" parameter.
      *            These should all be TextViews. The first N views in this list
@@ -89,7 +94,7 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
         super(context, layout, c, flags);
         mTo = to;
         mOriginalFrom = from;
-        findColumns(from);
+        findColumns(c, from);
     }
 
     /**
@@ -108,11 +113,10 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      * binding can be found, an {@link IllegalStateException} is thrown.
      *
      * @throws IllegalStateException if binding cannot occur
-     * 
-     * @see android.widget.CursorAdapter#bindView(android.view.View,
-     *      android.content.Context, android.database.Cursor)
+     *
+     * @see android.widget.CursorAdapter#bindView(View, Context, Cursor)
      * @see #getViewBinder()
-     * @see #setViewBinder(android.widget.SimpleCursorAdapter.ViewBinder)
+     * @see #setViewBinder(ViewBinder)
      * @see #setViewImage(ImageView, String)
      * @see #setViewText(TextView, String)
      */
@@ -142,8 +146,8 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
                     } else if (v instanceof ImageView) {
                         setViewImage((ImageView) v, text);
                     } else {
-                        throw new IllegalStateException(v.getClass().getName() + " is not a " +
-                                " view that can be bounds by this SimpleCursorAdapter");
+                        throw new IllegalStateException(v.getClass().getName() + " is not a "
+                                + " view that can be bounds by this SimpleCursorAdapter");
                     }
                 }
             }
@@ -156,7 +160,7 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      * @return a ViewBinder or null if the binder does not exist
      *
      * @see #bindView(android.view.View, android.content.Context, android.database.Cursor)
-     * @see #setViewBinder(android.widget.SimpleCursorAdapter.ViewBinder)
+     * @see #setViewBinder(ViewBinder)
      */
     public ViewBinder getViewBinder() {
         return mViewBinder;
@@ -201,14 +205,14 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
     /**
      * Called by bindView() to set the text for a TextView but only if
      * there is no existing ViewBinder or if the existing ViewBinder cannot
-     * handle binding to an TextView.
+     * handle binding to a TextView.
      *
      * Intended to be overridden by Adapters that need to filter strings
      * retrieved from the database.
-     * 
+     *
      * @param v TextView to receive text
      * @param text the text to be set for the TextView
-     */    
+     */
     public void setViewText(TextView v, String text) {
         v.setText(text);
     }
@@ -220,8 +224,8 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      * @return a valid index in the current Cursor or -1
      *
      * @see android.widget.CursorAdapter#convertToString(android.database.Cursor)
-     * @see #setStringConversionColumn(int) 
-     * @see #setCursorToStringConverter(android.widget.SimpleCursorAdapter.CursorToStringConverter)
+     * @see #setStringConversionColumn(int)
+     * @see #setCursorToStringConverter(CursorToStringConverter)
      * @see #getCursorToStringConverter()
      */
     public int getStringConversionColumn() {
@@ -239,7 +243,7 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      *
      * @see android.widget.CursorAdapter#convertToString(android.database.Cursor)
      * @see #getStringConversionColumn()
-     * @see #setCursorToStringConverter(android.widget.SimpleCursorAdapter.CursorToStringConverter)
+     * @see #setCursorToStringConverter(CursorToStringConverter)
      * @see #getCursorToStringConverter()
      */
     public void setStringConversionColumn(int stringConversionColumn) {
@@ -253,7 +257,7 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      * @return null if the converter does not exist or an instance of
      *         {@link android.widget.SimpleCursorAdapter.CursorToStringConverter}
      *
-     * @see #setCursorToStringConverter(android.widget.SimpleCursorAdapter.CursorToStringConverter)
+     * @see #setCursorToStringConverter(CursorToStringConverter)
      * @see #getStringConversionColumn()
      * @see #setStringConversionColumn(int)
      * @see android.widget.CursorAdapter#convertToString(android.database.Cursor)
@@ -269,7 +273,7 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      * @param cursorToStringConverter the Cursor to String converter, or
      *        null to remove the converter
      *
-     * @see #setCursorToStringConverter(android.widget.SimpleCursorAdapter.CursorToStringConverter) 
+     * @see #setCursorToStringConverter(CursorToStringConverter)
      * @see #getStringConversionColumn()
      * @see #setStringConversionColumn(int)
      * @see android.widget.CursorAdapter#convertToString(android.database.Cursor)
@@ -301,20 +305,21 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
     }
 
     /**
-     * Create a map from an array of strings to an array of column-id integers in mCursor.
-     * If mCursor is null, the array will be discarded.
-     * 
+     * Create a map from an array of strings to an array of column-id integers in cursor c.
+     * If c is null, the array will be discarded.
+     *
+     * @param c the cursor to find the columns from
      * @param from the Strings naming the columns of interest
      */
-    private void findColumns(String[] from) {
-        if (mCursor != null) {
+    private void findColumns(Cursor c, String[] from) {
+        if (c != null) {
             int i;
             int count = from.length;
             if (mFrom == null || mFrom.length != count) {
                 mFrom = new int[count];
             }
             for (i = 0; i < count; i++) {
-                mFrom[i] = mCursor.getColumnIndexOrThrow(from[i]);
+                mFrom[i] = c.getColumnIndexOrThrow(from[i]);
             }
         } else {
             mFrom = null;
@@ -323,17 +328,18 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
 
     @Override
     public Cursor swapCursor(Cursor c) {
-        Cursor res = super.swapCursor(c);
-        // rescan columns in case cursor layout is different
-        findColumns(mOriginalFrom);
-        return res;
+        // super.swapCursor() will notify observers before we have
+        // a valid mapping, make sure we have a mapping before this
+        // happens
+        findColumns(c, mOriginalFrom);
+        return super.swapCursor(c);
     }
-    
+
     /**
      * Change the cursor and change the column-to-view mappings at the same time.
-     *  
+     *
      * @param c The database cursor.  Can be null if the cursor is not available yet.
-     * @param from A list of column names representing the data to bind to the UI.  Can be null 
+     * @param from A list of column names representing the data to bind to the UI.  Can be null
      *            if the cursor is not available yet.
      * @param to The views that should display column in the "from" parameter.
      *            These should all be TextViews. The first N views in this list
@@ -343,8 +349,11 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
     public void changeCursorAndColumns(Cursor c, String[] from, int[] to) {
         mOriginalFrom = from;
         mTo = to;
-        super.changeCursor(c);        
-        findColumns(mOriginalFrom);
+        // super.changeCursor() will notify observers before we have
+        // a valid mapping, make sure we have a mapping before this
+        // happens
+        findColumns(c, mOriginalFrom);
+        super.changeCursor(c);
     }
 
     /**
@@ -356,11 +365,11 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      * change the way binding occurs for views supported by
      * SimpleCursorAdapter.
      *
-     * @see SimpleCursorAdapter#bindView(android.view.View, android.content.Context, android.database.Cursor)
-     * @see SimpleCursorAdapter#setViewImage(ImageView, String) 
+     * @see SimpleCursorAdapter#bindView(View, Context, Cursor)
+     * @see SimpleCursorAdapter#setViewImage(ImageView, String)
      * @see SimpleCursorAdapter#setViewText(TextView, String)
      */
-    public static interface ViewBinder {
+    public interface ViewBinder {
         /**
          * Binds the Cursor column defined by the specified index to the specified view.
          *
@@ -383,7 +392,7 @@ public class SimpleCursorAdapter extends ResourceCursorAdapter {
      *
      * @see android.widget.CursorAdapter#convertToString(android.database.Cursor)
      */
-    public static interface CursorToStringConverter {
+    public interface CursorToStringConverter {
         /**
          * Returns a CharSequence representing the specified Cursor.
          *

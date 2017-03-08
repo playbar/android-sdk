@@ -1,50 +1,59 @@
-/* Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+/*
+ * Copyright (c) 2003, 2008, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
+
 package java.util;
 
-import java.io.Serializable;
-
 /**
- * An {@code InputMismatchException} is thrown by a scanner to indicate that the
- * next token does not match or is out of range for the type specified in the
- * pattern.
+ * Thrown by a <code>Scanner</code> to indicate that the token
+ * retrieved does not match the pattern for the expected type, or
+ * that the token is out of range for the expected type.
  *
- * @see Scanner
- * @see java.lang.RuntimeException
+ * @author  unascribed
+ * @see     java.util.Scanner
+ * @since   1.5
  */
-public class InputMismatchException extends NoSuchElementException implements
-        Serializable {
-
+public
+class InputMismatchException extends NoSuchElementException {
     private static final long serialVersionUID = 8811230760997066428L;
 
     /**
-     * Constructs a new {@code InputMismatchException} with the current stack
-     * trace filled in.
+     * Constructs an <code>InputMismatchException</code> with <tt>null</tt>
+     * as its error message string.
      */
     public InputMismatchException() {
+        super();
     }
 
     /**
-     * Constructs a new {@code InputMismatchException} with the stack trace
-     * filled in and {@code msg} as its error message.
+     * Constructs an <code>InputMismatchException</code>, saving a reference
+     * to the error message string <tt>s</tt> for later retrieval by the
+     * <tt>getMessage</tt> method.
      *
-     * @param msg
-     *           the specified error message.
+     * @param   s   the detail message.
      */
-    public InputMismatchException(String msg) {
-        super(msg);
+    public InputMismatchException(String s) {
+        super(s);
     }
 }

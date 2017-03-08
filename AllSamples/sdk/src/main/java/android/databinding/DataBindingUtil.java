@@ -115,18 +115,7 @@ public class DataBindingUtil {
         final int startChildren = useChildren ? parent.getChildCount() : 0;
         final View view = inflater.inflate(layoutId, parent, attachToParent);
         if (useChildren) {
-            final int endChildren = parent.getChildCount();
-            final int childrenAdded = endChildren - startChildren;
-            if (childrenAdded == 1) {
-                final View childView = parent.getChildAt(endChildren - 1);
-                return bind(bindingComponent, childView, layoutId);
-            } else {
-                final View[] children = new View[childrenAdded];
-                for (int i = 0; i < childrenAdded; i++) {
-                    children[i] = parent.getChildAt(i + startChildren);
-                }
-                return bind(bindingComponent, children, layoutId);
-            }
+            return bindToAddedViews(bindingComponent, parent, startChildren, layoutId);
         } else {
             return bind(bindingComponent, view, layoutId);
         }
@@ -284,13 +273,10 @@ public class DataBindingUtil {
      */
     public static <T extends ViewDataBinding> T setContentView(Activity activity, int layoutId,
             DataBindingComponent bindingComponent) {
-        // Force the content view to exist if it didn't already.
+        activity.setContentView(layoutId);
         View decorView = activity.getWindow().getDecorView();
         ViewGroup contentView = (ViewGroup) decorView.findViewById(android.R.id.content);
-        T binding = inflate(activity.getLayoutInflater(), layoutId, contentView, false,
-                bindingComponent);
-        activity.setContentView(binding.getRoot(), binding.getRoot().getLayoutParams());
-        return binding;
+        return bindToAddedViews(bindingComponent, contentView, 0, layoutId);
     }
 
     /**
@@ -302,5 +288,21 @@ public class DataBindingUtil {
      */
     public static String convertBrIdToString(int id) {
         return sMapper.convertBrIdToString(id);
+    }
+
+    private static <T extends ViewDataBinding> T bindToAddedViews(DataBindingComponent component,
+            ViewGroup parent, int startChildren, int layoutId) {
+        final int endChildren = parent.getChildCount();
+        final int childrenAdded = endChildren - startChildren;
+        if (childrenAdded == 1) {
+            final View childView = parent.getChildAt(endChildren - 1);
+            return bind(component, childView, layoutId);
+        } else {
+            final View[] children = new View[childrenAdded];
+            for (int i = 0; i < childrenAdded; i++) {
+                children[i] = parent.getChildAt(i + startChildren);
+            }
+            return bind(component, children, layoutId);
+        }
     }
 }

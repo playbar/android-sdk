@@ -1,257 +1,84 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2007, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
-
 package java.net;
 
-import android.system.ErrnoException;
-import android.system.StructGroupReq;
-import dalvik.system.CloseGuard;
-import java.io.FileDescriptor;
 import java.io.IOException;
-import libcore.io.IoBridge;
-import libcore.io.Libcore;
-import libcore.util.EmptyArray;
-import static android.system.OsConstants.*;
 
-/**
- * @hide used in java.nio.
+/*
+ * On Unix systems we simply delegate to native methods.
+ *
+ * @author Chris Hegarty
  */
-public class PlainDatagramSocketImpl extends DatagramSocketImpl {
 
-    private volatile boolean isNativeConnected;
+class PlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
+{
+    static {
+        init();
+    }
 
-    private final CloseGuard guard = CloseGuard.get();
+    protected synchronized native void bind0(int lport, InetAddress laddr)
+        throws SocketException;
+
+    protected native void send(DatagramPacket p) throws IOException;
+
+    protected synchronized native int peek(InetAddress i) throws IOException;
+
+    protected synchronized native int peekData(DatagramPacket p) throws IOException;
+
+    protected synchronized native void receive0(DatagramPacket p)
+        throws IOException;
+
+    protected native void setTimeToLive(int ttl) throws IOException;
+
+    protected native int getTimeToLive() throws IOException;
+
+    protected native void setTTL(byte ttl) throws IOException;
+
+    protected native byte getTTL() throws IOException;
+
+    protected native void join(InetAddress inetaddr, NetworkInterface netIf)
+        throws IOException;
+
+    protected native void leave(InetAddress inetaddr, NetworkInterface netIf)
+        throws IOException;
+
+    protected native void datagramSocketCreate() throws SocketException;
+
+    protected native void datagramSocketClose();
+
+    protected native void socketSetOption(int opt, Object val)
+        throws SocketException;
+
+    protected native Object socketGetOption(int opt) throws SocketException;
+
+    protected native void connect0(InetAddress address, int port) throws SocketException;
+
+    protected native void disconnect0(int family);
 
     /**
-     * used to keep address to which the socket was connected to at the native
-     * level
+     * Perform class load-time initializations.
      */
-    private InetAddress connectedAddress;
-
-    private int connectedPort = -1;
-
-    public PlainDatagramSocketImpl(FileDescriptor fd, int localPort) {
-        this.fd = fd;
-        this.localPort = localPort;
-        if (fd.valid()) {
-            guard.open("close");
-        }
-    }
-
-    public PlainDatagramSocketImpl() {
-        fd = new FileDescriptor();
-    }
-
-    @Override public void bind(int port, InetAddress address) throws SocketException {
-        IoBridge.bind(fd, address, port);
-        if (port != 0) {
-            localPort = port;
-        } else {
-            localPort = IoBridge.getSocketLocalPort(fd);
-        }
-        try {
-            setOption(SocketOptions.SO_BROADCAST, Boolean.TRUE);
-        } catch (IOException ignored) {
-        }
-    }
-
-    @Override
-    protected void onBind(InetAddress localAddress, int localPort) {
-        this.localPort = localPort;
-    }
-
-    @Override
-    public synchronized void close() {
-        guard.close();
-        try {
-            IoBridge.closeAndSignalBlockedThreads(fd);
-        } catch (IOException ignored) {
-        }
-    }
-
-    @Override
-    protected void onClose() {
-        guard.close();
-    }
-
-    @Override
-    public void create() throws SocketException {
-        this.fd = IoBridge.socket(false);
-    }
-
-    @Override protected void finalize() throws Throwable {
-        try {
-            if (guard != null) {
-                guard.warnIfOpen();
-            }
-            close();
-        } finally {
-            super.finalize();
-        }
-    }
-
-    @Override public Object getOption(int option) throws SocketException {
-        return IoBridge.getSocketOption(fd, option);
-    }
-
-    @Override
-    public int getTimeToLive() throws IOException {
-        return (Integer) getOption(IoBridge.JAVA_IP_MULTICAST_TTL);
-    }
-
-    @Override
-    public byte getTTL() throws IOException {
-        return (byte) getTimeToLive();
-    }
-
-    private static StructGroupReq makeGroupReq(InetAddress gr_group, NetworkInterface networkInterface) {
-        int gr_interface = (networkInterface != null) ? networkInterface.getIndex() : 0;
-        return new StructGroupReq(gr_interface, gr_group);
-    }
-
-    @Override
-    public void join(InetAddress addr) throws IOException {
-        setOption(IoBridge.JAVA_MCAST_JOIN_GROUP, makeGroupReq(addr, null));
-    }
-
-    @Override
-    public void joinGroup(SocketAddress addr, NetworkInterface netInterface) throws IOException {
-        if (addr instanceof InetSocketAddress) {
-            InetAddress groupAddr = ((InetSocketAddress) addr).getAddress();
-            setOption(IoBridge.JAVA_MCAST_JOIN_GROUP, makeGroupReq(groupAddr, netInterface));
-        }
-    }
-
-    @Override
-    public void leave(InetAddress addr) throws IOException {
-        setOption(IoBridge.JAVA_MCAST_LEAVE_GROUP, makeGroupReq(addr, null));
-    }
-
-    @Override
-    public void leaveGroup(SocketAddress addr, NetworkInterface netInterface) throws IOException {
-        if (addr instanceof InetSocketAddress) {
-            InetAddress groupAddr = ((InetSocketAddress) addr).getAddress();
-            setOption(IoBridge.JAVA_MCAST_LEAVE_GROUP, makeGroupReq(groupAddr, netInterface));
-        }
-    }
-
-    @Override
-    protected int peek(InetAddress sender) throws IOException {
-        // We don't actually want the data: we just want the DatagramPacket's filled-in address.
-        DatagramPacket packet = new DatagramPacket(EmptyArray.BYTE, 0);
-        int result = peekData(packet);
-        // Note: evil side-effect on InetAddress! This method should have returned InetSocketAddress!
-        sender.ipaddress = packet.getAddress().getAddress();
-        return result;
-    }
-
-    private void doRecv(DatagramPacket pack, int flags) throws IOException {
-        IoBridge.recvfrom(false, fd, pack.getData(), pack.getOffset(), pack.getLength(), flags, pack, isNativeConnected);
-        if (isNativeConnected) {
-            updatePacketRecvAddress(pack);
-        }
-    }
-
-    @Override
-    public void receive(DatagramPacket pack) throws IOException {
-        doRecv(pack, 0);
-    }
-
-    @Override
-    public int peekData(DatagramPacket pack) throws IOException {
-        doRecv(pack, MSG_PEEK);
-        return pack.getPort();
-    }
-
-    @Override
-    public void send(DatagramPacket packet) throws IOException {
-        int port = isNativeConnected ? 0 : packet.getPort();
-        InetAddress address = isNativeConnected ? null : packet.getAddress();
-        IoBridge.sendto(fd, packet.getData(), packet.getOffset(), packet.getLength(), 0, address,
-            port);
-    }
-
-    public void setOption(int option, Object value) throws SocketException {
-        IoBridge.setSocketOption(fd, option, value);
-    }
-
-    @Override
-    public void setTimeToLive(int ttl) throws IOException {
-        setOption(IoBridge.JAVA_IP_MULTICAST_TTL, Integer.valueOf(ttl));
-    }
-
-    @Override
-    public void setTTL(byte ttl) throws IOException {
-        setTimeToLive((int) ttl & 0xff); // Avoid sign extension.
-    }
-
-    @Override
-    public void connect(InetAddress inetAddr, int port) throws SocketException {
-        IoBridge.connect(fd, inetAddr, port); // Throws on failure.
-        try {
-            connectedAddress = InetAddress.getByAddress(inetAddr.getAddress());
-        } catch (UnknownHostException e) {
-            // this is never expected to happen as we should not have gotten
-            // here if the address is not resolvable
-            throw new SocketException("Host is unresolved: " + inetAddr.getHostName());
-        }
-        connectedPort = port;
-        isNativeConnected = true;
-    }
-
-    @Override
-    protected void onConnect(InetAddress remoteAddress, int remotePort) {
-        isNativeConnected = true;
-        connectedAddress = remoteAddress;
-        connectedPort = remotePort;
-    }
-
-    @Override
-    public void disconnect() {
-        try {
-            Libcore.os.connect(fd, InetAddress.UNSPECIFIED, 0);
-        } catch (ErrnoException errnoException) {
-            throw new AssertionError(errnoException);
-        } catch (SocketException ignored) {
-            // Thrown if the socket has already been closed, but this method can't throw anything.
-        }
-        connectedPort = -1;
-        connectedAddress = null;
-        isNativeConnected = false;
-    }
-
-    @Override
-    protected void onDisconnect() {
-        connectedPort = -1;
-        connectedAddress = null;
-        isNativeConnected = false;
-    }
-
-    /**
-     * Set the received address and port in the packet. We do this when the
-     * Datagram socket is connected at the native level and the
-     * recvConnnectedDatagramImpl does not update the packet with address from
-     * which the packet was received
-     *
-     * @param packet
-     *            the packet to be updated
-     */
-    private void updatePacketRecvAddress(DatagramPacket packet) {
-        packet.setAddress(connectedAddress);
-        packet.setPort(connectedPort);
-    }
+    private native static void init();
 }

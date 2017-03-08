@@ -27,6 +27,7 @@ import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Parcel;
 import android.os.ResultReceiver;
 import android.view.KeyEvent;
 
@@ -249,6 +250,10 @@ class MediaControllerCompatApi21 {
         public void onSessionEvent(String event, Bundle extras);
         public void onPlaybackStateChanged(Object stateObj);
         public void onMetadataChanged(Object metadataObj);
+        public void onQueueChanged(List<?> queue);
+        public void onQueueTitleChanged(CharSequence title);
+        public void onExtrasChanged(Bundle extras);
+        public void onAudioInfoChanged(int type, int stream, int control, int max, int current);
     }
 
     static class CallbackProxy<T extends Callback> extends MediaController.Callback {
@@ -276,6 +281,28 @@ class MediaControllerCompatApi21 {
         @Override
         public void onMetadataChanged(MediaMetadata metadata) {
             mCallback.onMetadataChanged(metadata);
+        }
+
+        @Override
+        public void onQueueChanged(List<MediaSession.QueueItem> queue) {
+            mCallback.onQueueChanged(queue);
+        }
+
+        @Override
+        public void onQueueTitleChanged(CharSequence title) {
+            mCallback.onQueueTitleChanged(title);
+        }
+
+        @Override
+        public void onExtrasChanged(Bundle extras) {
+            mCallback.onExtrasChanged(extras);
+        }
+
+        @Override
+        public void onAudioInfoChanged(MediaController.PlaybackInfo info){
+            mCallback.onAudioInfoChanged(info.getPlaybackType(),
+                    PlaybackInfo.getLegacyAudioStream(info), info.getVolumeControl(),
+                    info.getMaxVolume(), info.getCurrentVolume());
         }
     }
 }

@@ -26,7 +26,6 @@ import android.app.usage.TimeSparseArray;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageStats;
 import android.content.res.Configuration;
-import android.text.TextUtils;
 
 import java.io.IOException;
 import java.net.ProtocolException;
@@ -52,16 +51,15 @@ final class UsageStatsXmlV1 {
     private static final String ACTIVE_ATTR = "active";
     private static final String LAST_EVENT_ATTR = "lastEvent";
     private static final String TYPE_ATTR = "type";
+    private static final String SHORTCUT_ID_ATTR = "shortcutId";
 
     // Time attributes stored as an offset of the beginTime.
     private static final String LAST_TIME_ACTIVE_ATTR = "lastTimeActive";
-    private static final String LAST_TIME_ACTIVE_SYSTEM_ATTR = "lastTimeActiveSystem";
-    private static final String BEGIN_IDLE_TIME_ATTR = "beginIdleTime";
     private static final String END_TIME_ATTR = "endTime";
     private static final String TIME_ATTR = "time";
 
     private static void loadUsageStats(XmlPullParser parser, IntervalStats statsOut)
-            throws XmlPullParserException, IOException {
+            throws IOException {
         final String pkg = parser.getAttributeValue(null, PACKAGE_ATTR);
         if (pkg == null) {
             throw new ProtocolException("no " + PACKAGE_ATTR + " attribute present");
@@ -72,20 +70,6 @@ final class UsageStatsXmlV1 {
         // Apply the offset to the beginTime to find the absolute time.
         stats.mLastTimeUsed = statsOut.beginTime + XmlUtils.readLongAttribute(
                 parser, LAST_TIME_ACTIVE_ATTR);
-
-        final String lastTimeUsedSystem = parser.getAttributeValue(null,
-                LAST_TIME_ACTIVE_SYSTEM_ATTR);
-        if (TextUtils.isEmpty(lastTimeUsedSystem)) {
-            // If the field isn't present, use the old one.
-            stats.mLastTimeSystemUsed = stats.mLastTimeUsed;
-        } else {
-            stats.mLastTimeSystemUsed = statsOut.beginTime + Long.parseLong(lastTimeUsedSystem);
-        }
-
-        final String beginIdleTime = parser.getAttributeValue(null, BEGIN_IDLE_TIME_ATTR);
-        if (!TextUtils.isEmpty(beginIdleTime)) {
-            stats.mBeginIdleTime = Long.parseLong(beginIdleTime);
-        }
         stats.mTotalTimeInForeground = XmlUtils.readLongAttribute(parser, TOTAL_TIME_ACTIVE_ATTR);
         stats.mLastEvent = XmlUtils.readIntAttribute(parser, LAST_EVENT_ATTR);
     }
@@ -123,9 +107,15 @@ final class UsageStatsXmlV1 {
         event.mTimeStamp = statsOut.beginTime + XmlUtils.readLongAttribute(parser, TIME_ATTR);
 
         event.mEventType = XmlUtils.readIntAttribute(parser, TYPE_ATTR);
-        if (event.mEventType == UsageEvents.Event.CONFIGURATION_CHANGE) {
-            event.mConfiguration = new Configuration();
-            Configuration.readXmlAttrs(parser, event.mConfiguration);
+        switch (event.mEventType) {
+            case UsageEvents.Event.CONFIGURATION_CHANGE:
+                event.mConfiguration = new Configuration();
+                Configuration.readXmlAttrs(parser, event.mConfiguration);
+                break;
+            case UsageEvents.Event.SHORTCUT_INVOCATION:
+                final String id = XmlUtils.readStringAttribute(parser, SHORTCUT_ID_ATTR);
+                event.mShortcutId = (id != null) ? id.intern() : null;
+                break;
         }
 
         if (statsOut.events == null) {
@@ -141,13 +131,10 @@ final class UsageStatsXmlV1 {
         // Write the time offset.
         XmlUtils.writeLongAttribute(xml, LAST_TIME_ACTIVE_ATTR,
                 usageStats.mLastTimeUsed - stats.beginTime);
-        XmlUtils.writeLongAttribute(xml, LAST_TIME_ACTIVE_SYSTEM_ATTR,
-                usageStats.mLastTimeSystemUsed - stats.beginTime);
 
         XmlUtils.writeStringAttribute(xml, PACKAGE_ATTR, usageStats.mPackageName);
         XmlUtils.writeLongAttribute(xml, TOTAL_TIME_ACTIVE_ATTR, usageStats.mTotalTimeInForeground);
         XmlUtils.writeIntAttribute(xml, LAST_EVENT_ATTR, usageStats.mLastEvent);
-        XmlUtils.writeLongAttribute(xml, BEGIN_IDLE_TIME_ATTR, usageStats.mBeginIdleTime);
 
         xml.endTag(null, PACKAGE_TAG);
     }
@@ -185,9 +172,17 @@ final class UsageStatsXmlV1 {
         }
         XmlUtils.writeIntAttribute(xml, TYPE_ATTR, event.mEventType);
 
-        if (event.mEventType == UsageEvents.Event.CONFIGURATION_CHANGE
-                && event.mConfiguration != null) {
-            Configuration.writeXmlAttrs(xml, event.mConfiguration);
+        switch (event.mEventType) {
+            case UsageEvents.Event.CONFIGURATION_CHANGE:
+                if (event.mConfiguration != null) {
+                    Configuration.writeXmlAttrs(xml, event.mConfiguration);
+                }
+                break;
+            case UsageEvents.Event.SHORTCUT_INVOCATION:
+                if (event.mShortcutId != null) {
+                    XmlUtils.writeStringAttribute(xml, SHORTCUT_ID_ATTR, event.mShortcutId);
+                }
+                break;
         }
 
         xml.endTag(null, EVENT_TAG);
@@ -254,7 +249,6 @@ final class UsageStatsXmlV1 {
             writeUsageStats(xml, stats, stats.packageStats.valueAt(i));
         }
         xml.endTag(null, PACKAGES_TAG);
-
 
         xml.startTag(null, CONFIGURATIONS_TAG);
         final int configCount = stats.configurations.size();

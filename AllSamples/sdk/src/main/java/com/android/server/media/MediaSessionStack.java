@@ -16,19 +16,23 @@
 
 package com.android.server.media;
 
+import android.app.ActivityManager;
+import android.app.ActivityManagerNative;
 import android.media.session.MediaController.PlaybackInfo;
 import android.media.session.PlaybackState;
 import android.media.session.MediaSession;
+import android.os.RemoteException;
 import android.os.UserHandle;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Keeps track of media sessions and their priority for notifications, media
  * button dispatch, etc.
  */
-public class MediaSessionStack {
+class MediaSessionStack {
     /**
      * These are states that usually indicate the user took an action and should
      * bump priority regardless of the old state.
@@ -61,14 +65,45 @@ public class MediaSessionStack {
     private ArrayList<MediaSessionRecord> mCachedTransportControlList;
 
     /**
+     * Checks if a media session is created from the most recent app.
+     *
+     * @param record A media session record to be examined.
+     * @return {@code true} if the media session's package name equals to the most recent app, false
+     *            otherwise.
+     */
+    private static boolean isFromMostRecentApp(MediaSessionRecord record) {
+        try {
+            List<ActivityManager.RecentTaskInfo> tasks =
+                    ActivityManagerNative.getDefault().getRecentTasks(1,
+                            ActivityManager.RECENT_IGNORE_HOME_STACK_TASKS |
+                            ActivityManager.RECENT_IGNORE_UNAVAILABLE |
+                            ActivityManager.RECENT_INCLUDE_PROFILES |
+                            ActivityManager.RECENT_WITH_EXCLUDED, record.getUserId()).getList();
+            if (tasks != null && !tasks.isEmpty()) {
+                ActivityManager.RecentTaskInfo recentTask = tasks.get(0);
+                if (recentTask.userId == record.getUserId() && recentTask.baseIntent != null) {
+                    return recentTask.baseIntent.getComponent().getPackageName()
+                            .equals(record.getPackageName());
+                }
+            }
+        } catch (RemoteException e) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
      * Add a record to the priority tracker.
      *
      * @param record The record to add.
+     * @param fromForegroundUser {@code true} if the session is created by the foreground user.
      */
-    public void addSession(MediaSessionRecord record) {
+    public void addSession(MediaSessionRecord record, boolean fromForegroundUser) {
         mSessions.add(record);
         clearCache();
-        mLastInterestingRecord = record;
+        if (fromForegroundUser && isFromMostRecentApp(record)) {
+            mLastInterestingRecord = record;
+        }
     }
 
     /**
@@ -174,12 +209,13 @@ public class MediaSessionStack {
     /**
      * Get the highest priority session that can handle media buttons.
      *
-     * @param userId The user to check.
+     * @param userIdList The user lists to check.
      * @param includeNotPlaying Return a non-playing session if nothing else is
      *            available
      * @return The default media button session or null.
      */
-    public MediaSessionRecord getDefaultMediaButtonSession(int userId, boolean includeNotPlaying) {
+    public MediaSessionRecord getDefaultMediaButtonSession(
+            List<Integer> userIdList, boolean includeNotPlaying) {
         if (mGlobalPrioritySession != null && mGlobalPrioritySession.isActive()) {
             return mGlobalPrioritySession;
         }
@@ -187,7 +223,7 @@ public class MediaSessionStack {
             return mCachedButtonReceiver;
         }
         ArrayList<MediaSessionRecord> records = getPriorityListLocked(true,
-                MediaSession.FLAG_HANDLES_MEDIA_BUTTONS, userId);
+                MediaSession.FLAG_HANDLES_MEDIA_BUTTONS, userIdList);
         if (records.size() > 0) {
             MediaSessionRecord record = records.get(0);
             if (record.isPlaybackActive(false)) {
@@ -212,14 +248,14 @@ public class MediaSessionStack {
         return mCachedButtonReceiver;
     }
 
-    public MediaSessionRecord getDefaultVolumeSession(int userId) {
+    public MediaSessionRecord getDefaultVolumeSession(List<Integer> userIdList) {
         if (mGlobalPrioritySession != null && mGlobalPrioritySession.isActive()) {
             return mGlobalPrioritySession;
         }
         if (mCachedVolumeDefault != null) {
             return mCachedVolumeDefault;
         }
-        ArrayList<MediaSessionRecord> records = getPriorityListLocked(true, 0, userId);
+        ArrayList<MediaSessionRecord> records = getPriorityListLocked(true, 0, userIdList);
         int size = records.size();
         for (int i = 0; i < size; i++) {
             MediaSessionRecord record = records.get(i);
@@ -262,6 +298,13 @@ public class MediaSessionStack {
         }
     }
 
+    private ArrayList<MediaSessionRecord> getPriorityListLocked(boolean activeOnly, int withFlags,
+            int userId) {
+        List<Integer> userIdList = new ArrayList<>();
+        userIdList.add(userId);
+        return getPriorityListLocked(activeOnly, withFlags, userIdList);
+    }
+
     /**
      * Get a priority sorted list of sessions. Can filter to only return active
      * sessions or sessions with specific flags.
@@ -270,22 +313,23 @@ public class MediaSessionStack {
      *            all sessions.
      * @param withFlags Only return sessions with all the specified flags set. 0
      *            returns all sessions.
-     * @param userId The user to get sessions for. {@link UserHandle#USER_ALL}
+     * @param userIdList The user to get sessions for. {@link UserHandle#USER_ALL}
      *            will return sessions for all users.
      * @return The priority sorted list of sessions.
      */
     private ArrayList<MediaSessionRecord> getPriorityListLocked(boolean activeOnly, int withFlags,
-            int userId) {
+            List<Integer> userIdList) {
         ArrayList<MediaSessionRecord> result = new ArrayList<MediaSessionRecord>();
         int lastLocalIndex = 0;
         int lastActiveIndex = 0;
         int lastPublishedIndex = 0;
 
+        boolean filterUser = !userIdList.contains(UserHandle.USER_ALL);
         int size = mSessions.size();
         for (int i = 0; i < size; i++) {
             final MediaSessionRecord session = mSessions.get(i);
 
-            if (userId != UserHandle.USER_ALL && userId != session.getUserId()) {
+            if (filterUser && !userIdList.contains(session.getUserId())) {
                 // Filter out sessions for the wrong user
                 continue;
             }

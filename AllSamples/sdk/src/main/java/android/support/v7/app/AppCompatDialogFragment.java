@@ -19,9 +19,12 @@ package android.support.v7.app;
 
 import android.app.Dialog;
 import android.os.Bundle;
+import android.support.annotation.RestrictTo;
 import android.support.v4.app.DialogFragment;
 import android.view.Window;
 import android.view.WindowManager;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * A special version of {@link DialogFragment} which uses an {@link AppCompatDialog} in place of a
@@ -33,10 +36,11 @@ public class AppCompatDialogFragment extends DialogFragment {
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        return new AppCompatDialog(getActivity(), getTheme());
+        return new AppCompatDialog(getContext(), getTheme());
     }
 
     /** @hide */
+    @RestrictTo(GROUP_ID)
     @Override
     public void setupDialog(Dialog dialog, int style) {
         if (dialog instanceof AppCompatDialog) {

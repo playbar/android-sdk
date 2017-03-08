@@ -24,12 +24,14 @@ import com.android.i18n.phonenumbers.ShortNumberUtil;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.database.Cursor;
 import android.location.CountryDetector;
 import android.net.Uri;
 import android.os.SystemProperties;
 import android.provider.Contacts;
 import android.provider.ContactsContract;
+import android.telecom.PhoneAccount;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
@@ -1135,6 +1137,8 @@ public class PhoneNumberUtils
         "VI", // U.S. Virgin Islands
     };
 
+    private static final String KOREA_ISO_COUNTRY_CODE = "KR";
+
     /**
      * Breaks the given number down and formats it according to the rules
      * for the country the number is from.
@@ -1455,7 +1459,19 @@ public class PhoneNumberUtils
         String result = null;
         try {
             PhoneNumber pn = util.parseAndKeepRawInput(phoneNumber, defaultCountryIso);
-            result = util.formatInOriginalFormat(pn, defaultCountryIso);
+            /**
+             * Need to reformat any local Korean phone numbers (when the user is in Korea) with
+             * country code to corresponding national format which would replace the leading
+             * +82 with 0.
+             */
+            if (KOREA_ISO_COUNTRY_CODE.equals(defaultCountryIso) &&
+                    (pn.getCountryCode() == util.getCountryCodeForRegion(KOREA_ISO_COUNTRY_CODE)) &&
+                    (pn.getCountryCodeSource() ==
+                            PhoneNumber.CountryCodeSource.FROM_NUMBER_WITH_PLUS_SIGN)) {
+                result = util.format(pn, PhoneNumberUtil.PhoneNumberFormat.NATIONAL);
+            } else {
+                result = util.formatInOriginalFormat(pn, defaultCountryIso);
+            }
         } catch (NumberParseException e) {
         }
         return result;
@@ -1843,9 +1859,6 @@ public class PhoneNumberUtils
         // to the list.
         number = extractNetworkPortionAlt(number);
 
-        Rlog.d(LOG_TAG, "subId:" + subId + ", defaultCountryIso:" +
-                ((defaultCountryIso == null) ? "NULL" : defaultCountryIso));
-
         String emergencyNumbers = "";
         int slotId = SubscriptionManager.getSlotId(subId);
 
@@ -1855,7 +1868,8 @@ public class PhoneNumberUtils
 
         emergencyNumbers = SystemProperties.get(ecclist, "");
 
-        Rlog.d(LOG_TAG, "slotId:" + slotId + ", emergencyNumbers: " +  emergencyNumbers);
+        Rlog.d(LOG_TAG, "slotId:" + slotId + " subId:" + subId + " country:"
+                + defaultCountryIso + " emergencyNumbers: " +  emergencyNumbers);
 
         if (TextUtils.isEmpty(emergencyNumbers)) {
             // then read-only ecclist property since old RIL only uses this
@@ -2068,7 +2082,7 @@ public class PhoneNumberUtils
      * to read the VM number.
      */
     public static boolean isVoiceMailNumber(String number) {
-        return isVoiceMailNumber(SubscriptionManager.getDefaultSubId(), number);
+        return isVoiceMailNumber(SubscriptionManager.getDefaultSubscriptionId(), number);
     }
 
     /**
@@ -2340,7 +2354,7 @@ public class PhoneNumberUtils
                         tempDialStr = postDialStr.substring(dialableIndex);
                     } else {
                         // Non-dialable character such as P/W should not be at the end of
-                        // the dial string after P/W processing in CdmaConnection.java
+                        // the dial string after P/W processing in GsmCdmaConnection.java
                         // Set the postDialStr to "" to break out of the loop
                         if (dialableIndex < 0) {
                             postDialStr = "";
@@ -2584,6 +2598,48 @@ public class PhoneNumberUtils
             delimiterIndex = number.length();
         }
         return number.substring(0, delimiterIndex);
+    }
+
+    /**
+     * Given a {@link Uri} with a {@code sip} scheme, attempts to build an equivalent {@code tel}
+     * scheme {@link Uri}.  If the source {@link Uri} does not contain a valid number, or is not
+     * using the {@code sip} scheme, the original {@link Uri} is returned.
+     *
+     * @param source The {@link Uri} to convert.
+     * @return The equivalent {@code tel} scheme {@link Uri}.
+     *
+     * @hide
+     */
+    public static Uri convertSipUriToTelUri(Uri source) {
+        // A valid SIP uri has the format: sip:user:password@host:port;uri-parameters?headers
+        // Per RFC3261, the "user" can be a telephone number.
+        // For example: sip:1650555121;phone-context=blah.com@host.com
+        // In this case, the phone number is in the user field of the URI, and the parameters can be
+        // ignored.
+        //
+        // A SIP URI can also specify a phone number in a format similar to:
+        // sip:+1-212-555-1212@something.com;user=phone
+        // In this case, the phone number is again in user field and the parameters can be ignored.
+        // We can get the user field in these instances by splitting the string on the @, ;, or :
+        // and looking at the first found item.
+
+        String scheme = source.getScheme();
+
+        if (!PhoneAccount.SCHEME_SIP.equals(scheme)) {
+            // Not a sip URI, bail.
+            return source;
+        }
+
+        String number = source.getSchemeSpecificPart();
+        String numberParts[] = number.split("[@;:]");
+
+        if (numberParts.length == 0) {
+            // Number not found, bail.
+            return source;
+        }
+        number = numberParts[0];
+
+        return Uri.fromParts(PhoneAccount.SCHEME_TEL, number, null);
     }
 
     /**
@@ -2963,7 +3019,82 @@ public class PhoneNumberUtils
      * Returns Default voice subscription Id.
      */
     private static int getDefaultVoiceSubId() {
-        return SubscriptionManager.getDefaultVoiceSubId();
+        return SubscriptionManager.getDefaultVoiceSubscriptionId();
     }
     //==== End of utility methods used only in compareStrictly() =====
+
+
+    /*
+     * The config held calling number conversion map, expected to convert to emergency number.
+     */
+    private static final String[] CONVERT_TO_EMERGENCY_MAP = Resources.getSystem().getStringArray(
+            com.android.internal.R.array.config_convert_to_emergency_number_map);
+    /**
+     * Check whether conversion to emergency number is enabled
+     *
+     * @return {@code true} when conversion to emergency numbers is enabled,
+     *         {@code false} otherwise
+     *
+     * @hide
+     */
+    public static boolean isConvertToEmergencyNumberEnabled() {
+        return CONVERT_TO_EMERGENCY_MAP != null && CONVERT_TO_EMERGENCY_MAP.length > 0;
+    }
+
+    /**
+     * Converts to emergency number based on the conversion map.
+     * The conversion map is declared as config_convert_to_emergency_number_map.
+     *
+     * Make sure {@link #isConvertToEmergencyNumberEnabled} is true before calling
+     * this function.
+     *
+     * @return The converted emergency number if the number matches conversion map,
+     * otherwise original number.
+     *
+     * @hide
+     */
+    public static String convertToEmergencyNumber(String number) {
+        if (TextUtils.isEmpty(number)) {
+            return number;
+        }
+
+        String normalizedNumber = normalizeNumber(number);
+
+        // The number is already emergency number. Skip conversion.
+        if (isEmergencyNumber(normalizedNumber)) {
+            return number;
+        }
+
+        for (String convertMap : CONVERT_TO_EMERGENCY_MAP) {
+            if (DBG) log("convertToEmergencyNumber: " + convertMap);
+            String[] entry = null;
+            String[] filterNumbers = null;
+            String convertedNumber = null;
+            if (!TextUtils.isEmpty(convertMap)) {
+                entry = convertMap.split(":");
+            }
+            if (entry != null && entry.length == 2) {
+                convertedNumber = entry[1];
+                if (!TextUtils.isEmpty(entry[0])) {
+                    filterNumbers = entry[0].split(",");
+                }
+            }
+            // Skip if the format of entry is invalid
+            if (TextUtils.isEmpty(convertedNumber) || filterNumbers == null
+                    || filterNumbers.length == 0) {
+                continue;
+            }
+
+            for (String filterNumber : filterNumbers) {
+                if (DBG) log("convertToEmergencyNumber: filterNumber = " + filterNumber
+                        + ", convertedNumber = " + convertedNumber);
+                if (!TextUtils.isEmpty(filterNumber) && filterNumber.equals(normalizedNumber)) {
+                    if (DBG) log("convertToEmergencyNumber: Matched. Successfully converted to: "
+                            + convertedNumber);
+                    return convertedNumber;
+                }
+            }
+        }
+        return number;
+    }
 }

@@ -1,115 +1,185 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1997, 2006, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.util;
 
 /**
- * An AbstractSet is an abstract implementation of the Set interface. This
- * implementation does not support adding. A subclass must implement the
- * abstract methods iterator() and size().
+ * This class provides a skeletal implementation of the <tt>Set</tt>
+ * interface to minimize the effort required to implement this
+ * interface. <p>
  *
+ * The process of implementing a set by extending this class is identical
+ * to that of implementing a Collection by extending AbstractCollection,
+ * except that all of the methods and constructors in subclasses of this
+ * class must obey the additional constraints imposed by the <tt>Set</tt>
+ * interface (for instance, the add method must not permit addition of
+ * multiple instances of an object to a set).<p>
+ *
+ * Note that this class does not override any of the implementations from
+ * the <tt>AbstractCollection</tt> class.  It merely adds implementations
+ * for <tt>equals</tt> and <tt>hashCode</tt>.<p>
+ *
+ * This class is a member of the
+ * <a href="{@docRoot}openjdk-redirect.html?v=8&path=/technotes/guides/collections/index.html">
+ * Java Collections Framework</a>.
+ *
+ * @param <E> the type of elements maintained by this set
+ *
+ * @author  Josh Bloch
+ * @author  Neal Gafter
+ * @see Collection
+ * @see AbstractCollection
+ * @see Set
  * @since 1.2
  */
-public abstract class AbstractSet<E> extends AbstractCollection<E> implements
-        Set<E> {
 
+public abstract class AbstractSet<E> extends AbstractCollection<E> implements Set<E> {
     /**
-     * Constructs a new instance of this AbstractSet.
+     * Sole constructor.  (For invocation by subclass constructors, typically
+     * implicit.)
      */
     protected AbstractSet() {
     }
 
+    // Comparison and hashing
+
     /**
-     * Compares the specified object to this Set and returns true if they are
-     * equal. The object must be an instance of Set and contain the same
-     * objects.
+     * Compares the specified object with this set for equality.  Returns
+     * <tt>true</tt> if the given object is also a set, the two sets have
+     * the same size, and every member of the given set is contained in
+     * this set.  This ensures that the <tt>equals</tt> method works
+     * properly across different implementations of the <tt>Set</tt>
+     * interface.<p>
      *
-     * @param object
-     *            the object to compare with this set.
-     * @return {@code true} if the specified object is equal to this set,
-     *         {@code false} otherwise
-     * @see #hashCode
+     * This implementation first checks if the specified object is this
+     * set; if so it returns <tt>true</tt>.  Then, it checks if the
+     * specified object is a set whose size is identical to the size of
+     * this set; if not, it returns false.  If so, it returns
+     * <tt>containsAll((Collection) o)</tt>.
+     *
+     * @param o object to be compared for equality with this set
+     * @return <tt>true</tt> if the specified object is equal to this set
      */
-    @Override
-    public boolean equals(Object object) {
-        if (this == object) {
+    public boolean equals(Object o) {
+        if (o == this)
             return true;
-        }
-        if (object instanceof Set) {
-            Set<?> s = (Set<?>) object;
 
-            try {
-                return size() == s.size() && containsAll(s);
-            } catch (NullPointerException ignored) {
-                return false;
-            } catch (ClassCastException ignored) {
-                return false;
-            }
+        if (!(o instanceof Set))
+            return false;
+        Collection c = (Collection) o;
+        if (c.size() != size())
+            return false;
+        try {
+            return containsAll(c);
+        } catch (ClassCastException unused)   {
+            return false;
+        } catch (NullPointerException unused) {
+            return false;
         }
-        return false;
     }
 
     /**
-     * Returns the hash code for this set. Two set which are equal must return
-     * the same value. This implementation calculates the hash code by adding
-     * each element's hash code.
+     * Returns the hash code value for this set.  The hash code of a set is
+     * defined to be the sum of the hash codes of the elements in the set,
+     * where the hash code of a <tt>null</tt> element is defined to be zero.
+     * This ensures that <tt>s1.equals(s2)</tt> implies that
+     * <tt>s1.hashCode()==s2.hashCode()</tt> for any two sets <tt>s1</tt>
+     * and <tt>s2</tt>, as required by the general contract of
+     * {@link Object#hashCode}.
      *
-     * @return the hash code of this set.
-     * @see #equals
+     * <p>This implementation iterates over the set, calling the
+     * <tt>hashCode</tt> method on each element in the set, and adding up
+     * the results.
+     *
+     * @return the hash code value for this set
+     * @see Object#equals(Object)
+     * @see Set#equals(Object)
      */
-    @Override
     public int hashCode() {
-        int result = 0;
-        Iterator<?> it = iterator();
-        while (it.hasNext()) {
-            Object next = it.next();
-            result += next == null ? 0 : next.hashCode();
+        int h = 0;
+        Iterator<E> i = iterator();
+        while (i.hasNext()) {
+            E obj = i.next();
+            if (obj != null)
+                h += obj.hashCode();
         }
-        return result;
+        return h;
     }
 
     /**
-     * Removes all occurrences in this collection which are contained in the
-     * specified collection.
+     * Removes from this set all of its elements that are contained in the
+     * specified collection (optional operation).  If the specified
+     * collection is also a set, this operation effectively modifies this
+     * set so that its value is the <i>asymmetric set difference</i> of
+     * the two sets.
      *
-     * @param collection
-     *            the collection of objects to remove.
-     * @return {@code true} if this collection was modified, {@code false}
-     *         otherwise.
-     * @throws UnsupportedOperationException
-     *                if removing from this collection is not supported.
+     * <p>This implementation determines which is the smaller of this set
+     * and the specified collection, by invoking the <tt>size</tt>
+     * method on each.  If this set has fewer elements, then the
+     * implementation iterates over this set, checking each element
+     * returned by the iterator in turn to see if it is contained in
+     * the specified collection.  If it is so contained, it is removed
+     * from this set with the iterator's <tt>remove</tt> method.  If
+     * the specified collection has fewer elements, then the
+     * implementation iterates over the specified collection, removing
+     * from this set each element returned by the iterator, using this
+     * set's <tt>remove</tt> method.
+     *
+     * <p>Note that this implementation will throw an
+     * <tt>UnsupportedOperationException</tt> if the iterator returned by the
+     * <tt>iterator</tt> method does not implement the <tt>remove</tt> method.
+     *
+     * @param  c collection containing elements to be removed from this set
+     * @return <tt>true</tt> if this set changed as a result of the call
+     * @throws UnsupportedOperationException if the <tt>removeAll</tt> operation
+     *         is not supported by this set
+     * @throws ClassCastException if the class of an element of this set
+     *         is incompatible with the specified collection
+     * (<a href="Collection.html#optional-restrictions">optional</a>)
+     * @throws NullPointerException if this set contains a null element and the
+     *         specified collection does not permit null elements
+     * (<a href="Collection.html#optional-restrictions">optional</a>),
+     *         or if the specified collection is null
+     * @see #remove(Object)
+     * @see #contains(Object)
      */
-    @Override
-    public boolean removeAll(Collection<?> collection) {
-        boolean result = false;
-        if (size() <= collection.size()) {
-            Iterator<?> it = iterator();
-            while (it.hasNext()) {
-                if (collection.contains(it.next())) {
-                    it.remove();
-                    result = true;
+    public boolean removeAll(Collection<?> c) {
+        boolean modified = false;
+
+        if (size() > c.size()) {
+            for (Iterator<?> i = c.iterator(); i.hasNext(); )
+                modified |= remove(i.next());
+        } else {
+            for (Iterator<?> i = iterator(); i.hasNext(); ) {
+                if (c.contains(i.next())) {
+                    i.remove();
+                    modified = true;
                 }
             }
-        } else {
-            Iterator<?> it = collection.iterator();
-            while (it.hasNext()) {
-                result = remove(it.next()) || result;
-            }
         }
-        return result;
+        return modified;
     }
+
 }

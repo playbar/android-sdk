@@ -1,264 +1,241 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2003, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
-
 package java.security.spec;
 
 import java.math.BigInteger;
 import java.util.Arrays;
 
 /**
- * The parameters specifying a <i>characteristic 2 finite field</i> of an
- * elliptic curve.
+ * This immutable class defines an elliptic curve (EC)
+ * characteristic 2 finite field.
+ *
+ * @see ECField
+ *
+ * @author Valerie Peng
+ *
+ * @since 1.5
  */
 public class ECFieldF2m implements ECField {
-    // Mid terms array length for trinomial basis
-    private static final int TPB_MID_LEN = 1;
-    // Mid terms array length for pentanomial basis
-    private static final int PPB_MID_LEN = 3;
-    // All terms number for trinomial basis
-    private static final int TPB_LEN = TPB_MID_LEN + 2;
-    // All terms number for pentanomial basis
-    private static final int PPB_LEN = PPB_MID_LEN + 2;
-    // m value
-    private final int m;
-    // Reduction polynomial
-    private final BigInteger rp;
-    // Mid term(s) of reduction polynomial
-    private final int[] ks;
+
+    private int m;
+    private int[] ks;
+    private BigInteger rp;
 
     /**
-     * Creates a new {@code ECFieldF2m} with {@code 2^m} elements with a normal
-     * basis.
-     *
-     * @param m
-     *            the exponent {@code m} for the number of elements.
-     * @throws IllegalArgumentException
-     *             if {@code m <= zero}.
+     * Creates an elliptic curve characteristic 2 finite
+     * field which has 2^<code>m</code> elements with normal basis.
+     * @param m with 2^<code>m</code> being the number of elements.
+     * @exception IllegalArgumentException if <code>m</code>
+     * is not positive.
      */
     public ECFieldF2m(int m) {
-        this.m = m;
-        if (this.m <= 0) {
-            throw new IllegalArgumentException("m <= 0");
+        if (m <= 0) {
+            throw new IllegalArgumentException("m is not positive");
         }
-        this.rp = null;
+        this.m = m;
         this.ks = null;
+        this.rp = null;
     }
 
     /**
-     * Creates a new {@code ECFieldF2m} with {@code 2^m} elements with a polynomial
-     * basis and the reduction polynomial based on {@code rp}.
-     * <p>
-     * The reduction polynomial must be either <i>trinomial</i> or
-     * <i>pentanomial</i>.
-     *
-     * @param m
-     *            the exponent {@code m} for the number of elements.
-     * @param rp
-     *            the base of the reduction polynomial with the n-th bit
-     *            corresponding to the n-th coefficient of the reduction
-     *            polynomial.
-     * @throws IllegalArgumentException
-     *             if {@code m <= zero} or the {@code rp} is invalid.
+     * Creates an elliptic curve characteristic 2 finite
+     * field which has 2^<code>m</code> elements with
+     * polynomial basis.
+     * The reduction polynomial for this field is based
+     * on <code>rp</code> whose i-th bit correspondes to
+     * the i-th coefficient of the reduction polynomial.<p>
+     * Note: A valid reduction polynomial is either a
+     * trinomial (X^<code>m</code> + X^<code>k</code> + 1
+     * with <code>m</code> > <code>k</code> >= 1) or a
+     * pentanomial (X^<code>m</code> + X^<code>k3</code>
+     * + X^<code>k2</code> + X^<code>k1</code> + 1 with
+     * <code>m</code> > <code>k3</code> > <code>k2</code>
+     * > <code>k1</code> >= 1).
+     * @param m with 2^<code>m</code> being the number of elements.
+     * @param rp the BigInteger whose i-th bit corresponds to
+     * the i-th coefficient of the reduction polynomial.
+     * @exception NullPointerException if <code>rp</code> is null.
+     * @exception IllegalArgumentException if <code>m</code>
+     * is not positive, or <code>rp</code> does not represent
+     * a valid reduction polynomial.
      */
     public ECFieldF2m(int m, BigInteger rp) {
+        // check m and rp
         this.m = m;
-        if (this.m <= 0) {
-            throw new IllegalArgumentException("m <= 0");
-        }
         this.rp = rp;
-        if (this.rp == null) {
-            throw new NullPointerException("rp == null");
+        if (m <= 0) {
+            throw new IllegalArgumentException("m is not positive");
         }
-        // the leftmost bit must be (m+1)-th one,
-        // set bits count must be 3 or 5,
-        // bits 0 and m must be set
-        int rp_bc = this.rp.bitCount();
-        if ((this.rp.bitLength() != (m+1)) ||
-            (rp_bc != TPB_LEN && rp_bc != PPB_LEN) ||
-            (!this.rp.testBit(0) || !this.rp.testBit(m)) ) {
-            throw new IllegalArgumentException("rp is invalid");
+        int bitCount = this.rp.bitCount();
+        if (!this.rp.testBit(0) || !this.rp.testBit(m) ||
+            ((bitCount != 3) && (bitCount != 5))) {
+            throw new IllegalArgumentException
+                ("rp does not represent a valid reduction polynomial");
         }
-
-        // setup ks using rp:
-        // allocate for mid terms only
-        ks = new int[rp_bc-2];
-        // find midterm orders and set ks accordingly
-        BigInteger rpTmp = rp.clearBit(0);
-        for (int i=ks.length-1; i>=0; i-- ) {
-            ks[i] = rpTmp.getLowestSetBit();
-            rpTmp = rpTmp.clearBit(ks[i]);
+        // convert rp into ks
+        BigInteger temp = this.rp.clearBit(0).clearBit(m);
+        this.ks = new int[bitCount-2];
+        for (int i = this.ks.length-1; i >= 0; i--) {
+            int index = temp.getLowestSetBit();
+            this.ks[i] = index;
+            temp = temp.clearBit(index);
         }
     }
 
     /**
-     * Creates a new {@code ECFieldF2m} with {@code 2^m} elements with
-     * a polynomial basis and the reduction polynomial based on {@code ks}.
-     * <p>
-     * The reduction polynomial must be either <i>trinomial</i> or
-     * <i>pentanomial</i>.
-     *
-     * @param m
-     *            the exponent {@code m} for the number of elements.
-     * @param ks
-     *            the base of the reduction polynomial with coefficients
-     *            given in descending order.
-     * @throws IllegalArgumentException
-     *             if {@code m <= zero} or the reduction polynomial is not
-     *             valid.
+     * Creates an elliptic curve characteristic 2 finite
+     * field which has 2^<code>m</code> elements with
+     * polynomial basis. The reduction polynomial for this
+     * field is based on <code>ks</code> whose content
+     * contains the order of the middle term(s) of the
+     * reduction polynomial.
+     * Note: A valid reduction polynomial is either a
+     * trinomial (X^<code>m</code> + X^<code>k</code> + 1
+     * with <code>m</code> > <code>k</code> >= 1) or a
+     * pentanomial (X^<code>m</code> + X^<code>k3</code>
+     * + X^<code>k2</code> + X^<code>k1</code> + 1 with
+     * <code>m</code> > <code>k3</code> > <code>k2</code>
+     * > <code>k1</code> >= 1), so <code>ks</code> should
+     * have length 1 or 3.
+     * @param m with 2^<code>m</code> being the number of elements.
+     * @param ks the order of the middle term(s) of the
+     * reduction polynomial. Contents of this array are copied
+     * to protect against subsequent modification.
+     * @exception NullPointerException if <code>ks</code> is null.
+     * @exception IllegalArgumentException if<code>m</code>
+     * is not positive, or the length of <code>ks</code>
+     * is neither 1 nor 3, or values in <code>ks</code>
+     * are not between <code>m</code>-1 and 1 (inclusive)
+     * and in descending order.
      */
     public ECFieldF2m(int m, int[] ks) {
+        // check m and ks
         this.m = m;
-        if (this.m <= 0) {
-            throw new IllegalArgumentException("m <= 0");
+        this.ks = ks.clone();
+        if (m <= 0) {
+            throw new IllegalArgumentException("m is not positive");
         }
-        // Defensively copies array parameter
-        // to prevent subsequent modification.
-        // NPE as specified if ks is null
-        this.ks = new int[ks.length];
-        System.arraycopy(ks, 0, this.ks, 0, this.ks.length);
-
-        // no need to check for null already
-        if (this.ks.length != TPB_MID_LEN && this.ks.length != PPB_MID_LEN) {
-            // must be either trinomial or pentanomial basis
-            throw new IllegalArgumentException("the length of ks is invalid");
+        if ((this.ks.length != 1) && (this.ks.length != 3)) {
+            throw new IllegalArgumentException
+                ("length of ks is neither 1 nor 3");
         }
-        // trinomial basis:
-        // check that m > k >= 1, where k is ks[0]
-        // pentanomial basis:
-        // check that m > k3 > k2 > k1 >= 1
-        // and kx in descending order, where
-        // k3 is ks[0], k2 is ks[1], k1 is ks[2]
-        boolean checkFailed = false;
-        int prev = this.m;
-        for (int i=0; i<this.ks.length; i++) {
-            if (this.ks[i] < prev) {
-                prev = this.ks[i];
-                continue;
+        for (int i = 0; i < this.ks.length; i++) {
+            if ((this.ks[i] < 1) || (this.ks[i] > m-1)) {
+                throw new IllegalArgumentException
+                    ("ks["+ i + "] is out of range");
             }
-            checkFailed = true;
-            break;
+            if ((i != 0) && (this.ks[i] >= this.ks[i-1])) {
+                throw new IllegalArgumentException
+                    ("values in ks are not in descending order");
+            }
         }
-        if (checkFailed || prev < 1) {
-            throw new IllegalArgumentException("ks is invalid");
+        // convert ks into rp
+        this.rp = BigInteger.ONE;
+        this.rp = rp.setBit(m);
+        for (int j = 0; j < this.ks.length; j++) {
+            rp = rp.setBit(this.ks[j]);
         }
-
-        // Setup rp using ks:
-        // bits 0 and m always set
-        BigInteger rpTmp = BigInteger.ONE.setBit(this.m);
-        // set remaining bits according to ks
-        for (int i=0; i<this.ks.length; i++) {
-            rpTmp = rpTmp.setBit(this.ks[i]);
-        }
-        rp = rpTmp;
     }
 
     /**
-     * Returns whether the specified object equals to this finite field.
-     *
-     * @param obj
-     *            the object to compare to this finite field.
-     * @return {@code true} if the specified object is equal to this finite field,
-     *         otherwise {@code false}.
-     */
-    public boolean equals(Object obj) {
-        // object equals to itself
-        if (this == obj) {
-            return true;
-        }
-        if (obj instanceof ECFieldF2m) {
-            ECFieldF2m o = (ECFieldF2m)obj;
-            // check m
-            if (this.m == o.m) {
-                // check rp
-                if (this.rp == null) {
-                    if (o.rp == null) {
-                        // fields both with normal basis
-                        return true;
-                    }
-                } else {
-                    // at least this field with polynomial basis
-                    // check that rp match
-                    // return this.rp.equals(o.rp);
-                    return Arrays.equals(this.ks, o.ks);
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Returns the size of this finite field (in bits).
-     *
-     * @return the size of this finite field (in bits).
+     * Returns the field size in bits which is <code>m</code>
+     * for this characteristic 2 finite field.
+     * @return the field size in bits.
      */
     public int getFieldSize() {
         return m;
     }
 
     /**
-     * Returns the exponent {@code m} for this finite field, with {@code 2^m} as
-     * the number of elements.
-     *
-     * @return the exponent {@code m} for this finite field
+     * Returns the value <code>m</code> of this characteristic
+     * 2 finite field.
+     * @return <code>m</code> with 2^<code>m</code> being the
+     * number of elements.
      */
     public int getM() {
         return m;
     }
 
     /**
-     * Returns a copy of the integer array containing the order of the middle
-     * term(s) of the reduction polynomial for a polynomial basis.
-     *
-     * @return a copy of the integer array containing the order of the middle
-     *         term(s) of the reduction polynomial for a polynomial basis or
-     *         {@code null} for a normal basis.
-     */
-    public int[] getMidTermsOfReductionPolynomial() {
-        // Defensively copies private array
-        // to prevent subsequent modification
-        // was: return ks == null ? null : (int[])ks.clone();
-        if (ks == null) {
-            return null;
-        } else {
-            int[] ret = new int[ks.length];
-            System.arraycopy(ks, 0, ret, 0, ret.length);
-            return ret;
-        }
-    }
-
-    /**
-     * Returns the base of the reduction polynomial with the n-th bit
-     * corresponding to the n-th coefficient of the reduction polynomial for a
-     * polynomial basis.
-     *
-     * @return the base of the reduction polynomial with the n-th bit
-     *         corresponding to the n-th coefficient of the reduction polynomial
-     *         for a polynomial basis or {@code null} for a normal basis.
+     * Returns a BigInteger whose i-th bit corresponds to the
+     * i-th coefficient of the reduction polynomial for polynomial
+     * basis or null for normal basis.
+     * @return a BigInteger whose i-th bit corresponds to the
+     * i-th coefficient of the reduction polynomial for polynomial
+     * basis or null for normal basis.
      */
     public BigInteger getReductionPolynomial() {
         return rp;
     }
 
     /**
-     * Returns the hashcode value for this finite field.
-     *
-     * @return the hashcode value for this finite field.
+     * Returns an integer array which contains the order of the
+     * middle term(s) of the reduction polynomial for polynomial
+     * basis or null for normal basis.
+     * @return an integer array which contains the order of the
+     * middle term(s) of the reduction polynomial for polynomial
+     * basis or null for normal basis. A new array is returned
+     * each time this method is called.
+     */
+    public int[] getMidTermsOfReductionPolynomial() {
+        if (ks == null) {
+            return null;
+        } else {
+            return ks.clone();
+        }
+    }
+
+    /**
+     * Compares this finite field for equality with the
+     * specified object.
+     * @param obj the object to be compared.
+     * @return true if <code>obj</code> is an instance
+     * of ECFieldF2m and both <code>m</code> and the reduction
+     * polynomial match, false otherwise.
+     */
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj instanceof ECFieldF2m) {
+            // no need to compare rp here since ks and rp
+            // should be equivalent
+            return ((m == ((ECFieldF2m)obj).m) &&
+                    (Arrays.equals(ks, ((ECFieldF2m) obj).ks)));
+        }
+        return false;
+    }
+
+    /**
+     * Returns a hash code value for this characteristic 2
+     * finite field.
+     * @return a hash code value.
      */
     public int hashCode() {
-        return rp == null ? m : m + rp.hashCode();
+        int value = m << 5;
+        value += (rp==null? 0:rp.hashCode());
+        // no need to involve ks here since ks and rp
+        // should be equivalent.
+        return value;
     }
 }

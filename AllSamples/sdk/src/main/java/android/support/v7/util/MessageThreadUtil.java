@@ -18,21 +18,23 @@ package android.support.v7.util;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.support.v4.content.ParallelExecutorCompat;
 import android.util.Log;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 class MessageThreadUtil<T> implements ThreadUtil<T> {
 
+    @Override
     public MainThreadCallback<T> getMainThreadProxy(final MainThreadCallback<T> callback) {
         return new MainThreadCallback<T>() {
-            final private MessageQueue mQueue = new MessageQueue();
+            final MessageQueue mQueue = new MessageQueue();
             final private Handler mMainThreadHandler = new Handler(Looper.getMainLooper());
 
-            private static final int UPDATE_ITEM_COUNT = 1;
-            private static final int ADD_TILE = 2;
-            private static final int REMOVE_TILE = 3;
+            static final int UPDATE_ITEM_COUNT = 1;
+            static final int ADD_TILE = 2;
+            static final int REMOVE_TILE = 3;
 
             @Override
             public void updateItemCount(int generation, int itemCount) {
@@ -80,15 +82,17 @@ class MessageThreadUtil<T> implements ThreadUtil<T> {
         };
     }
 
+    @Override
     public BackgroundCallback<T> getBackgroundProxy(final BackgroundCallback<T> callback) {
         return new BackgroundCallback<T>() {
-            final private MessageQueue mQueue = new MessageQueue();
-            final private Executor mExecutor = Executors.newSingleThreadExecutor();
+            final MessageQueue mQueue = new MessageQueue();
+            final private Executor mExecutor = ParallelExecutorCompat.getParallelExecutor();
+            AtomicBoolean mBackgroundRunning = new AtomicBoolean(false);
 
-            private static final int REFRESH = 1;
-            private static final int UPDATE_RANGE = 2;
-            private static final int LOAD_TILE = 3;
-            private static final int RECYCLE_TILE = 4;
+            static final int REFRESH = 1;
+            static final int UPDATE_RANGE = 2;
+            static final int LOAD_TILE = 3;
+            static final int RECYCLE_TILE = 4;
 
             @Override
             public void refresh(int generation) {
@@ -114,42 +118,51 @@ class MessageThreadUtil<T> implements ThreadUtil<T> {
 
             private void sendMessage(SyncQueueItem msg) {
                 mQueue.sendMessage(msg);
-                mExecutor.execute(mBackgroundRunnable);
+                maybeExecuteBackgroundRunnable();
             }
 
             private void sendMessageAtFrontOfQueue(SyncQueueItem msg) {
                 mQueue.sendMessageAtFrontOfQueue(msg);
-                mExecutor.execute(mBackgroundRunnable);
+                maybeExecuteBackgroundRunnable();
+            }
+
+            private void maybeExecuteBackgroundRunnable() {
+                if (mBackgroundRunning.compareAndSet(false, true)) {
+                    mExecutor.execute(mBackgroundRunnable);
+                }
             }
 
             private Runnable mBackgroundRunnable = new Runnable() {
                 @Override
                 public void run() {
-                    SyncQueueItem msg = mQueue.next();
-                    if (msg == null) {
-                        return;
+                    while (true) {
+                        SyncQueueItem msg = mQueue.next();
+                        if (msg == null) {
+                            break;
+                        }
+                        switch (msg.what) {
+                            case REFRESH:
+                                mQueue.removeMessages(REFRESH);
+                                callback.refresh(msg.arg1);
+                                break;
+                            case UPDATE_RANGE:
+                                mQueue.removeMessages(UPDATE_RANGE);
+                                mQueue.removeMessages(LOAD_TILE);
+                                callback.updateRange(
+                                        msg.arg1, msg.arg2, msg.arg3, msg.arg4, msg.arg5);
+                                break;
+                            case LOAD_TILE:
+                                callback.loadTile(msg.arg1, msg.arg2);
+                                break;
+                            case RECYCLE_TILE:
+                                //noinspection unchecked
+                                callback.recycleTile((TileList.Tile<T>) msg.data);
+                                break;
+                            default:
+                                Log.e("ThreadUtil", "Unsupported message, what=" + msg.what);
+                        }
                     }
-                    switch (msg.what) {
-                        case REFRESH:
-                            mQueue.removeMessages(REFRESH);
-                            callback.refresh(msg.arg1);
-                            break;
-                        case UPDATE_RANGE:
-                            mQueue.removeMessages(UPDATE_RANGE);
-                            mQueue.removeMessages(LOAD_TILE);
-                            callback.updateRange(
-                                    msg.arg1, msg.arg2, msg.arg3, msg.arg4, msg.arg5);
-                            break;
-                        case LOAD_TILE:
-                            callback.loadTile(msg.arg1, msg.arg2);
-                            break;
-                        case RECYCLE_TILE:
-                            //noinspection unchecked
-                            callback.recycleTile((TileList.Tile<T>) msg.data);
-                            break;
-                        default:
-                            Log.e("ThreadUtil", "Unsupported message, what=" + msg.what);
-                    }
+                    mBackgroundRunning.set(false);
                 }
             };
         };

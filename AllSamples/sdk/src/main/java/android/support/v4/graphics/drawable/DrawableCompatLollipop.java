@@ -17,10 +17,18 @@
 package android.support.v4.graphics.drawable;
 
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
+import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.DrawableContainer;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
+import android.util.AttributeSet;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
 
 /**
  * Implementation of drawable compatibility that can call L APIs.
@@ -37,46 +45,66 @@ class DrawableCompatLollipop {
     }
 
     public static void setTint(Drawable drawable, int tint) {
-        if (drawable instanceof DrawableWrapperLollipop) {
-            // GradientDrawable on Lollipop does not support tinting, so we'll use our compatible
-            // functionality instead
-            DrawableCompatBase.setTint(drawable, tint);
-        } else {
-            // Else, we'll use the framework API
-            drawable.setTint(tint);
-        }
+        drawable.setTint(tint);
     }
 
     public static void setTintList(Drawable drawable, ColorStateList tint) {
-        if (drawable instanceof DrawableWrapperLollipop) {
-            // GradientDrawable on Lollipop does not support tinting, so we'll use our compatible
-            // functionality instead
-            DrawableCompatBase.setTintList(drawable, tint);
-        } else {
-            // Else, we'll use the framework API
-            drawable.setTintList(tint);
-        }
+        drawable.setTintList(tint);
     }
 
     public static void setTintMode(Drawable drawable, PorterDuff.Mode tintMode) {
-        if (drawable instanceof DrawableWrapperLollipop) {
-            // GradientDrawable on Lollipop does not support tinting, so we'll use our compatible
-            // functionality instead
-            DrawableCompatBase.setTintMode(drawable, tintMode);
-        } else {
-            // Else, we'll use the framework API
-            drawable.setTintMode(tintMode);
-        }
+        drawable.setTintMode(tintMode);
     }
 
-    public static Drawable wrapForTinting(Drawable drawable) {
-        if (drawable instanceof GradientDrawable || drawable instanceof DrawableContainer) {
-            // GradientDrawable on Lollipop does not support tinting, so we'll use our compatible
-            // functionality instead. We also do the same for DrawableContainers since they may
-            // contain GradientDrawable instances.
+    public static Drawable wrapForTinting(final Drawable drawable) {
+        if (!(drawable instanceof TintAwareDrawable)) {
             return new DrawableWrapperLollipop(drawable);
         }
         return drawable;
     }
 
+    public static void applyTheme(Drawable drawable, Resources.Theme t) {
+        drawable.applyTheme(t);
+    }
+
+    public static boolean canApplyTheme(Drawable drawable) {
+        return drawable.canApplyTheme();
+    }
+
+    public static ColorFilter getColorFilter(Drawable drawable) {
+        return drawable.getColorFilter();
+    }
+
+    public static void clearColorFilter(Drawable drawable) {
+        drawable.clearColorFilter();
+
+        // API 21 + 22 have an issue where clearing a color filter on a DrawableContainer
+        // will not propagate to all of its children. To workaround this we unwrap the drawable
+        // to find any DrawableContainers, and then unwrap those to clear the filter on its
+        // children manually
+        if (drawable instanceof InsetDrawable) {
+            clearColorFilter(((InsetDrawable) drawable).getDrawable());
+        } else if (drawable instanceof DrawableWrapper) {
+            clearColorFilter(((DrawableWrapper) drawable).getWrappedDrawable());
+        } else if (drawable instanceof DrawableContainer) {
+            final DrawableContainer container = (DrawableContainer) drawable;
+            final DrawableContainer.DrawableContainerState state =
+                    (DrawableContainer.DrawableContainerState) container.getConstantState();
+            if (state != null) {
+                Drawable child;
+                for (int i = 0, count = state.getChildCount(); i < count; i++) {
+                    child = state.getChild(i);
+                    if (child != null) {
+                        clearColorFilter(child);
+                    }
+                }
+            }
+        }
+    }
+
+    public static void inflate(Drawable drawable, Resources res, XmlPullParser parser,
+                               AttributeSet attrs, Resources.Theme t)
+            throws IOException, XmlPullParserException {
+        drawable.inflate(res, parser, attrs, t);
+    }
 }

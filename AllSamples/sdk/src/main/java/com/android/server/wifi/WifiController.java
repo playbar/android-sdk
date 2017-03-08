@@ -16,6 +16,11 @@
 
 package com.android.server.wifi;
 
+import static android.net.wifi.WifiManager.WIFI_MODE_FULL;
+import static android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF;
+import static android.net.wifi.WifiManager.WIFI_MODE_NO_LOCKS_HELD;
+import static android.net.wifi.WifiManager.WIFI_MODE_SCAN_ONLY;
+
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -27,9 +32,6 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
-import static android.net.wifi.WifiManager.WIFI_MODE_FULL;
-import static android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF;
-import static android.net.wifi.WifiManager.WIFI_MODE_SCAN_ONLY;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -41,12 +43,15 @@ import android.util.Slog;
 import com.android.internal.util.Protocol;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
-import com.android.server.wifi.WifiServiceImpl.LockList;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
-class WifiController extends StateMachine {
+/**
+ * WifiController is the class used to manage on/off state of WifiStateMachine for various operating
+ * modes (normal, airplane, wifi hotspot, etc.).
+ */
+public class WifiController extends StateMachine {
     private static final String TAG = "WifiController";
     private static final boolean DBG = false;
     private Context mContext;
@@ -88,9 +93,9 @@ class WifiController extends StateMachine {
             "com.android.server.WifiManager.action.DEVICE_IDLE";
 
     /* References to values tracked in WifiService */
-    final WifiStateMachine mWifiStateMachine;
-    final WifiSettingsStore mSettingsStore;
-    final LockList mLocks;
+    private final WifiStateMachine mWifiStateMachine;
+    private final WifiSettingsStore mSettingsStore;
+    private final WifiLockManager mWifiLockManager;
 
     /**
      * Temporary for computing UIDS that are responsible for starting WIFI.
@@ -100,21 +105,30 @@ class WifiController extends StateMachine {
 
     private long mReEnableDelayMillis;
 
+    private FrameworkFacade mFacade;
+
     private static final int BASE = Protocol.BASE_WIFI_CONTROLLER;
 
-    static final int CMD_EMERGENCY_MODE_CHANGED     = BASE + 1;
-    static final int CMD_SCREEN_ON                  = BASE + 2;
-    static final int CMD_SCREEN_OFF                 = BASE + 3;
-    static final int CMD_BATTERY_CHANGED            = BASE + 4;
-    static final int CMD_DEVICE_IDLE                = BASE + 5;
-    static final int CMD_LOCKS_CHANGED              = BASE + 6;
-    static final int CMD_SCAN_ALWAYS_MODE_CHANGED   = BASE + 7;
-    static final int CMD_WIFI_TOGGLED               = BASE + 8;
-    static final int CMD_AIRPLANE_TOGGLED           = BASE + 9;
-    static final int CMD_SET_AP                     = BASE + 10;
-    static final int CMD_DEFERRED_TOGGLE            = BASE + 11;
-    static final int CMD_USER_PRESENT               = BASE + 12;
-    static final int CMD_AP_START_FAILURE           = BASE + 13;
+    static final int CMD_EMERGENCY_MODE_CHANGED        = BASE + 1;
+    static final int CMD_SCREEN_ON                     = BASE + 2;
+    static final int CMD_SCREEN_OFF                    = BASE + 3;
+    static final int CMD_BATTERY_CHANGED               = BASE + 4;
+    static final int CMD_DEVICE_IDLE                   = BASE + 5;
+    static final int CMD_LOCKS_CHANGED                 = BASE + 6;
+    static final int CMD_SCAN_ALWAYS_MODE_CHANGED      = BASE + 7;
+    static final int CMD_WIFI_TOGGLED                  = BASE + 8;
+    static final int CMD_AIRPLANE_TOGGLED              = BASE + 9;
+    static final int CMD_SET_AP                        = BASE + 10;
+    static final int CMD_DEFERRED_TOGGLE               = BASE + 11;
+    static final int CMD_USER_PRESENT                  = BASE + 12;
+    static final int CMD_AP_START_FAILURE              = BASE + 13;
+    static final int CMD_EMERGENCY_CALL_STATE_CHANGED  = BASE + 14;
+    static final int CMD_AP_STOPPED                    = BASE + 15;
+    static final int CMD_STA_START_FAILURE             = BASE + 16;
+    // Command used to trigger a wifi stack restart when in active mode
+    static final int CMD_RESTART_WIFI                  = BASE + 17;
+    // Internal command used to complete wifi stack restart
+    private static final int CMD_RESTART_WIFI_CONTINUE = BASE + 18;
 
     private DefaultState mDefaultState = new DefaultState();
     private StaEnabledState mStaEnabledState = new StaEnabledState();
@@ -129,16 +143,18 @@ class WifiController extends StateMachine {
     private NoLockHeldState mNoLockHeldState = new NoLockHeldState();
     private EcmState mEcmState = new EcmState();
 
-    WifiController(Context context, WifiServiceImpl service, Looper looper) {
+    WifiController(Context context, WifiStateMachine wsm, WifiSettingsStore wss,
+            WifiLockManager wifiLockManager, Looper looper, FrameworkFacade f) {
         super(TAG, looper);
+        mFacade = f;
         mContext = context;
-        mWifiStateMachine = service.mWifiStateMachine;
-        mSettingsStore = service.mSettingsStore;
-        mLocks = service.mLocks;
+        mWifiStateMachine = wsm;
+        mSettingsStore = wss;
+        mWifiLockManager = wifiLockManager;
 
         mAlarmManager = (AlarmManager)mContext.getSystemService(Context.ALARM_SERVICE);
         Intent idleIntent = new Intent(ACTION_DEVICE_IDLE, null);
-        mIdleIntent = PendingIntent.getBroadcast(mContext, IDLE_REQUEST, idleIntent, 0);
+        mIdleIntent = mFacade.getBroadcast(mContext, IDLE_REQUEST, idleIntent, 0);
 
         addState(mDefaultState);
             addState(mApStaDisabledState, mDefaultState);
@@ -174,6 +190,7 @@ class WifiController extends StateMachine {
         filter.addAction(ACTION_DEVICE_IDLE);
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
         filter.addAction(WifiManager.WIFI_AP_STATE_CHANGED_ACTION);
+        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
         mContext.registerReceiver(
                 new BroadcastReceiver() {
                     @Override
@@ -188,9 +205,19 @@ class WifiController extends StateMachine {
                             int state = intent.getIntExtra(
                                     WifiManager.EXTRA_WIFI_AP_STATE,
                                     WifiManager.WIFI_AP_STATE_FAILED);
-                            if(state == WifiManager.WIFI_AP_STATE_FAILED) {
+                            if (state == WifiManager.WIFI_AP_STATE_FAILED) {
                                 loge(TAG + "SoftAP start failed");
                                 sendMessage(CMD_AP_START_FAILURE);
+                            } else if (state == WifiManager.WIFI_AP_STATE_DISABLED) {
+                                sendMessage(CMD_AP_STOPPED);
+                            }
+                        } else if (action.equals(WifiManager.WIFI_STATE_CHANGED_ACTION)) {
+                            int state = intent.getIntExtra(
+                                    WifiManager.EXTRA_WIFI_STATE,
+                                    WifiManager.WIFI_STATE_UNKNOWN);
+                            if (state == WifiManager.WIFI_STATE_UNKNOWN) {
+                                loge(TAG + "Wifi turn on failed");
+                                sendMessage(CMD_STA_START_FAILURE);
                             }
                         }
                     }
@@ -212,23 +239,23 @@ class WifiController extends StateMachine {
     }
 
     private void readStayAwakeConditions() {
-        mStayAwakeConditions = Settings.Global.getInt(mContext.getContentResolver(),
+        mStayAwakeConditions = mFacade.getIntegerSetting(mContext,
                 Settings.Global.STAY_ON_WHILE_PLUGGED_IN, 0);
     }
 
     private void readWifiIdleTime() {
-        mIdleMillis = Settings.Global.getLong(mContext.getContentResolver(),
+        mIdleMillis = mFacade.getLongSetting(mContext,
                 Settings.Global.WIFI_IDLE_MS, DEFAULT_IDLE_MS);
     }
 
     private void readWifiSleepPolicy() {
-        mSleepPolicy = Settings.Global.getInt(mContext.getContentResolver(),
+        mSleepPolicy = mFacade.getIntegerSetting(mContext,
                 Settings.Global.WIFI_SLEEP_POLICY,
                 Settings.Global.WIFI_SLEEP_POLICY_NEVER);
     }
 
     private void readWifiReEnableDelay() {
-        mReEnableDelayMillis = Settings.Global.getLong(mContext.getContentResolver(),
+        mReEnableDelayMillis = mFacade.getLongSetting(mContext,
                 Settings.Global.WIFI_REENABLE_DELAY_MS, DEFAULT_REENABLE_DELAY_MS);
     }
 
@@ -317,7 +344,7 @@ class WifiController extends StateMachine {
     private void updateBatteryWorkSource() {
         mTmpWorkSource.clear();
         if (mDeviceIdle) {
-            mLocks.updateWorkSource(mTmpWorkSource);
+            mTmpWorkSource.add(mWifiLockManager.createMergedWorkSource());
         }
         mWifiStateMachine.updateBatteryWorkSource(mTmpWorkSource);
     }
@@ -381,7 +408,12 @@ class WifiController extends StateMachine {
                 case CMD_WIFI_TOGGLED:
                 case CMD_AIRPLANE_TOGGLED:
                 case CMD_EMERGENCY_MODE_CHANGED:
+                case CMD_EMERGENCY_CALL_STATE_CHANGED:
                 case CMD_AP_START_FAILURE:
+                case CMD_AP_STOPPED:
+                case CMD_STA_START_FAILURE:
+                case CMD_RESTART_WIFI:
+                case CMD_RESTART_WIFI_CONTINUE:
                     break;
                 case CMD_USER_PRESENT:
                     mFirstUserSignOnSeen = true;
@@ -441,6 +473,9 @@ class WifiController extends StateMachine {
                     break;
                 case CMD_SET_AP:
                     if (msg.arg1 == 1) {
+                        if (msg.arg2 == 0) { // previous wifi state has not been saved yet
+                            mSettingsStore.setWifiSavedState(WifiSettingsStore.WIFI_DISABLED);
+                        }
                         mWifiStateMachine.setHostApRunning((WifiConfiguration) msg.obj,
                                 true);
                         transitionTo(mApEnabledState);
@@ -453,6 +488,9 @@ class WifiController extends StateMachine {
                     }
                     log("DEFERRED_TOGGLE handled");
                     sendMessage((Message)(msg.obj));
+                    break;
+                case CMD_RESTART_WIFI_CONTINUE:
+                    transitionTo(mDeviceActiveState);
                     break;
                 default:
                     return NOT_HANDLED;
@@ -504,11 +542,30 @@ class WifiController extends StateMachine {
                         transitionTo(mApStaDisabledState);
                     }
                     break;
-                case CMD_EMERGENCY_MODE_CHANGED:
-                    if (msg.arg1 == 1) {
-                        transitionTo(mEcmState);
-                        break;
+                case CMD_STA_START_FAILURE:
+                    if (!mSettingsStore.isScanAlwaysAvailable()) {
+                        transitionTo(mApStaDisabledState);
+                    } else {
+                        transitionTo(mStaDisabledWithScanState);
                     }
+                    break;
+                case CMD_EMERGENCY_CALL_STATE_CHANGED:
+                case CMD_EMERGENCY_MODE_CHANGED:
+                    boolean getConfigWiFiDisableInECBM = mFacade.getConfigWiFiDisableInECBM(mContext);
+                    log("WifiController msg " + msg + " getConfigWiFiDisableInECBM "
+                            + getConfigWiFiDisableInECBM);
+                    if ((msg.arg1 == 1) && getConfigWiFiDisableInECBM) {
+                        transitionTo(mEcmState);
+                    }
+                    break;
+                case CMD_SET_AP:
+                    if (msg.arg1 == 1) {
+                        // remeber that we were enabled
+                        mSettingsStore.setWifiSavedState(WifiSettingsStore.WIFI_ENABLED);
+                        deferMessage(obtainMessage(msg.what, msg.arg1, 1, msg.obj));
+                        transitionTo(mApStaDisabledState);
+                    }
+                    break;
                 default:
                     return NOT_HANDLED;
 
@@ -559,6 +616,7 @@ class WifiController extends StateMachine {
                             ! mSettingsStore.isWifiToggleEnabled()) {
                         transitionTo(mApStaDisabledState);
                     }
+                    break;
                 case CMD_SCAN_ALWAYS_MODE_CHANGED:
                     if (! mSettingsStore.isScanAlwaysAvailable()) {
                         transitionTo(mApStaDisabledState);
@@ -567,7 +625,8 @@ class WifiController extends StateMachine {
                 case CMD_SET_AP:
                     // Before starting tethering, turn off supplicant for scan mode
                     if (msg.arg1 == 1) {
-                        deferMessage(msg);
+                        mSettingsStore.setWifiSavedState(WifiSettingsStore.WIFI_DISABLED);
+                        deferMessage(obtainMessage(msg.what, msg.arg1, 1, msg.obj));
                         transitionTo(mApStaDisabledState);
                     }
                     break;
@@ -604,28 +663,81 @@ class WifiController extends StateMachine {
 
     }
 
+    /**
+     * Only transition out of this state when AP failed to start or AP is stopped.
+     */
     class ApEnabledState extends State {
+        /**
+         * Save the pending state when stopping the AP, so that it will transition
+         * to the correct state when AP is stopped.  This is to avoid a possible
+         * race condition where the new state might try to update the driver/interface
+         * state before AP is completely torn down.
+         */
+        private State mPendingState = null;
+
+        /**
+         * Determine the next state based on the current settings (e.g. saved
+         * wifi state).
+         */
+        private State getNextWifiState() {
+            if (mSettingsStore.getWifiSavedState() == WifiSettingsStore.WIFI_ENABLED) {
+                return mDeviceActiveState;
+            }
+
+            if (mSettingsStore.isScanAlwaysAvailable()) {
+                return mStaDisabledWithScanState;
+            }
+
+            return mApStaDisabledState;
+        }
+
         @Override
         public boolean processMessage(Message msg) {
             switch (msg.what) {
                 case CMD_AIRPLANE_TOGGLED:
                     if (mSettingsStore.isAirplaneModeOn()) {
                         mWifiStateMachine.setHostApRunning(null, false);
-                        transitionTo(mApStaDisabledState);
+                        mPendingState = mApStaDisabledState;
+                    }
+                    break;
+                case CMD_WIFI_TOGGLED:
+                    if (mSettingsStore.isWifiToggleEnabled()) {
+                        mWifiStateMachine.setHostApRunning(null, false);
+                        mPendingState = mDeviceActiveState;
                     }
                     break;
                 case CMD_SET_AP:
                     if (msg.arg1 == 0) {
                         mWifiStateMachine.setHostApRunning(null, false);
-                        transitionTo(mApStaDisabledState);
+                        mPendingState = getNextWifiState();
+                    }
+                    break;
+                case CMD_AP_STOPPED:
+                    if (mPendingState == null) {
+                        /**
+                         * Stop triggered internally, either tether notification
+                         * timed out or wifi is untethered for some reason.
+                         */
+                        mPendingState = getNextWifiState();
+                    }
+                    if (mPendingState == mDeviceActiveState && mDeviceIdle) {
+                        checkLocksAndTransitionWhenDeviceIdle();
+                    } else {
+                        // go ahead and transition because we are not idle or we are not going
+                        // to the active state.
+                        transitionTo(mPendingState);
+                    }
+                    break;
+                case CMD_EMERGENCY_CALL_STATE_CHANGED:
+                case CMD_EMERGENCY_MODE_CHANGED:
+                    if (msg.arg1 == 1) {
+                        mWifiStateMachine.setHostApRunning(null, false);
+                        mPendingState = mEcmState;
                     }
                     break;
                 case CMD_AP_START_FAILURE:
-                    if(!mSettingsStore.isScanAlwaysAvailable()) {
-                        transitionTo(mApStaDisabledState);
-                    } else {
-                        transitionTo(mStaDisabledWithScanState);
-                    }
+                    transitionTo(getNextWifiState());
+                    break;
                 default:
                     return NOT_HANDLED;
             }
@@ -634,14 +746,55 @@ class WifiController extends StateMachine {
     }
 
     class EcmState extends State {
+        // we can enter EcmState either because an emergency call started or because
+        // emergency callback mode started. This count keeps track of how many such
+        // events happened; so we can exit after all are undone
+
+        private int mEcmEntryCount;
         @Override
         public void enter() {
             mWifiStateMachine.setSupplicantRunning(false);
+            mWifiStateMachine.clearANQPCache();
+            mEcmEntryCount = 1;
         }
 
         @Override
         public boolean processMessage(Message msg) {
-            if (msg.what == CMD_EMERGENCY_MODE_CHANGED && msg.arg1 == 0) {
+            if (msg.what == CMD_EMERGENCY_CALL_STATE_CHANGED) {
+                if (msg.arg1 == 1) {
+                    // nothing to do - just says emergency call started
+                    mEcmEntryCount++;
+                } else if (msg.arg1 == 0) {
+                    // emergency call ended
+                    decrementCountAndReturnToAppropriateState();
+                }
+                return HANDLED;
+            } else if (msg.what == CMD_EMERGENCY_MODE_CHANGED) {
+
+                if (msg.arg1 == 1) {
+                    // Transitioned into emergency callback mode
+                    mEcmEntryCount++;
+                } else if (msg.arg1 == 0) {
+                    // out of emergency callback mode
+                    decrementCountAndReturnToAppropriateState();
+                }
+                return HANDLED;
+            } else {
+                return NOT_HANDLED;
+            }
+        }
+
+        private void decrementCountAndReturnToAppropriateState() {
+            boolean exitEcm = false;
+
+            if (mEcmEntryCount == 0) {
+                loge("mEcmEntryCount is 0; exiting Ecm");
+                exitEcm = true;
+            } else if (--mEcmEntryCount == 0) {
+                exitEcm = true;
+            }
+
+            if (exitEcm) {
                 if (mSettingsStore.isWifiToggleEnabled()) {
                     if (mDeviceIdle == false) {
                         transitionTo(mDeviceActiveState);
@@ -653,9 +806,6 @@ class WifiController extends StateMachine {
                 } else {
                     transitionTo(mApStaDisabledState);
                 }
-                return HANDLED;
-            } else {
-                return NOT_HANDLED;
             }
         }
     }
@@ -682,6 +832,10 @@ class WifiController extends StateMachine {
                     mWifiStateMachine.reloadTlsNetworksAndReconnect();
                 }
                 mFirstUserSignOnSeen = true;
+                return HANDLED;
+            } else if (msg.what == CMD_RESTART_WIFI) {
+                deferMessage(obtainMessage(CMD_RESTART_WIFI_CONTINUE));
+                transitionTo(mApStaDisabledState);
                 return HANDLED;
             }
             return NOT_HANDLED;
@@ -745,26 +899,23 @@ class WifiController extends StateMachine {
     }
 
     private void checkLocksAndTransitionWhenDeviceIdle() {
-        if (mLocks.hasLocks()) {
-            switch (mLocks.getStrongestLockMode()) {
-                case WIFI_MODE_FULL:
-                    transitionTo(mFullLockHeldState);
-                    break;
-                case WIFI_MODE_FULL_HIGH_PERF:
-                    transitionTo(mFullHighPerfLockHeldState);
-                    break;
-                case WIFI_MODE_SCAN_ONLY:
+        switch (mWifiLockManager.getStrongestLockMode()) {
+            case WIFI_MODE_NO_LOCKS_HELD:
+                if (mSettingsStore.isScanAlwaysAvailable()) {
                     transitionTo(mScanOnlyLockHeldState);
-                    break;
-                default:
-                    loge("Illegal lock " + mLocks.getStrongestLockMode());
-            }
-        } else {
-            if (mSettingsStore.isScanAlwaysAvailable()) {
+                } else {
+                    transitionTo(mNoLockHeldState);
+                }
+                break;
+            case WIFI_MODE_FULL:
+                transitionTo(mFullLockHeldState);
+                break;
+            case WIFI_MODE_FULL_HIGH_PERF:
+                transitionTo(mFullHighPerfLockHeldState);
+                break;
+            case WIFI_MODE_SCAN_ONLY:
                 transitionTo(mScanOnlyLockHeldState);
-            } else {
-                transitionTo(mNoLockHeldState);
-            }
+                break;
         }
     }
 

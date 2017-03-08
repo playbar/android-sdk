@@ -16,23 +16,35 @@
 
 package android.support.v7.app;
 
-import android.app.Dialog;
+import static android.support.v7.media.MediaRouter.RouteInfo.CONNECTION_STATE_CONNECTED;
+import static android.support.v7.media.MediaRouter.RouteInfo.CONNECTION_STATE_CONNECTING;
+
 import android.content.Context;
+import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.os.SystemClock;
 import android.support.annotation.NonNull;
-import android.support.v7.media.MediaRouter;
 import android.support.v7.media.MediaRouteSelector;
+import android.support.v7.media.MediaRouter;
 import android.support.v7.mediarouter.R;
 import android.text.TextUtils;
+import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -47,7 +59,13 @@ import java.util.List;
  * @see MediaRouteButton
  * @see MediaRouteActionProvider
  */
-public class MediaRouteChooserDialog extends Dialog {
+public class MediaRouteChooserDialog extends AppCompatDialog {
+    static final String TAG = "MediaRouteChooserDialog";
+
+    // Do not update the route list immediately to avoid unnatural dialog change.
+    private static final long UPDATE_ROUTES_DELAY_MS = 300L;
+    static final int MSG_UPDATE_ROUTES = 1;
+
     private final MediaRouter mRouter;
     private final MediaRouterCallback mCallback;
 
@@ -56,13 +74,24 @@ public class MediaRouteChooserDialog extends Dialog {
     private RouteAdapter mAdapter;
     private ListView mListView;
     private boolean mAttachedToWindow;
+    private long mLastUpdateTime;
+    private final Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message message) {
+            switch (message.what) {
+                case MSG_UPDATE_ROUTES:
+                    updateRoutes((List<MediaRouter.RouteInfo>) message.obj);
+                    break;
+            }
+        }
+    };
 
     public MediaRouteChooserDialog(Context context) {
         this(context, 0);
     }
 
     public MediaRouteChooserDialog(Context context, int theme) {
-        super(MediaRouterThemeHelper.createThemedContext(context), theme);
+        super(MediaRouterThemeHelper.createThemedContext(context, theme), theme);
         context = getContext();
 
         mRouter = MediaRouter.getInstance(context);
@@ -131,29 +160,33 @@ public class MediaRouteChooserDialog extends Dialog {
      * @return True if the route should be included in the chooser dialog.
      */
     public boolean onFilterRoute(@NonNull MediaRouter.RouteInfo route) {
-        return !route.isDefault() && route.isEnabled() && route.matchesSelector(mSelector);
+        return !route.isDefaultOrBluetooth() && route.isEnabled()
+                && route.matchesSelector(mSelector);
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getWindow().requestFeature(Window.FEATURE_LEFT_ICON);
+        setContentView(R.layout.mr_chooser_dialog);
+        setTitle(R.string.mr_chooser_title);
 
-        setContentView(R.layout.mr_media_route_chooser_dialog);
-        setTitle(R.string.mr_media_route_chooser_title);
-
-        // Must be called after setContentView.
-        getWindow().setFeatureDrawableResource(Window.FEATURE_LEFT_ICON,
-                MediaRouterThemeHelper.getThemeResource(
-                        getContext(), R.attr.mediaRouteOffDrawable));
-
-        mRoutes = new ArrayList<MediaRouter.RouteInfo>();
+        mRoutes = new ArrayList<>();
         mAdapter = new RouteAdapter(getContext(), mRoutes);
-        mListView = (ListView)findViewById(R.id.media_route_list);
+        mListView = (ListView)findViewById(R.id.mr_chooser_list);
         mListView.setAdapter(mAdapter);
         mListView.setOnItemClickListener(mAdapter);
         mListView.setEmptyView(findViewById(android.R.id.empty));
+
+        updateLayout();
+    }
+
+    /**
+     * Sets the width of the dialog. Also called when configuration changes.
+     */
+    void updateLayout() {
+        getWindow().setLayout(MediaRouteDialogHelper.getDialogWidth(getContext()),
+                ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     @Override
@@ -169,6 +202,7 @@ public class MediaRouteChooserDialog extends Dialog {
     public void onDetachedFromWindow() {
         mAttachedToWindow = false;
         mRouter.removeCallback(mCallback);
+        mHandler.removeMessages(MSG_UPDATE_ROUTES);
 
         super.onDetachedFromWindow();
     }
@@ -178,21 +212,47 @@ public class MediaRouteChooserDialog extends Dialog {
      */
     public void refreshRoutes() {
         if (mAttachedToWindow) {
-            mRoutes.clear();
-            mRoutes.addAll(mRouter.getRoutes());
-            onFilterRoutes(mRoutes);
-            Collections.sort(mRoutes, RouteComparator.sInstance);
-            mAdapter.notifyDataSetChanged();
+            ArrayList<MediaRouter.RouteInfo> routes = new ArrayList<>(mRouter.getRoutes());
+            onFilterRoutes(routes);
+            Collections.sort(routes, RouteComparator.sInstance);
+            if (SystemClock.uptimeMillis() - mLastUpdateTime >= UPDATE_ROUTES_DELAY_MS) {
+                updateRoutes(routes);
+            } else {
+                mHandler.removeMessages(MSG_UPDATE_ROUTES);
+                mHandler.sendMessageAtTime(mHandler.obtainMessage(MSG_UPDATE_ROUTES, routes),
+                        mLastUpdateTime + UPDATE_ROUTES_DELAY_MS);
+            }
         }
+    }
+
+    void updateRoutes(List<MediaRouter.RouteInfo> routes) {
+        mLastUpdateTime = SystemClock.uptimeMillis();
+        mRoutes.clear();
+        mRoutes.addAll(routes);
+        mAdapter.notifyDataSetChanged();
     }
 
     private final class RouteAdapter extends ArrayAdapter<MediaRouter.RouteInfo>
             implements ListView.OnItemClickListener {
         private final LayoutInflater mInflater;
+        private final Drawable mDefaultIcon;
+        private final Drawable mTvIcon;
+        private final Drawable mSpeakerIcon;
+        private final Drawable mSpeakerGroupIcon;
 
         public RouteAdapter(Context context, List<MediaRouter.RouteInfo> routes) {
             super(context, 0, routes);
             mInflater = LayoutInflater.from(context);
+            TypedArray styledAttributes = getContext().obtainStyledAttributes(new int[] {
+                    R.attr.mediaRouteDefaultIconDrawable,
+                    R.attr.mediaRouteTvIconDrawable,
+                    R.attr.mediaRouteSpeakerIconDrawable,
+                    R.attr.mediaRouteSpeakerGroupIconDrawable});
+            mDefaultIcon = styledAttributes.getDrawable(0);
+            mTvIcon = styledAttributes.getDrawable(1);
+            mSpeakerIcon = styledAttributes.getDrawable(2);
+            mSpeakerGroupIcon = styledAttributes.getDrawable(3);
+            styledAttributes.recycle();
         }
 
         @Override
@@ -209,21 +269,32 @@ public class MediaRouteChooserDialog extends Dialog {
         public View getView(int position, View convertView, ViewGroup parent) {
             View view = convertView;
             if (view == null) {
-                view = mInflater.inflate(R.layout.mr_media_route_list_item, parent, false);
+                view = mInflater.inflate(R.layout.mr_chooser_list_item, parent, false);
             }
+
             MediaRouter.RouteInfo route = getItem(position);
-            TextView text1 = (TextView)view.findViewById(android.R.id.text1);
-            TextView text2 = (TextView)view.findViewById(android.R.id.text2);
+            TextView text1 = (TextView) view.findViewById(R.id.mr_chooser_route_name);
+            TextView text2 = (TextView) view.findViewById(R.id.mr_chooser_route_desc);
             text1.setText(route.getName());
             String description = route.getDescription();
-            if (TextUtils.isEmpty(description)) {
-                text2.setVisibility(View.GONE);
-                text2.setText("");
-            } else {
+            boolean isConnectedOrConnecting =
+                    route.getConnectionState() == CONNECTION_STATE_CONNECTED
+                            || route.getConnectionState() == CONNECTION_STATE_CONNECTING;
+            if (isConnectedOrConnecting && !TextUtils.isEmpty(description)) {
+                text1.setGravity(Gravity.BOTTOM);
                 text2.setVisibility(View.VISIBLE);
                 text2.setText(description);
+            } else {
+                text1.setGravity(Gravity.CENTER_VERTICAL);
+                text2.setVisibility(View.GONE);
+                text2.setText("");
             }
             view.setEnabled(route.isEnabled());
+
+            ImageView iconView = (ImageView) view.findViewById(R.id.mr_chooser_route_icon);
+            if (iconView != null) {
+                iconView.setImageDrawable(getIconDrawable(route));
+            }
             return view;
         }
 
@@ -235,9 +306,46 @@ public class MediaRouteChooserDialog extends Dialog {
                 dismiss();
             }
         }
+
+        private Drawable getIconDrawable(MediaRouter.RouteInfo route) {
+            Uri iconUri = route.getIconUri();
+            if (iconUri != null) {
+                try {
+                    InputStream is = getContext().getContentResolver().openInputStream(iconUri);
+                    Drawable drawable = Drawable.createFromStream(is, null);
+                    if (drawable != null) {
+                        return drawable;
+                    }
+                } catch (IOException e) {
+                    Log.w(TAG, "Failed to load " + iconUri, e);
+                    // Falls back.
+                }
+            }
+            return getDefaultIconDrawable(route);
+        }
+
+        private Drawable getDefaultIconDrawable(MediaRouter.RouteInfo route) {
+            // If the type of the receiver device is specified, use it.
+            switch (route.getDeviceType()) {
+                case  MediaRouter.RouteInfo.DEVICE_TYPE_TV:
+                    return mTvIcon;
+                case MediaRouter.RouteInfo.DEVICE_TYPE_SPEAKER:
+                    return mSpeakerIcon;
+            }
+
+            // Otherwise, make the best guess based on other route information.
+            if (route instanceof MediaRouter.RouteGroup) {
+                // Only speakers can be grouped for now.
+                return mSpeakerGroupIcon;
+            }
+            return mDefaultIcon;
+        }
     }
 
     private final class MediaRouterCallback extends MediaRouter.Callback {
+        MediaRouterCallback() {
+        }
+
         @Override
         public void onRouteAdded(MediaRouter router, MediaRouter.RouteInfo info) {
             refreshRoutes();

@@ -1,701 +1,440 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (c) 2003, 2008, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.lang;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 
 /**
- * A modifiable {@link CharSequence sequence of characters} for use in creating
- * strings. This class is intended as a direct replacement of
- * {@link StringBuffer} for non-concurrent use; unlike {@code StringBuffer} this
- * class is not synchronized.
+ * A mutable sequence of characters.  This class provides an API compatible
+ * with <code>StringBuffer</code>, but with no guarantee of synchronization.
+ * This class is designed for use as a drop-in replacement for
+ * <code>StringBuffer</code> in places where the string buffer was being
+ * used by a single thread (as is generally the case).   Where possible,
+ * it is recommended that this class be used in preference to
+ * <code>StringBuffer</code> as it will be faster under most implementations.
  *
- * <p>For particularly complex string-building needs, consider {@link java.util.Formatter}.
+ * <p>The principal operations on a <code>StringBuilder</code> are the
+ * <code>append</code> and <code>insert</code> methods, which are
+ * overloaded so as to accept data of any type. Each effectively
+ * converts a given datum to a string and then appends or inserts the
+ * characters of that string to the string builder. The
+ * <code>append</code> method always adds these characters at the end
+ * of the builder; the <code>insert</code> method adds the characters at
+ * a specified point.
+ * <p>
+ * For example, if <code>z</code> refers to a string builder object
+ * whose current contents are "<code>start</code>", then
+ * the method call <code>z.append("le")</code> would cause the string
+ * builder to contain "<code>startle</code>", whereas
+ * <code>z.insert(4, "le")</code> would alter the string builder to
+ * contain "<code>starlet</code>".
+ * <p>
+ * In general, if sb refers to an instance of a <code>StringBuilder</code>,
+ * then <code>sb.append(x)</code> has the same effect as
+ * <code>sb.insert(sb.length(),&nbsp;x)</code>.
  *
- * <p>The majority of the modification methods on this class return {@code
- * this} so that method calls can be chained together. For example:
- * {@code new StringBuilder("a").append("b").append("c").toString()}.
+ * Every string builder has a capacity. As long as the length of the
+ * character sequence contained in the string builder does not exceed
+ * the capacity, it is not necessary to allocate a new internal
+ * buffer. If the internal buffer overflows, it is automatically made larger.
  *
- * @see CharSequence
- * @see Appendable
- * @see StringBuffer
- * @see String
- * @see String#format
- * @since 1.5
+ * <p>Instances of <code>StringBuilder</code> are not safe for
+ * use by multiple threads. If such synchronization is required then it is
+ * recommended that {@link java.lang.StringBuffer} be used.
+ *
+ * @author      Michael McCloskey
+ * @see         java.lang.StringBuffer
+ * @see         java.lang.String
+ * @since       1.5
  */
-public final class StringBuilder extends AbstractStringBuilder implements
-        Appendable, CharSequence, Serializable {
+public final class StringBuilder
+    extends AbstractStringBuilder
+    implements java.io.Serializable, Appendable, CharSequence
+{
 
-    private static final long serialVersionUID = 4383685877147921099L;
+    /** use serialVersionUID for interoperability */
+    static final long serialVersionUID = 4383685877147921099L;
 
     /**
-     * Constructs an instance with an initial capacity of {@code 16}.
-     *
-     * @see #capacity()
+     * Constructs a string builder with no characters in it and an
+     * initial capacity of 16 characters.
      */
     public StringBuilder() {
+        super(16);
     }
 
     /**
-     * Constructs an instance with the specified capacity.
+     * Constructs a string builder with no characters in it and an
+     * initial capacity specified by the <code>capacity</code> argument.
      *
-     * @param capacity
-     *            the initial capacity to use.
-     * @throws NegativeArraySizeException
-     *             if the specified {@code capacity} is negative.
-     * @see #capacity()
+     * @param      capacity  the initial capacity.
+     * @throws     NegativeArraySizeException  if the <code>capacity</code>
+     *               argument is less than <code>0</code>.
      */
     public StringBuilder(int capacity) {
         super(capacity);
     }
 
     /**
-     * Constructs an instance that's initialized with the contents of the
-     * specified {@code CharSequence}. The capacity of the new builder will be
-     * the length of the {@code CharSequence} plus 16.
+     * Constructs a string builder initialized to the contents of the
+     * specified string. The initial capacity of the string builder is
+     * <code>16</code> plus the length of the string argument.
      *
-     * @param seq
-     *            the {@code CharSequence} to copy into the builder.
-     * @throws NullPointerException
-     *            if {@code seq} is {@code null}.
-     */
-    public StringBuilder(CharSequence seq) {
-        super(seq.toString());
-    }
-
-    /**
-     * Constructs an instance that's initialized with the contents of the
-     * specified {@code String}. The capacity of the new builder will be the
-     * length of the {@code String} plus 16.
-     *
-     * @param str
-     *            the {@code String} to copy into the builder.
-     * @throws NullPointerException
-     *            if {@code str} is {@code null}.
+     * @param   str   the initial contents of the buffer.
+     * @throws    NullPointerException if <code>str</code> is <code>null</code>
      */
     public StringBuilder(String str) {
-        super(str);
+        super(str.length() + 16);
+        append(str);
     }
 
     /**
-     * Appends the string representation of the specified {@code boolean} value.
-     * The {@code boolean} value is converted to a String according to the rule
-     * defined by {@link String#valueOf(boolean)}.
+     * Constructs a string builder that contains the same characters
+     * as the specified <code>CharSequence</code>. The initial capacity of
+     * the string builder is <code>16</code> plus the length of the
+     * <code>CharSequence</code> argument.
      *
-     * @param b
-     *            the {@code boolean} value to append.
-     * @return this builder.
-     * @see String#valueOf(boolean)
+     * @param      seq   the sequence to copy.
+     * @throws    NullPointerException if <code>seq</code> is <code>null</code>
      */
-    public StringBuilder append(boolean b) {
-        append0(b ? "true" : "false");
-        return this;
+    public StringBuilder(CharSequence seq) {
+        this(seq.length() + 16);
+        append(seq);
     }
 
-    /**
-     * Appends the string representation of the specified {@code char} value.
-     * The {@code char} value is converted to a string according to the rule
-     * defined by {@link String#valueOf(char)}.
-     *
-     * @param c
-     *            the {@code char} value to append.
-     * @return this builder.
-     * @see String#valueOf(char)
-     */
-    public StringBuilder append(char c) {
-        append0(c);
-        return this;
-    }
-
-    /**
-     * Appends the string representation of the specified {@code int} value. The
-     * {@code int} value is converted to a string according to the rule defined
-     * by {@link String#valueOf(int)}.
-     *
-     * @param i
-     *            the {@code int} value to append.
-     * @return this builder.
-     * @see String#valueOf(int)
-     */
-    public StringBuilder append(int i) {
-        IntegralToString.appendInt(this, i);
-        return this;
-    }
-
-    /**
-     * Appends the string representation of the specified {@code long} value.
-     * The {@code long} value is converted to a string according to the rule
-     * defined by {@link String#valueOf(long)}.
-     *
-     * @param l
-     *            the {@code long} value.
-     * @return this builder.
-     * @see String#valueOf(long)
-     */
-    public StringBuilder append(long l) {
-        IntegralToString.appendLong(this, l);
-        return this;
-    }
-
-    /**
-     * Appends the string representation of the specified {@code float} value.
-     * The {@code float} value is converted to a string according to the rule
-     * defined by {@link String#valueOf(float)}.
-     *
-     * @param f
-     *            the {@code float} value to append.
-     * @return this builder.
-     * @see String#valueOf(float)
-     */
-    public StringBuilder append(float f) {
-        RealToString.getInstance().appendFloat(this, f);
-        return this;
-    }
-
-    /**
-     * Appends the string representation of the specified {@code double} value.
-     * The {@code double} value is converted to a string according to the rule
-     * defined by {@link String#valueOf(double)}.
-     *
-     * @param d
-     *            the {@code double} value to append.
-     * @return this builder.
-     * @see String#valueOf(double)
-     */
-    public StringBuilder append(double d) {
-        RealToString.getInstance().appendDouble(this, d);
-        return this;
-    }
-
-    /**
-     * Appends the string representation of the specified {@code Object}.
-     * The {@code Object} value is converted to a string according to the rule
-     * defined by {@link String#valueOf(Object)}.
-     *
-     * @param obj
-     *            the {@code Object} to append.
-     * @return this builder.
-     * @see String#valueOf(Object)
-     */
     public StringBuilder append(Object obj) {
-        if (obj == null) {
-            appendNull();
-        } else {
-            append0(obj.toString());
-        }
-        return this;
+        return append(String.valueOf(obj));
     }
 
-    /**
-     * Appends the contents of the specified string. If the string is {@code
-     * null}, then the string {@code "null"} is appended.
-     *
-     * @param str
-     *            the string to append.
-     * @return this builder.
-     */
     public StringBuilder append(String str) {
-        append0(str);
+        super.append(str);
+        return this;
+    }
+
+    // Appends the specified string builder to this sequence.
+    private StringBuilder append(StringBuilder sb) {
+        if (sb == null)
+            return append("null");
+        int len = sb.length();
+        int newcount = count + len;
+        if (newcount > value.length)
+            expandCapacity(newcount);
+        sb.getChars(0, len, value, count);
+        count = newcount;
         return this;
     }
 
     /**
-     * Appends the contents of the specified {@code StringBuffer}. If the
-     * StringBuffer is {@code null}, then the string {@code "null"} is
-     * appended.
+     * Appends the specified <tt>StringBuffer</tt> to this sequence.
+     * <p>
+     * The characters of the <tt>StringBuffer</tt> argument are appended,
+     * in order, to this sequence, increasing the
+     * length of this sequence by the length of the argument.
+     * If <tt>sb</tt> is <tt>null</tt>, then the four characters
+     * <tt>"null"</tt> are appended to this sequence.
+     * <p>
+     * Let <i>n</i> be the length of this character sequence just prior to
+     * execution of the <tt>append</tt> method. Then the character at index
+     * <i>k</i> in the new character sequence is equal to the character at
+     * index <i>k</i> in the old character sequence, if <i>k</i> is less than
+     * <i>n</i>; otherwise, it is equal to the character at index <i>k-n</i>
+     * in the argument <code>sb</code>.
      *
-     * @param sb
-     *            the {@code StringBuffer} to append.
-     * @return this builder.
+     * @param   sb   the <tt>StringBuffer</tt> to append.
+     * @return  a reference to this object.
      */
     public StringBuilder append(StringBuffer sb) {
-        if (sb == null) {
-            appendNull();
-        } else {
-            append0(sb.getValue(), 0, sb.length());
-        }
+        super.append(sb);
         return this;
     }
 
     /**
-     * Appends the string representation of the specified {@code char[]}.
-     * The {@code char[]} is converted to a string according to the rule
-     * defined by {@link String#valueOf(char[])}.
-     *
-     * @param chars
-     *            the {@code char[]} to append..
-     * @return this builder.
-     * @see String#valueOf(char[])
      */
-    public StringBuilder append(char[] chars) {
-        append0(chars);
+    public StringBuilder append(CharSequence s) {
+        if (s == null)
+            s = "null";
+        if (s instanceof String)
+            return this.append((String)s);
+        if (s instanceof StringBuffer)
+            return this.append((StringBuffer)s);
+        if (s instanceof StringBuilder)
+            return this.append((StringBuilder)s);
+        return this.append(s, 0, s.length());
+    }
+
+    /**
+     * @throws     IndexOutOfBoundsException {@inheritDoc}
+     */
+    public StringBuilder append(CharSequence s, int start, int end) {
+        super.append(s, start, end);
+        return this;
+    }
+
+    public StringBuilder append(char[] str) {
+        super.append(str);
         return this;
     }
 
     /**
-     * Appends the string representation of the specified subset of the {@code
-     * char[]}. The {@code char[]} value is converted to a String according to
-     * the rule defined by {@link String#valueOf(char[],int,int)}.
-     *
-     * @param str
-     *            the {@code char[]} to append.
-     * @param offset
-     *            the inclusive offset index.
-     * @param len
-     *            the number of characters.
-     * @return this builder.
-     * @throws ArrayIndexOutOfBoundsException
-     *             if {@code offset} and {@code len} do not specify a valid
-     *             subsequence.
-     * @see String#valueOf(char[],int,int)
+     * @throws IndexOutOfBoundsException {@inheritDoc}
      */
     public StringBuilder append(char[] str, int offset, int len) {
-        append0(str, offset, len);
+        super.append(str, offset, len);
+        return this;
+    }
+
+    public StringBuilder append(boolean b) {
+        super.append(b);
+        return this;
+    }
+
+    public StringBuilder append(char c) {
+        super.append(c);
+        return this;
+    }
+
+    public StringBuilder append(int i) {
+        super.append(i);
+        return this;
+    }
+
+    public StringBuilder append(long lng) {
+        super.append(lng);
+        return this;
+    }
+
+    public StringBuilder append(float f) {
+        super.append(f);
+        return this;
+    }
+
+    public StringBuilder append(double d) {
+        super.append(d);
         return this;
     }
 
     /**
-     * Appends the string representation of the specified {@code CharSequence}.
-     * If the {@code CharSequence} is {@code null}, then the string {@code
-     * "null"} is appended.
-     *
-     * @param csq
-     *            the {@code CharSequence} to append.
-     * @return this builder.
-     */
-    public StringBuilder append(CharSequence csq) {
-        if (csq == null) {
-            appendNull();
-        } else {
-            append0(csq, 0, csq.length());
-        }
-        return this;
-    }
-
-    /**
-     * Appends the string representation of the specified subsequence of the
-     * {@code CharSequence}. If the {@code CharSequence} is {@code null}, then
-     * the string {@code "null"} is used to extract the subsequence from.
-     *
-     * @param csq
-     *            the {@code CharSequence} to append.
-     * @param start
-     *            the beginning index.
-     * @param end
-     *            the ending index.
-     * @return this builder.
-     * @throws IndexOutOfBoundsException
-     *             if {@code start} or {@code end} are negative, {@code start}
-     *             is greater than {@code end} or {@code end} is greater than
-     *             the length of {@code csq}.
-     */
-    public StringBuilder append(CharSequence csq, int start, int end) {
-        append0(csq, start, end);
-        return this;
-    }
-
-    /**
-     * Appends the encoded Unicode code point. The code point is converted to a
-     * {@code char[]} as defined by {@link Character#toChars(int)}.
-     *
-     * @param codePoint
-     *            the Unicode code point to encode and append.
-     * @return this builder.
-     * @see Character#toChars(int)
+     * @since 1.5
      */
     public StringBuilder appendCodePoint(int codePoint) {
-        append0(Character.toChars(codePoint));
+        super.appendCodePoint(codePoint);
         return this;
     }
 
     /**
-     * Deletes a sequence of characters specified by {@code start} and {@code
-     * end}. Shifts any remaining characters to the left.
-     *
-     * @param start
-     *            the inclusive start index.
-     * @param end
-     *            the exclusive end index.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code start} is less than zero, greater than the current
-     *             length or greater than {@code end}.
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
     public StringBuilder delete(int start, int end) {
-        delete0(start, end);
+        super.delete(start, end);
         return this;
     }
 
     /**
-     * Deletes the character at the specified index. shifts any remaining
-     * characters to the left.
-     *
-     * @param index
-     *            the index of the character to delete.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code index} is less than zero or is greater than or
-     *             equal to the current length.
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
     public StringBuilder deleteCharAt(int index) {
-        deleteCharAt0(index);
+        super.deleteCharAt(index);
         return this;
     }
 
     /**
-     * Inserts the string representation of the specified {@code boolean} value
-     * at the specified {@code offset}. The {@code boolean} value is converted
-     * to a string according to the rule defined by
-     * {@link String#valueOf(boolean)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param b
-     *            the {@code boolean} value to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length}.
-     * @see String#valueOf(boolean)
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
-    public StringBuilder insert(int offset, boolean b) {
-        insert0(offset, b ? "true" : "false");
+    public StringBuilder replace(int start, int end, String str) {
+        super.replace(start, end, str);
         return this;
     }
 
     /**
-     * Inserts the string representation of the specified {@code char} value at
-     * the specified {@code offset}. The {@code char} value is converted to a
-     * string according to the rule defined by {@link String#valueOf(char)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param c
-     *            the {@code char} value to insert.
-     * @return this builder.
-     * @throws IndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
-     * @see String#valueOf(char)
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
-    public StringBuilder insert(int offset, char c) {
-        insert0(offset, c);
+    public StringBuilder insert(int index, char[] str, int offset,
+                                int len)
+    {
+        super.insert(index, str, offset, len);
         return this;
     }
 
     /**
-     * Inserts the string representation of the specified {@code int} value at
-     * the specified {@code offset}. The {@code int} value is converted to a
-     * String according to the rule defined by {@link String#valueOf(int)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param i
-     *            the {@code int} value to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
-     * @see String#valueOf(int)
-     */
-    public StringBuilder insert(int offset, int i) {
-        insert0(offset, Integer.toString(i));
-        return this;
-    }
-
-    /**
-     * Inserts the string representation of the specified {@code long} value at
-     * the specified {@code offset}. The {@code long} value is converted to a
-     * String according to the rule defined by {@link String#valueOf(long)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param l
-     *            the {@code long} value to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {code length()}.
-     * @see String#valueOf(long)
-     */
-    public StringBuilder insert(int offset, long l) {
-        insert0(offset, Long.toString(l));
-        return this;
-    }
-
-    /**
-     * Inserts the string representation of the specified {@code float} value at
-     * the specified {@code offset}. The {@code float} value is converted to a
-     * string according to the rule defined by {@link String#valueOf(float)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param f
-     *            the {@code float} value to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
-     * @see String#valueOf(float)
-     */
-    public StringBuilder insert(int offset, float f) {
-        insert0(offset, Float.toString(f));
-        return this;
-    }
-
-    /**
-     * Inserts the string representation of the specified {@code double} value
-     * at the specified {@code offset}. The {@code double} value is converted
-     * to a String according to the rule defined by
-     * {@link String#valueOf(double)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param d
-     *            the {@code double} value to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
-     * @see String#valueOf(double)
-     */
-    public StringBuilder insert(int offset, double d) {
-        insert0(offset, Double.toString(d));
-        return this;
-    }
-
-    /**
-     * Inserts the string representation of the specified {@code Object} at the
-     * specified {@code offset}. The {@code Object} value is converted to a
-     * String according to the rule defined by {@link String#valueOf(Object)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param obj
-     *            the {@code Object} to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
-     * @see String#valueOf(Object)
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
     public StringBuilder insert(int offset, Object obj) {
-        insert0(offset, obj == null ? "null" : obj.toString());
-        return this;
+        return insert(offset, String.valueOf(obj));
     }
 
     /**
-     * Inserts the specified string at the specified {@code offset}. If the
-     * specified string is null, then the String {@code "null"} is inserted.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param str
-     *            the {@code String} to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
     public StringBuilder insert(int offset, String str) {
-        insert0(offset, str);
+        super.insert(offset, str);
         return this;
     }
 
     /**
-     * Inserts the string representation of the specified {@code char[]} at the
-     * specified {@code offset}. The {@code char[]} value is converted to a
-     * String according to the rule defined by {@link String#valueOf(char[])}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param ch
-     *            the {@code char[]} to insert.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
-     * @see String#valueOf(char[])
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
-    public StringBuilder insert(int offset, char[] ch) {
-        insert0(offset, ch);
+    public StringBuilder insert(int offset, char[] str) {
+        super.insert(offset, str);
         return this;
     }
 
     /**
-     * Inserts the string representation of the specified subsequence of the
-     * {@code char[]} at the specified {@code offset}. The {@code char[]} value
-     * is converted to a String according to the rule defined by
-     * {@link String#valueOf(char[],int,int)}.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param str
-     *            the {@code char[]} to insert.
-     * @param strOffset
-     *            the inclusive index.
-     * @param strLen
-     *            the number of characters.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}, or {@code strOffset} and {@code strLen} do
-     *             not specify a valid subsequence.
-     * @see String#valueOf(char[],int,int)
+     * @throws IndexOutOfBoundsException {@inheritDoc}
      */
-    public StringBuilder insert(int offset, char[] str, int strOffset,
-            int strLen) {
-        insert0(offset, str, strOffset, strLen);
+    public StringBuilder insert(int dstOffset, CharSequence s) {
+        if (s == null)
+            s = "null";
+        if (s instanceof String)
+            return this.insert(dstOffset, (String)s);
+        return this.insert(dstOffset, s, 0, s.length());
+    }
+
+    /**
+     * @throws IndexOutOfBoundsException {@inheritDoc}
+     */
+    public StringBuilder insert(int dstOffset, CharSequence s,
+                                int start, int end)
+    {
+        super.insert(dstOffset, s, start, end);
         return this;
     }
 
     /**
-     * Inserts the string representation of the specified {@code CharSequence}
-     * at the specified {@code offset}. The {@code CharSequence} is converted
-     * to a String as defined by {@link CharSequence#toString()}. If {@code s}
-     * is {@code null}, then the String {@code "null"} is inserted.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param s
-     *            the {@code CharSequence} to insert.
-     * @return this builder.
-     * @throws IndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}.
-     * @see CharSequence#toString()
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
-    public StringBuilder insert(int offset, CharSequence s) {
-        insert0(offset, s == null ? "null" : s.toString());
+    public StringBuilder insert(int offset, boolean b) {
+        super.insert(offset, b);
         return this;
     }
 
     /**
-     * Inserts the string representation of the specified subsequence of the
-     * {@code CharSequence} at the specified {@code offset}. The {@code
-     * CharSequence} is converted to a String as defined by
-     * {@link CharSequence#subSequence(int, int)}. If the {@code CharSequence}
-     * is {@code null}, then the string {@code "null"} is used to determine the
-     * subsequence.
-     *
-     * @param offset
-     *            the index to insert at.
-     * @param s
-     *            the {@code CharSequence} to insert.
-     * @param start
-     *            the start of the subsequence of the character sequence.
-     * @param end
-     *            the end of the subsequence of the character sequence.
-     * @return this builder.
-     * @throws IndexOutOfBoundsException
-     *             if {@code offset} is negative or greater than the current
-     *             {@code length()}, or {@code start} and {@code end} do not
-     *             specify a valid subsequence.
-     * @see CharSequence#subSequence(int, int)
+     * @throws IndexOutOfBoundsException {@inheritDoc}
      */
-    public StringBuilder insert(int offset, CharSequence s, int start, int end) {
-        insert0(offset, s, start, end);
+    public StringBuilder insert(int offset, char c) {
+        super.insert(offset, c);
         return this;
     }
 
     /**
-     * Replaces the specified subsequence in this builder with the specified
-     * string.
-     *
-     * @param start
-     *            the inclusive begin index.
-     * @param end
-     *            the exclusive end index.
-     * @param string
-     *            the replacement string.
-     * @return this builder.
-     * @throws StringIndexOutOfBoundsException
-     *             if {@code start} is negative, greater than the current
-     *             {@code length()} or greater than {@code end}.
-     * @throws NullPointerException
-     *            if {@code str} is {@code null}.
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
-    public StringBuilder replace(int start, int end, String string) {
-        replace0(start, end, string);
-        return this;
+    public StringBuilder insert(int offset, int i) {
+        return insert(offset, String.valueOf(i));
     }
 
     /**
-     * Reverses the order of characters in this builder.
-     *
-     * @return this buffer.
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
      */
+    public StringBuilder insert(int offset, long l) {
+        return insert(offset, String.valueOf(l));
+    }
+
+    /**
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
+     */
+    public StringBuilder insert(int offset, float f) {
+        return insert(offset, String.valueOf(f));
+    }
+
+    /**
+     * @throws StringIndexOutOfBoundsException {@inheritDoc}
+     */
+    public StringBuilder insert(int offset, double d) {
+        return insert(offset, String.valueOf(d));
+    }
+
+    /**
+     * @throws NullPointerException {@inheritDoc}
+     */
+    public int indexOf(String str) {
+        return indexOf(str, 0);
+    }
+
+    /**
+     * @throws NullPointerException {@inheritDoc}
+     */
+    public int indexOf(String str, int fromIndex) {
+        return String.indexOf(value, 0, count,
+                              str.toCharArray(), 0, str.length(), fromIndex);
+    }
+
+    /**
+     * @throws NullPointerException {@inheritDoc}
+     */
+    public int lastIndexOf(String str) {
+        return lastIndexOf(str, count);
+    }
+
+    /**
+     * @throws NullPointerException {@inheritDoc}
+     */
+    public int lastIndexOf(String str, int fromIndex) {
+        return String.lastIndexOf(value, 0, count,
+                              str.toCharArray(), 0, str.length(), fromIndex);
+    }
+
     public StringBuilder reverse() {
-        reverse0();
+        super.reverse();
         return this;
     }
 
-    /**
-     * Returns the contents of this builder.
-     *
-     * @return the string representation of the data in this builder.
-     */
-    @Override
     public String toString() {
-        /* Note: This method is required to workaround a compiler bug
-         * in the RI javac (at least in 1.5.0_06) that will generate a
-         * reference to the non-public AbstractStringBuilder if we don't
-         * override it here.
-         */
-        return super.toString();
+        if (count == 0) {
+            return "";
+        }
+        return StringFactory.newStringFromChars(0, count, value);
     }
 
     /**
-     * Reads the state of a {@code StringBuilder} from the passed stream and
-     * restores it to this instance.
+     * Save the state of the <tt>StringBuilder</tt> instance to a stream
+     * (that is, serialize it).
      *
-     * @param in
-     *            the stream to read the state from.
-     * @throws IOException
-     *             if the stream throws it during the read.
-     * @throws ClassNotFoundException
-     *             if the stream throws it during the read.
+     * @serialData the number of characters currently stored in the string
+     *             builder (<tt>int</tt>), followed by the characters in the
+     *             string builder (<tt>char[]</tt>).   The length of the
+     *             <tt>char</tt> array may be greater than the number of
+     *             characters currently stored in the string builder, in which
+     *             case extra characters are ignored.
      */
-    private void readObject(ObjectInputStream in) throws IOException,
-            ClassNotFoundException {
-        in.defaultReadObject();
-        int count = in.readInt();
-        char[] value = (char[]) in.readObject();
-        set(value, count);
+    private void writeObject(java.io.ObjectOutputStream s)
+        throws java.io.IOException {
+        s.defaultWriteObject();
+        s.writeInt(count);
+        s.writeObject(value);
     }
 
     /**
-     * Writes the state of this object to the stream passed.
-     *
-     * @param out
-     *            the stream to write the state to.
-     * @throws IOException
-     *             if the stream throws it during the write.
-     * @serialData {@code int} - the length of this object. {@code char[]} - the
-     *             buffer from this object, which may be larger than the length
-     *             field.
+     * readObject is called to restore the state of the StringBuffer from
+     * a stream.
      */
-    private void writeObject(ObjectOutputStream out) throws IOException {
-        out.defaultWriteObject();
-        out.writeInt(length());
-        out.writeObject(getValue());
+    private void readObject(java.io.ObjectInputStream s)
+        throws java.io.IOException, ClassNotFoundException {
+        s.defaultReadObject();
+        count = s.readInt();
+        value = (char[]) s.readObject();
     }
+
 }

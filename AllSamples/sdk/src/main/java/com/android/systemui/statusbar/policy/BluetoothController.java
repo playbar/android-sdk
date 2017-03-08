@@ -26,6 +26,9 @@ public interface BluetoothController {
 
     boolean isBluetoothSupported();
     boolean isBluetoothEnabled();
+
+    int getBluetoothState();
+
     boolean isBluetoothConnected();
     boolean isBluetoothConnecting();
     String getLastDeviceName();
@@ -33,6 +36,7 @@ public interface BluetoothController {
     Collection<CachedBluetoothDevice> getDevices();
     void connect(CachedBluetoothDevice device);
     void disconnect(CachedBluetoothDevice device);
+    boolean canConfigBluetooth();
 
     public interface Callback {
         void onBluetoothStateChange(boolean enabled);

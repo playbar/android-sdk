@@ -27,7 +27,7 @@ import android.support.v4.os.OperationCanceledException;
  * Helper for accessing features in {@link android.content.ContentResolver}
  * introduced after API level 4 in a backwards compatible fashion.
  */
-public class ContentResolverCompat {
+public final class ContentResolverCompat {
     interface ContentResolverCompatImpl {
         Cursor query(ContentResolver resolver,
                 Uri uri, String[] projection, String selection, String[] selectionArgs,
@@ -53,10 +53,21 @@ public class ContentResolverCompat {
         public Cursor query(ContentResolver resolver, Uri uri, String[] projection,
                 String selection, String[] selectionArgs, String sortOrder,
                 CancellationSignal cancellationSignal) {
-            return ContentResolverCompatJellybean.query(resolver,
-                    uri, projection, selection, selectionArgs, sortOrder,
-                    cancellationSignal != null ?
-                            cancellationSignal.getCancellationSignalObject() : null);
+            try {
+                return ContentResolverCompatJellybean.query(resolver,
+                        uri, projection, selection, selectionArgs, sortOrder,
+                        cancellationSignal != null ?
+                                cancellationSignal.getCancellationSignalObject() : null);
+            } catch (Exception e) {
+                if (ContentResolverCompatJellybean.isFrameworkOperationCanceledException(e)) {
+                    // query() can throw a framework OperationCanceledException if it has been
+                    // canceled. We catch that and throw the support version instead.
+                    throw new OperationCanceledException();
+                } else {
+                    // If it's not a framework OperationCanceledException, re-throw the exception
+                    throw e;
+                }
+            }
         }
     }
 

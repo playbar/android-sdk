@@ -16,16 +16,21 @@
 
 package android.support.v7.preference;
 
+import android.content.res.TypedArray;
+import android.graphics.drawable.Drawable;
 import android.os.Handler;
+import android.support.annotation.RestrictTo;
+import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ListView;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * An adapter that connects a RecyclerView to the {@link Preference} objects contained in the
@@ -33,8 +38,10 @@ import java.util.List;
  *
  * @hide
  */
+@RestrictTo(GROUP_ID)
 public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewHolder>
-        implements Preference.OnPreferenceChangeInternalListener {
+        implements Preference.OnPreferenceChangeInternalListener,
+        PreferenceGroup.PreferencePositionCallback {
 
     private static final String TAG = "PreferenceGroupAdapter";
 
@@ -64,11 +71,10 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
 
     private PreferenceLayout mTempPreferenceLayout = new PreferenceLayout();
 
-    private volatile boolean mIsSyncing = false;
-
     private Handler mHandler = new Handler();
 
     private Runnable mSyncRunnable = new Runnable() {
+        @Override
         public void run() {
             syncMyPreferences();
         }
@@ -78,6 +84,14 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
         private int resId;
         private int widgetResId;
         private String name;
+
+        public PreferenceLayout() {}
+
+        public PreferenceLayout(PreferenceLayout other) {
+            resId = other.resId;
+            widgetResId = other.widgetResId;
+            name = other.name;
+        }
 
         @Override
         public boolean equals(Object o) {
@@ -109,38 +123,36 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
         mPreferenceListInternal = new ArrayList<>();
         mPreferenceLayouts = new ArrayList<>();
 
-        setHasStableIds(true);
+        if (mPreferenceGroup instanceof PreferenceScreen) {
+            setHasStableIds(((PreferenceScreen) mPreferenceGroup).shouldUseGeneratedIds());
+        } else {
+            setHasStableIds(true);
+        }
 
         syncMyPreferences();
     }
 
     private void syncMyPreferences() {
-        synchronized(this) {
-            if (mIsSyncing) {
-                return;
-            }
-
-            mIsSyncing = true;
-        }
-
-        List<Preference> newPreferenceList = new ArrayList<>(mPreferenceListInternal.size());
-        flattenPreferenceGroup(newPreferenceList, mPreferenceGroup);
-        mPreferenceListInternal = newPreferenceList;
-
-        mPreferenceList = new ArrayList<>(mPreferenceListInternal.size());
-        // Copy only the visible preferences to the active list
         for (final Preference preference : mPreferenceListInternal) {
+            // Clear out the listeners in anticipation of some items being removed. This listener
+            // will be (re-)added to the remaining prefs when we flatten.
+            preference.setOnPreferenceChangeInternalListener(null);
+        }
+        final List<Preference> fullPreferenceList = new ArrayList<>(mPreferenceListInternal.size());
+        flattenPreferenceGroup(fullPreferenceList, mPreferenceGroup);
+
+        final List<Preference> visiblePreferenceList = new ArrayList<>(fullPreferenceList.size());
+        // Copy only the visible preferences to the active list
+        for (final Preference preference : fullPreferenceList) {
             if (preference.isVisible()) {
-                mPreferenceList.add(preference);
+                visiblePreferenceList.add(preference);
             }
         }
+
+        mPreferenceList = visiblePreferenceList;
+        mPreferenceListInternal = fullPreferenceList;
 
         notifyDataSetChanged();
-
-        synchronized(this) {
-            mIsSyncing = false;
-            notifyAll();
-        }
     }
 
     private void flattenPreferenceGroup(List<Preference> preferences, PreferenceGroup group) {
@@ -195,15 +207,25 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
         return mPreferenceList.get(position);
     }
 
+    @Override
     public long getItemId(int position) {
-        if (position < 0 || position >= getItemCount()) return ListView.INVALID_ROW_ID;
+        if (!hasStableIds()) {
+            return RecyclerView.NO_ID;
+        }
         return this.getItem(position).getId();
     }
 
+    @Override
     public void onPreferenceChange(Preference preference) {
-        notifyDataSetChanged();
+        final int index = mPreferenceList.indexOf(preference);
+        // If we don't find the preference, we don't need to notify anyone
+        if (index != -1) {
+            // Send the pref object as a placeholder to ensure the view holder is recycled in place
+            notifyItemChanged(index, preference);
+        }
     }
 
+    @Override
     public void onPreferenceHierarchyChange(Preference preference) {
         mHandler.removeCallbacks(mSyncRunnable);
         mHandler.post(mSyncRunnable);
@@ -211,6 +233,9 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
 
     @Override
     public void onPreferenceVisibilityChange(Preference preference) {
+        if (!mPreferenceListInternal.contains(preference)) {
+            return;
+        }
         if (preference.isVisible()) {
             // The preference has become visible, we need to add it in the correct location.
 
@@ -229,7 +254,7 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
 
             notifyItemInserted(previousVisibleIndex + 1);
         } else {
-            // The preference has become invisibile. Find it in the list and remove it.
+            // The preference has become invisible. Find it in the list and remove it.
 
             int removalIndex;
             final int listSize = mPreferenceList.size();
@@ -249,15 +274,34 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
 
         mTempPreferenceLayout = createPreferenceLayout(preference, mTempPreferenceLayout);
 
-        return mPreferenceLayouts.indexOf(mTempPreferenceLayout);
+        int viewType = mPreferenceLayouts.indexOf(mTempPreferenceLayout);
+        if (viewType != -1) {
+            return viewType;
+        } else {
+            viewType = mPreferenceLayouts.size();
+            mPreferenceLayouts.add(new PreferenceLayout(mTempPreferenceLayout));
+            return viewType;
+        }
     }
 
     @Override
     public PreferenceViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         final PreferenceLayout pl = mPreferenceLayouts.get(viewType);
         final LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+        TypedArray a
+                = parent.getContext().obtainStyledAttributes(null, R.styleable.BackgroundStyle);
+        Drawable background
+                = a.getDrawable(R.styleable.BackgroundStyle_android_selectableItemBackground);
+        if (background == null) {
+            background = parent.getContext().getResources()
+                    .getDrawable(android.R.drawable.list_selector_background);
+        }
+        a.recycle();
 
-        final ViewGroup view = (ViewGroup) inflater.inflate(pl.resId, parent, false);
+        final View view = inflater.inflate(pl.resId, parent, false);
+        if (view.getBackground() == null) {
+            ViewCompat.setBackground(view, background);
+        }
 
         final ViewGroup widgetFrame = (ViewGroup) view.findViewById(android.R.id.widget_frame);
         if (widgetFrame != null) {
@@ -275,5 +319,29 @@ public class PreferenceGroupAdapter extends RecyclerView.Adapter<PreferenceViewH
     public void onBindViewHolder(PreferenceViewHolder holder, int position) {
         final Preference preference = getItem(position);
         preference.onBindViewHolder(holder);
+    }
+
+    @Override
+    public int getPreferenceAdapterPosition(String key) {
+        final int size = mPreferenceList.size();
+        for (int i = 0; i < size; i++) {
+            final Preference candidate = mPreferenceList.get(i);
+            if (TextUtils.equals(key, candidate.getKey())) {
+                return i;
+            }
+        }
+        return RecyclerView.NO_POSITION;
+    }
+
+    @Override
+    public int getPreferenceAdapterPosition(Preference preference) {
+        final int size = mPreferenceList.size();
+        for (int i = 0; i < size; i++) {
+            final Preference candidate = mPreferenceList.get(i);
+            if (candidate != null && candidate.equals(preference)) {
+                return i;
+            }
+        }
+        return RecyclerView.NO_POSITION;
     }
 }

@@ -36,7 +36,6 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -53,7 +52,7 @@ import java.util.List;
  * introduced after API level 4 in a backwards compatible fashion.
  */
 public final class MediaControllerCompat {
-    private static final String TAG = "MediaControllerCompat";
+    static final String TAG = "MediaControllerCompat";
 
     private final MediaControllerImpl mImpl;
     private final MediaSessionCompat.Token mToken;
@@ -69,7 +68,9 @@ public final class MediaControllerCompat {
         }
         mToken = session.getSessionToken();
 
-        if (android.os.Build.VERSION.SDK_INT >= 23) {
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            mImpl = new MediaControllerImplApi24(context, session);
+        } else if (android.os.Build.VERSION.SDK_INT >= 23) {
             mImpl = new MediaControllerImplApi23(context, session);
         } else if (android.os.Build.VERSION.SDK_INT >= 21) {
             mImpl = new MediaControllerImplApi21(context, session);
@@ -92,7 +93,11 @@ public final class MediaControllerCompat {
         }
         mToken = sessionToken;
 
-        if (android.os.Build.VERSION.SDK_INT >= 21) {
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            mImpl = new MediaControllerImplApi24(context, sessionToken);
+        } else if (android.os.Build.VERSION.SDK_INT >= 23) {
+            mImpl = new MediaControllerImplApi23(context, sessionToken);
+        } else if (android.os.Build.VERSION.SDK_INT >= 21) {
             mImpl = new MediaControllerImplApi21(context, sessionToken);
         } else {
             mImpl = new MediaControllerImplBase(mToken);
@@ -338,9 +343,9 @@ public final class MediaControllerCompat {
      */
     public static abstract class Callback implements IBinder.DeathRecipient {
         private final Object mCallbackObj;
-        private MessageHandler mHandler;
+        MessageHandler mHandler;
 
-        private boolean mRegistered = false;
+        boolean mRegistered = false;
 
         public Callback() {
             if (android.os.Build.VERSION.SDK_INT >= 21) {
@@ -380,7 +385,7 @@ public final class MediaControllerCompat {
          * Override to handle changes to the current metadata.
          *
          * @param metadata The current metadata for the session or null if none.
-         * @see MediaMetadata
+         * @see MediaMetadataCompat
          */
         public void onMetadataChanged(MediaMetadataCompat metadata) {
         }
@@ -436,6 +441,9 @@ public final class MediaControllerCompat {
         }
 
         private class StubApi21 implements MediaControllerCompatApi21.Callback {
+            StubApi21() {
+            }
+
             @Override
             public void onSessionDestroyed() {
                 Callback.this.onSessionDestroyed();
@@ -454,12 +462,36 @@ public final class MediaControllerCompat {
 
             @Override
             public void onMetadataChanged(Object metadataObj) {
-                Callback.this.onMetadataChanged(
-                        MediaMetadataCompat.fromMediaMetadata(metadataObj));
+                Callback.this.onMetadataChanged(MediaMetadataCompat.fromMediaMetadata(metadataObj));
+            }
+
+            @Override
+            public void onQueueChanged(List<?> queue) {
+                Callback.this.onQueueChanged(QueueItem.fromQueueItemList(queue));
+            }
+
+            @Override
+            public void onQueueTitleChanged(CharSequence title) {
+                Callback.this.onQueueTitleChanged(title);
+            }
+
+            @Override
+            public void onExtrasChanged(Bundle extras) {
+                Callback.this.onExtrasChanged(extras);
+            }
+
+            @Override
+            public void onAudioInfoChanged(
+                    int type, int stream, int control, int max, int current) {
+                Callback.this.onAudioInfoChanged(
+                        new PlaybackInfo(type, stream, control, max, current));
             }
         }
 
         private class StubCompat extends IMediaControllerCallback.Stub {
+
+            StubCompat() {
+            }
 
             @Override
             public void onEvent(String event, Bundle extras) throws RemoteException {
@@ -555,7 +587,9 @@ public final class MediaControllerCompat {
             }
 
             public void post(int what, Object obj, Bundle data) {
-                obtainMessage(what, obj).sendToTarget();
+                Message msg = obtainMessage(what, obj);
+                msg.setData(data);
+                msg.sendToTarget();
             }
         }
     }
@@ -567,6 +601,62 @@ public final class MediaControllerCompat {
     public static abstract class TransportControls {
         TransportControls() {
         }
+
+        /**
+         * Request that the player prepare its playback without audio focus. In other words, other
+         * session can continue to play during the preparation of this session. This method can be
+         * used to speed up the start of the playback. Once the preparation is done, the session
+         * will change its playback state to {@link PlaybackStateCompat#STATE_PAUSED}. Afterwards,
+         * {@link #play} can be called to start playback. If the preparation is not needed,
+         * {@link #play} can be directly called without this method.
+         */
+        public abstract void prepare();
+
+        /**
+         * Request that the player prepare playback for a specific media id. In other words, other
+         * session can continue to play during the preparation of this session. This method can be
+         * used to speed up the start of the playback. Once the preparation is
+         * done, the session will change its playback state to
+         * {@link PlaybackStateCompat#STATE_PAUSED}. Afterwards, {@link #play} can be called to
+         * start playback. If the preparation is not needed, {@link #playFromMediaId} can
+         * be directly called without this method.
+         *
+         * @param mediaId The id of the requested media.
+         * @param extras Optional extras that can include extra information about the media item
+         *               to be prepared.
+         */
+        public abstract void prepareFromMediaId(String mediaId, Bundle extras);
+
+        /**
+         * Request that the player prepare playback for a specific search query.
+         * An empty or null query should be treated as a request to prepare any
+         * music. In other words, other session can continue to play during
+         * the preparation of this session. This method can be used to speed up the start of the
+         * playback. Once the preparation is done, the session will change its playback state to
+         * {@link PlaybackStateCompat#STATE_PAUSED}. Afterwards, {@link #play} can be called to
+         * start playback. If the preparation is not needed, {@link #playFromSearch} can be directly
+         * called without this method.
+         *
+         * @param query The search query.
+         * @param extras Optional extras that can include extra information
+         *               about the query.
+         */
+        public abstract void prepareFromSearch(String query, Bundle extras);
+
+        /**
+         * Request that the player prepare playback for a specific {@link Uri}.
+         * In other words, other session can continue to play during the preparation of this
+         * session. This method can be used to speed up the start of the playback.
+         * Once the preparation is done, the session will change its playback state to
+         * {@link PlaybackStateCompat#STATE_PAUSED}. Afterwards, {@link #play} can be called to
+         * start playback. If the preparation is not needed, {@link #playFromUri} can be directly
+         * called without this method.
+         *
+         * @param uri The URI of the requested media.
+         * @param extras Optional extras that can include extra information about the media item
+         *               to be prepared.
+         */
+        public abstract void prepareFromUri(Uri uri, Bundle extras);
 
         /**
          * Request that the player start its playback at its current position.
@@ -1003,6 +1093,42 @@ public final class MediaControllerCompat {
         }
 
         @Override
+        public void prepare() {
+            try {
+                mBinder.prepare();
+            } catch (RemoteException e) {
+                Log.e(TAG, "Dead object in prepare. " + e);
+            }
+        }
+
+        @Override
+        public void prepareFromMediaId(String mediaId, Bundle extras) {
+            try {
+                mBinder.prepareFromMediaId(mediaId, extras);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Dead object in prepareFromMediaId. " + e);
+            }
+        }
+
+        @Override
+        public void prepareFromSearch(String query, Bundle extras) {
+            try {
+                mBinder.prepareFromSearch(query, extras);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Dead object in prepareFromSearch. " + e);
+            }
+        }
+
+        @Override
+        public void prepareFromUri(Uri uri, Bundle extras) {
+            try {
+                mBinder.prepareFromUri(uri, extras);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Dead object in prepareFromUri. " + e);
+            }
+        }
+
+        @Override
         public void play() {
             try {
                 mBinder.play();
@@ -1185,15 +1311,8 @@ public final class MediaControllerCompat {
         @Override
         public List<MediaSessionCompat.QueueItem> getQueue() {
             List<Object> queueObjs = MediaControllerCompatApi21.getQueue(mControllerObj);
-            if (queueObjs == null) {
-                return null;
-            }
-            List<MediaSessionCompat.QueueItem> queue =
-                    new ArrayList<MediaSessionCompat.QueueItem>();
-            for (Object item : queueObjs) {
-                queue.add(MediaSessionCompat.QueueItem.obtain(item));
-            }
-            return queue;
+            return queueObjs != null ? MediaSessionCompat.QueueItem.fromQueueItemList(queueObjs)
+                    : null;
         }
 
         @Override
@@ -1266,6 +1385,35 @@ public final class MediaControllerCompat {
         }
 
         @Override
+        public void prepare() {
+            sendCustomAction(MediaSessionCompat.ACTION_PREPARE, null);
+        }
+
+        @Override
+        public void prepareFromMediaId(String mediaId, Bundle extras) {
+            Bundle bundle = new Bundle();
+            bundle.putString(MediaSessionCompat.ACTION_ARGUMENT_MEDIA_ID, mediaId);
+            bundle.putBundle(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
+            sendCustomAction(MediaSessionCompat.ACTION_PREPARE_FROM_MEDIA_ID, bundle);
+        }
+
+        @Override
+        public void prepareFromSearch(String query, Bundle extras) {
+            Bundle bundle = new Bundle();
+            bundle.putString(MediaSessionCompat.ACTION_ARGUMENT_QUERY, query);
+            bundle.putBundle(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
+            sendCustomAction(MediaSessionCompat.ACTION_PREPARE_FROM_SEARCH, bundle);
+        }
+
+        @Override
+        public void prepareFromUri(Uri uri, Bundle extras) {
+            Bundle bundle = new Bundle();
+            bundle.putParcelable(MediaSessionCompat.ACTION_ARGUMENT_URI, uri);
+            bundle.putBundle(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
+            sendCustomAction(MediaSessionCompat.ACTION_PREPARE_FROM_URI, bundle);
+        }
+
+        @Override
         public void play() {
             MediaControllerCompatApi21.TransportControls.play(mControlsObj);
         }
@@ -1325,6 +1473,14 @@ public final class MediaControllerCompat {
 
         @Override
         public void playFromUri(Uri uri, Bundle extras) {
+            if (uri == null || Uri.EMPTY.equals(uri)) {
+                throw new IllegalArgumentException(
+                        "You must specify a non-empty Uri for playFromUri.");
+            }
+            Bundle bundle = new Bundle();
+            bundle.putParcelable(MediaSessionCompat.ACTION_ARGUMENT_URI, uri);
+            bundle.putParcelable(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
+            sendCustomAction(MediaSessionCompat.ACTION_PLAY_FROM_URI, bundle);
         }
 
         @Override
@@ -1375,4 +1531,52 @@ public final class MediaControllerCompat {
                     extras);
         }
     }
+
+    static class MediaControllerImplApi24 extends MediaControllerImplApi23 {
+
+        public MediaControllerImplApi24(Context context, MediaSessionCompat session) {
+            super(context, session);
+        }
+
+        public MediaControllerImplApi24(Context context, MediaSessionCompat.Token sessionToken)
+                throws RemoteException {
+            super(context, sessionToken);
+        }
+
+        @Override
+        public TransportControls getTransportControls() {
+            Object controlsObj = MediaControllerCompatApi21.getTransportControls(mControllerObj);
+            return controlsObj != null ? new TransportControlsApi24(controlsObj) : null;
+        }
+    }
+
+    static class TransportControlsApi24 extends TransportControlsApi23 {
+
+        public TransportControlsApi24(Object controlsObj) {
+            super(controlsObj);
+        }
+
+        @Override
+        public void prepare() {
+            MediaControllerCompatApi24.TransportControls.prepare(mControlsObj);
+        }
+
+        @Override
+        public void prepareFromMediaId(String mediaId, Bundle extras) {
+            MediaControllerCompatApi24.TransportControls.prepareFromMediaId(
+                    mControlsObj, mediaId, extras);
+        }
+
+        @Override
+        public void prepareFromSearch(String query, Bundle extras) {
+            MediaControllerCompatApi24.TransportControls.prepareFromSearch(
+                    mControlsObj, query, extras);
+        }
+
+        @Override
+        public void prepareFromUri(Uri uri, Bundle extras) {
+            MediaControllerCompatApi24.TransportControls.prepareFromUri(mControlsObj, uri, extras);
+        }
+    }
+
 }

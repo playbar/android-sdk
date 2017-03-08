@@ -1,56 +1,57 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2001, 2007, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.nio.charset;
 
-/**
- * An {@code UnmappableCharacterException} is thrown when an unmappable
- * character for the given charset is encountered.
- */
-public class UnmappableCharacterException extends CharacterCodingException {
 
-    /*
-     * This constant is used during deserialization to check the version
-     * which created the serialized object.
-     */
+/**
+ * Checked exception thrown when an input character (or byte) sequence
+ * is valid but cannot be mapped to an output byte (or character)
+ * sequence.  </p>
+ *
+ * @since 1.4
+ */
+
+public class UnmappableCharacterException
+    extends CharacterCodingException
+{
+
     private static final long serialVersionUID = -7026962371537706123L;
 
-    // The length of the unmappable character
     private int inputLength;
 
-    /**
-     * Constructs a new {@code UnmappableCharacterException}.
-     *
-     * @param length
-     *            the length of the unmappable character.
-     */
-    public UnmappableCharacterException(int length) {
-        this.inputLength = length;
+    public UnmappableCharacterException(int inputLength) {
+        this.inputLength = inputLength;
     }
 
-    /**
-     * Returns the length of the unmappable character.
-     */
     public int getInputLength() {
-        return this.inputLength;
+        return inputLength;
     }
 
-    @Override
     public String getMessage() {
-        return "Length: " + inputLength;
+        return "Input length = " + inputLength;
     }
+
 }

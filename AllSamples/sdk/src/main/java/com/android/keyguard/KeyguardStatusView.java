@@ -18,7 +18,6 @@ package com.android.keyguard;
 
 import android.app.ActivityManager;
 import android.app.AlarmManager;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -128,6 +127,11 @@ public class KeyguardStatusView extends GridLayout {
         super.onConfigurationChanged(newConfig);
         mClockView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
                 getResources().getDimensionPixelSize(R.dimen.widget_big_font_size));
+        // Some layouts like burmese have a different margin for the clock
+        MarginLayoutParams layoutParams = (MarginLayoutParams) mClockView.getLayoutParams();
+        layoutParams.bottomMargin = getResources().getDimensionPixelSize(
+                R.dimen.bottom_text_spacing_digital);
+        mClockView.setLayoutParams(layoutParams);
         mDateView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
                 getResources().getDimensionPixelSize(R.dimen.widget_label_font_size));
         mOwnerInfo.setTextSize(TypedValue.COMPLEX_UNIT_PX,
@@ -198,12 +202,18 @@ public class KeyguardStatusView extends GridLayout {
     }
 
     private String getOwnerInfo() {
-        ContentResolver res = getContext().getContentResolver();
         String info = null;
-        final boolean ownerInfoEnabled = mLockPatternUtils.isOwnerInfoEnabled(
-                KeyguardUpdateMonitor.getCurrentUser());
-        if (ownerInfoEnabled) {
-            info = mLockPatternUtils.getOwnerInfo(KeyguardUpdateMonitor.getCurrentUser());
+        if (mLockPatternUtils.isDeviceOwnerInfoEnabled()) {
+            // Use the device owner information set by device policy client via
+            // device policy manager.
+            info = mLockPatternUtils.getDeviceOwnerInfo();
+        } else {
+            // Use the current user owner information if enabled.
+            final boolean ownerInfoEnabled = mLockPatternUtils.isOwnerInfoEnabled(
+                    KeyguardUpdateMonitor.getCurrentUser());
+            if (ownerInfoEnabled) {
+                info = mLockPatternUtils.getOwnerInfo(KeyguardUpdateMonitor.getCurrentUser());
+            }
         }
         return info;
     }

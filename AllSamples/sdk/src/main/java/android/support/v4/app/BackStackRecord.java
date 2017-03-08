@@ -30,6 +30,7 @@ import android.view.ViewTreeObserver;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 
 final class BackStackState implements Parcelable {
@@ -134,6 +135,10 @@ final class BackStackState implements Parcelable {
                     op.removed.add(r);
                 }
             }
+            bse.mEnterAnim = op.enterAnim;
+            bse.mExitAnim = op.exitAnim;
+            bse.mPopEnterAnim = op.popEnterAnim;
+            bse.mPopExitAnim = op.popExitAnim;
             bse.addOp(op);
             num++;
         }
@@ -152,10 +157,12 @@ final class BackStackState implements Parcelable {
         return bse;
     }
 
+    @Override
     public int describeContents() {
         return 0;
     }
 
+    @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeIntArray(mOps);
         dest.writeInt(mTransition);
@@ -172,10 +179,12 @@ final class BackStackState implements Parcelable {
 
     public static final Parcelable.Creator<BackStackState> CREATOR
             = new Parcelable.Creator<BackStackState>() {
+        @Override
         public BackStackState createFromParcel(Parcel in) {
             return new BackStackState(in);
         }
 
+        @Override
         public BackStackState[] newArray(int size) {
             return new BackStackState[size];
         }
@@ -183,7 +192,7 @@ final class BackStackState implements Parcelable {
 }
 
 /**
- * @hide Entry of an operation on the fragment back stack.
+ * Entry of an operation on the fragment back stack.
  */
 final class BackStackRecord extends FragmentTransaction implements
         FragmentManager.BackStackEntry, Runnable {
@@ -339,7 +348,7 @@ final class BackStackRecord extends FragmentTransaction implements
                                 writer.println("Removed:");
                             }
                             writer.print(innerPrefix); writer.print("  #"); writer.print(i);
-                                    writer.print(": "); 
+                                    writer.print(": ");
                         }
                         writer.println(op.removed.get(i));
                     }
@@ -354,18 +363,22 @@ final class BackStackRecord extends FragmentTransaction implements
         mManager = manager;
     }
 
+    @Override
     public int getId() {
         return mIndex;
     }
 
+    @Override
     public int getBreadCrumbTitleRes() {
         return mBreadCrumbTitleRes;
     }
 
+    @Override
     public int getBreadCrumbShortTitleRes() {
         return mBreadCrumbShortTitleRes;
     }
 
+    @Override
     public CharSequence getBreadCrumbTitle() {
         if (mBreadCrumbTitleRes != 0) {
             return mManager.mHost.getContext().getText(mBreadCrumbTitleRes);
@@ -373,6 +386,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return mBreadCrumbTitleText;
     }
 
+    @Override
     public CharSequence getBreadCrumbShortTitle() {
         if (mBreadCrumbShortTitleRes != 0) {
             return mManager.mHost.getContext().getText(mBreadCrumbShortTitleRes);
@@ -395,22 +409,34 @@ final class BackStackRecord extends FragmentTransaction implements
         mNumOp++;
     }
 
+    @Override
     public FragmentTransaction add(Fragment fragment, String tag) {
         doAddOp(0, fragment, tag, OP_ADD);
         return this;
     }
 
+    @Override
     public FragmentTransaction add(int containerViewId, Fragment fragment) {
         doAddOp(containerViewId, fragment, null, OP_ADD);
         return this;
     }
 
+    @Override
     public FragmentTransaction add(int containerViewId, Fragment fragment, String tag) {
         doAddOp(containerViewId, fragment, tag, OP_ADD);
         return this;
     }
 
     private void doAddOp(int containerViewId, Fragment fragment, String tag, int opcmd) {
+        final Class fragmentClass = fragment.getClass();
+        final int modifiers = fragmentClass.getModifiers();
+        if (fragmentClass.isAnonymousClass() || !Modifier.isPublic(modifiers)
+                || (fragmentClass.isMemberClass() && !Modifier.isStatic(modifiers))) {
+            throw new IllegalStateException("Fragment " + fragmentClass.getCanonicalName()
+                    + " must be a public static class to be  properly recreated from"
+                    + " instance state.");
+        }
+
         fragment.mFragmentManager = mManager;
 
         if (tag != null) {
@@ -423,6 +449,10 @@ final class BackStackRecord extends FragmentTransaction implements
         }
 
         if (containerViewId != 0) {
+            if (containerViewId == View.NO_ID) {
+                throw new IllegalArgumentException("Can't add fragment "
+                        + fragment + " with tag " + tag + " to container view with no id");
+            }
             if (fragment.mFragmentId != 0 && fragment.mFragmentId != containerViewId) {
                 throw new IllegalStateException("Can't change container ID of fragment "
                         + fragment + ": was " + fragment.mFragmentId
@@ -437,10 +467,12 @@ final class BackStackRecord extends FragmentTransaction implements
         addOp(op);
     }
 
+    @Override
     public FragmentTransaction replace(int containerViewId, Fragment fragment) {
         return replace(containerViewId, fragment, null);
     }
 
+    @Override
     public FragmentTransaction replace(int containerViewId, Fragment fragment, String tag) {
         if (containerViewId == 0) {
             throw new IllegalArgumentException("Must use non-zero containerViewId");
@@ -450,6 +482,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction remove(Fragment fragment) {
         Op op = new Op();
         op.cmd = OP_REMOVE;
@@ -459,6 +492,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction hide(Fragment fragment) {
         Op op = new Op();
         op.cmd = OP_HIDE;
@@ -468,6 +502,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction show(Fragment fragment) {
         Op op = new Op();
         op.cmd = OP_SHOW;
@@ -477,6 +512,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction detach(Fragment fragment) {
         Op op = new Op();
         op.cmd = OP_DETACH;
@@ -486,6 +522,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction attach(Fragment fragment) {
         Op op = new Op();
         op.cmd = OP_ATTACH;
@@ -495,10 +532,12 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction setCustomAnimations(int enter, int exit) {
         return setCustomAnimations(enter, exit, 0, 0);
     }
 
+    @Override
     public FragmentTransaction setCustomAnimations(int enter, int exit,
             int popEnter, int popExit) {
         mEnterAnim = enter;
@@ -508,6 +547,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction setTransition(int transition) {
         mTransition = transition;
         return this;
@@ -532,11 +572,13 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction setTransitionStyle(int styleRes) {
         mTransitionStyle = styleRes;
         return this;
     }
 
+    @Override
     public FragmentTransaction addToBackStack(String name) {
         if (!mAllowAddToBackStack) {
             throw new IllegalStateException(
@@ -547,10 +589,12 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public boolean isAddToBackStackAllowed() {
         return mAllowAddToBackStack;
     }
 
+    @Override
     public FragmentTransaction disallowAddToBackStack() {
         if (mAddToBackStack) {
             throw new IllegalStateException(
@@ -560,24 +604,28 @@ final class BackStackRecord extends FragmentTransaction implements
         return this;
     }
 
+    @Override
     public FragmentTransaction setBreadCrumbTitle(int res) {
         mBreadCrumbTitleRes = res;
         mBreadCrumbTitleText = null;
         return this;
     }
 
+    @Override
     public FragmentTransaction setBreadCrumbTitle(CharSequence text) {
         mBreadCrumbTitleRes = 0;
         mBreadCrumbTitleText = text;
         return this;
     }
 
+    @Override
     public FragmentTransaction setBreadCrumbShortTitle(int res) {
         mBreadCrumbShortTitleRes = res;
         mBreadCrumbShortTitleText = null;
         return this;
     }
 
+    @Override
     public FragmentTransaction setBreadCrumbShortTitle(CharSequence text) {
         mBreadCrumbShortTitleRes = 0;
         mBreadCrumbShortTitleText = text;
@@ -609,14 +657,28 @@ final class BackStackRecord extends FragmentTransaction implements
         }
     }
 
+    @Override
     public int commit() {
         return commitInternal(false);
     }
 
+    @Override
     public int commitAllowingStateLoss() {
         return commitInternal(true);
     }
-    
+
+    @Override
+    public void commitNow() {
+        disallowAddToBackStack();
+        mManager.execSingleAction(this, false);
+    }
+
+    @Override
+    public void commitNowAllowingStateLoss() {
+        disallowAddToBackStack();
+        mManager.execSingleAction(this, true);
+    }
+
     int commitInternal(boolean allowStateLoss) {
         if (mCommitted) throw new IllegalStateException("commit already called");
         if (FragmentManagerImpl.DEBUG) {
@@ -634,7 +696,8 @@ final class BackStackRecord extends FragmentTransaction implements
         mManager.enqueueAction(this, allowStateLoss);
         return mIndex;
     }
-    
+
+    @Override
     public void run() {
         if (FragmentManagerImpl.DEBUG) Log.v(TAG, "Run: " + this);
 
@@ -649,7 +712,7 @@ final class BackStackRecord extends FragmentTransaction implements
         TransitionState state = null;
         SparseArray<Fragment> firstOutFragments = null;
         SparseArray<Fragment> lastInFragments = null;
-        if (SUPPORTS_TRANSITIONS) {
+        if (SUPPORTS_TRANSITIONS && mManager.mCurState >= Fragment.CREATED) {
             firstOutFragments = new SparseArray<Fragment>();
             lastInFragments = new SparseArray<Fragment>();
 
@@ -674,7 +737,7 @@ final class BackStackRecord extends FragmentTransaction implements
                     Fragment f = op.fragment;
                     int containerId = f.mContainerId;
                     if (mManager.mAdded != null) {
-                        for (int i=0; i<mManager.mAdded.size(); i++) {
+                        for (int i = mManager.mAdded.size() - 1; i >= 0; i--) {
                             Fragment old = mManager.mAdded.get(i);
                             if (FragmentManagerImpl.DEBUG) Log.v(TAG,
                                     "OP_REPLACE: adding=" + f + " old=" + old);
@@ -742,21 +805,37 @@ final class BackStackRecord extends FragmentTransaction implements
         }
     }
 
-    private static void setFirstOut(SparseArray<Fragment> fragments, Fragment fragment) {
+    private static void setFirstOut(SparseArray<Fragment> firstOutFragments,
+            SparseArray<Fragment> lastInFragments, Fragment fragment) {
         if (fragment != null) {
             int containerId = fragment.mContainerId;
-            if (containerId != 0 && !fragment.isHidden() && fragment.isAdded() &&
-                    fragment.getView() != null && fragments.get(containerId) == null) {
-                fragments.put(containerId, fragment);
+            if (containerId != 0 && !fragment.isHidden()) {
+                if (fragment.isAdded() && fragment.getView() != null
+                        && firstOutFragments.get(containerId) == null) {
+                    firstOutFragments.put(containerId, fragment);
+                }
+                if (lastInFragments.get(containerId) == fragment) {
+                    lastInFragments.remove(containerId);
+                }
             }
         }
     }
 
-    private void setLastIn(SparseArray<Fragment> fragments, Fragment fragment) {
+    private void setLastIn(SparseArray<Fragment> firstOutFragments,
+            SparseArray<Fragment> lastInFragments, Fragment fragment) {
         if (fragment != null) {
             int containerId = fragment.mContainerId;
             if (containerId != 0) {
-                fragments.put(containerId, fragment);
+                if (!fragment.isAdded()) {
+                    lastInFragments.put(containerId, fragment);
+                }
+                if (firstOutFragments.get(containerId) == fragment) {
+                    firstOutFragments.remove(containerId);
+                }
+            }
+            if (fragment.mState < Fragment.CREATED && mManager.mCurState >= Fragment.CREATED) {
+                mManager.makeActive(fragment);
+                mManager.moveToState(fragment, Fragment.CREATED, 0, 0, false);
             }
         }
     }
@@ -779,7 +858,7 @@ final class BackStackRecord extends FragmentTransaction implements
         while (op != null) {
             switch (op.cmd) {
                 case OP_ADD:
-                    setLastIn(lastInFragments, op.fragment);
+                    setLastIn(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_REPLACE: {
                     Fragment f = op.fragment;
@@ -789,29 +868,30 @@ final class BackStackRecord extends FragmentTransaction implements
                             if (f == null || old.mContainerId == f.mContainerId) {
                                 if (old == f) {
                                     f = null;
+                                    lastInFragments.remove(old.mContainerId);
                                 } else {
-                                    setFirstOut(firstOutFragments, old);
+                                    setFirstOut(firstOutFragments, lastInFragments, old);
                                 }
                             }
                         }
                     }
-                    setLastIn(lastInFragments, f);
+                    setLastIn(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 }
                 case OP_REMOVE:
-                    setFirstOut(firstOutFragments, op.fragment);
+                    setFirstOut(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_HIDE:
-                    setFirstOut(firstOutFragments, op.fragment);
+                    setFirstOut(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_SHOW:
-                    setLastIn(lastInFragments, op.fragment);
+                    setLastIn(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_DETACH:
-                    setFirstOut(firstOutFragments, op.fragment);
+                    setFirstOut(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_ATTACH:
-                    setLastIn(lastInFragments, op.fragment);
+                    setLastIn(firstOutFragments, lastInFragments, op.fragment);
                     break;
             }
 
@@ -833,38 +913,38 @@ final class BackStackRecord extends FragmentTransaction implements
         if (!mManager.mContainer.onHasView()) {
             return; // nothing to see, so no transitions
         }
-        Op op = mHead;
+        Op op = mTail;
         while (op != null) {
             switch (op.cmd) {
                 case OP_ADD:
-                    setFirstOut(firstOutFragments, op.fragment);
+                    setFirstOut(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_REPLACE:
                     if (op.removed != null) {
                         for (int i = op.removed.size() - 1; i >= 0; i--) {
-                            setLastIn(lastInFragments, op.removed.get(i));
+                            setLastIn(firstOutFragments, lastInFragments, op.removed.get(i));
                         }
                     }
-                    setFirstOut(firstOutFragments, op.fragment);
+                    setFirstOut(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_REMOVE:
-                    setLastIn(lastInFragments, op.fragment);
+                    setLastIn(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_HIDE:
-                    setLastIn(lastInFragments, op.fragment);
+                    setLastIn(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_SHOW:
-                    setFirstOut(firstOutFragments, op.fragment);
+                    setFirstOut(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_DETACH:
-                    setLastIn(lastInFragments, op.fragment);
+                    setLastIn(firstOutFragments, lastInFragments, op.fragment);
                     break;
                 case OP_ATTACH:
-                    setFirstOut(firstOutFragments, op.fragment);
+                    setFirstOut(firstOutFragments, lastInFragments, op.fragment);
                     break;
             }
 
-            op = op.next;
+            op = op.prev;
         }
     }
 
@@ -877,7 +957,7 @@ final class BackStackRecord extends FragmentTransaction implements
             dump("  ", null, pw, null);
         }
 
-        if (SUPPORTS_TRANSITIONS) {
+        if (SUPPORTS_TRANSITIONS && mManager.mCurState >= Fragment.CREATED) {
             if (state == null) {
                 if (firstOutFragments.size() != 0 || lastInFragments.size() != 0) {
                     state = beginTransition(firstOutFragments, lastInFragments, true);
@@ -967,6 +1047,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return state;
     }
 
+    @Override
     public String getName() {
         return mName;
     }
@@ -979,6 +1060,7 @@ final class BackStackRecord extends FragmentTransaction implements
         return mTransitionStyle;
     }
 
+    @Override
     public boolean isEmpty() {
         return mNumOp == 0;
     }
@@ -1158,7 +1240,8 @@ final class BackStackRecord extends FragmentTransaction implements
                     callback.onSharedElementStart(names, views, null);
                 }
                 prepareSharedElementTransition(state, sceneRoot, sharedElementTransition,
-                        inFragment, outFragment, isBack, sharedElementTargets);
+                        inFragment, outFragment, isBack, sharedElementTargets, enterTransition,
+                        exitTransition);
             }
         }
         if (enterTransition == null && sharedElementTransition == null &&
@@ -1205,9 +1288,9 @@ final class BackStackRecord extends FragmentTransaction implements
 
         if (transition != null) {
             FragmentTransitionCompat21.addTransitionTargets(enterTransition,
-                    sharedElementTransition, sceneRoot, viewRetriever, state.nonExistentView,
-                    state.enteringEpicenterView, state.nameOverrides, enteringViews,
-                    namedViews, renamedViews, sharedElementTargets);
+                    sharedElementTransition, exitTransition, sceneRoot, viewRetriever,
+                    state.nonExistentView, state.enteringEpicenterView, state.nameOverrides,
+                    enteringViews, exitingViews, namedViews, renamedViews, sharedElementTargets);
             excludeHiddenFragmentsAfterEnter(sceneRoot, state, containerId, transition);
 
             // We want to exclude hidden views later, so we need a non-null list in the
@@ -1229,16 +1312,22 @@ final class BackStackRecord extends FragmentTransaction implements
     private void prepareSharedElementTransition(final TransitionState state, final View sceneRoot,
             final Object sharedElementTransition, final Fragment inFragment,
             final Fragment outFragment, final boolean isBack,
-            final ArrayList<View> sharedElementTargets) {
-        sceneRoot.getViewTreeObserver().addOnPreDrawListener(
-                new ViewTreeObserver.OnPreDrawListener() {
-            @Override
-            public boolean onPreDraw() {
-                sceneRoot.getViewTreeObserver().removeOnPreDrawListener(this);
+            final ArrayList<View> sharedElementTargets, final Object enterTransition,
+            final Object exitTransition) {
+        if (sharedElementTransition != null) {
+            sceneRoot.getViewTreeObserver().addOnPreDrawListener(
+                    new ViewTreeObserver.OnPreDrawListener() {
+                @Override
+                public boolean onPreDraw() {
+                    sceneRoot.getViewTreeObserver().removeOnPreDrawListener(this);
 
-                if (sharedElementTransition != null) {
+                    // Remove the exclude for the shared elements from the exiting fragment.
                     FragmentTransitionCompat21.removeTargets(sharedElementTransition,
                             sharedElementTargets);
+                    // keep the nonExistentView as excluded so the list doesn't get emptied
+                    sharedElementTargets.remove(state.nonExistentView);
+                    FragmentTransitionCompat21.excludeSharedElementViews(enterTransition,
+                            exitTransition, sharedElementTransition, sharedElementTargets, false);
                     sharedElementTargets.clear();
 
                     ArrayMap<String, View> namedViews = mapSharedElementsIn(
@@ -1250,14 +1339,17 @@ final class BackStackRecord extends FragmentTransaction implements
 
                     callSharedElementEnd(state, inFragment, outFragment, isBack,
                             namedViews);
-                }
 
-                return true;
-            }
-        });
+                    // Exclude the shared elements from the entering fragment.
+                    FragmentTransitionCompat21.excludeSharedElementViews(enterTransition,
+                            exitTransition, sharedElementTransition, sharedElementTargets, true);
+                    return true;
+                }
+            });
+        }
     }
 
-    private void callSharedElementEnd(TransitionState state, Fragment inFragment,
+    void callSharedElementEnd(TransitionState state, Fragment inFragment,
             Fragment outFragment, boolean isBack, ArrayMap<String, View> namedViews) {
         SharedElementCallback sharedElementCallback = isBack ?
                 outFragment.mEnterTransitionCallback :
@@ -1269,7 +1361,7 @@ final class BackStackRecord extends FragmentTransaction implements
         }
     }
 
-    private void setEpicenterIn(ArrayMap<String, View> namedViews, TransitionState state) {
+    void setEpicenterIn(ArrayMap<String, View> namedViews, TransitionState state) {
         if (mSharedElementTargetNames != null && !namedViews.isEmpty()) {
             // now we know the epicenter of the entering transition.
             View epicenter = namedViews
@@ -1280,7 +1372,7 @@ final class BackStackRecord extends FragmentTransaction implements
         }
     }
 
-    private ArrayMap<String, View> mapSharedElementsIn(TransitionState state,
+    ArrayMap<String, View> mapSharedElementsIn(TransitionState state,
             boolean isBack, Fragment inFragment) {
         // Now map the shared elements in the incoming fragment
         ArrayMap<String, View> namedViews = mapEnteringSharedElements(state, inFragment, isBack);
@@ -1358,6 +1450,7 @@ final class BackStackRecord extends FragmentTransaction implements
             final int containerId, final Object transition) {
         sceneRoot.getViewTreeObserver().addOnPreDrawListener(
                 new ViewTreeObserver.OnPreDrawListener() {
+            @Override
             public boolean onPreDraw() {
                 sceneRoot.getViewTreeObserver().removeOnPreDrawListener(this);
                 excludeHiddenFragments(state, containerId, transition);
@@ -1366,7 +1459,7 @@ final class BackStackRecord extends FragmentTransaction implements
         });
     }
 
-    private void excludeHiddenFragments(TransitionState state, int containerId, Object transition) {
+    void excludeHiddenFragments(TransitionState state, int containerId, Object transition) {
         if (mManager.mAdded != null) {
             for (int i = 0; i < mManager.mAdded.size(); i++) {
                 Fragment fragment = mManager.mAdded.get(i);

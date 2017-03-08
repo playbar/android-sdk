@@ -19,13 +19,18 @@ package com.android.server.location;
 import android.text.TextUtils;
 import android.util.Log;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import libcore.io.Streams;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
+import libcore.io.Streams;
 
 /**
  * A class for downloading GPS XTRA data.
@@ -36,7 +41,9 @@ public class GpsXtraDownloader {
 
     private static final String TAG = "GpsXtraDownloader";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+    private static final long MAXIMUM_CONTENT_LENGTH_BYTES = 1000000;  // 1MB.
     private static final String DEFAULT_USER_AGENT = "Android";
+    private static final int CONNECTION_TIMEOUT_MS = (int) TimeUnit.SECONDS.toMillis(30);
 
     private final String[] mXtraServers;
     // to load balance our server requests
@@ -113,6 +120,7 @@ public class GpsXtraDownloader {
             connection.setRequestProperty(
                     "x-wap-profile",
                     "http://www.openmobilealliance.org/tech/profiles/UAPROF/ccppschema-20021212#");
+            connection.setConnectTimeout(CONNECTION_TIMEOUT_MS);
 
             connection.connect();
             int statusCode = connection.getResponseCode();
@@ -121,7 +129,19 @@ public class GpsXtraDownloader {
                 return null;
             }
 
-            return Streams.readFully(connection.getInputStream());
+            try (InputStream in = connection.getInputStream()) {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                byte[] buffer = new byte[1024];
+                int count;
+                while ((count = in.read(buffer)) != -1) {
+                    bytes.write(buffer, 0, count);
+                    if (bytes.size() > MAXIMUM_CONTENT_LENGTH_BYTES) {
+                        if (DEBUG) Log.d(TAG, "XTRA file too large");
+                        return null;
+                    }
+                }
+                return bytes.toByteArray();
+            }
         } catch (IOException ioe) {
             if (DEBUG) Log.d(TAG, "Error downloading gps XTRA: ", ioe);
         } finally {
@@ -133,3 +153,4 @@ public class GpsXtraDownloader {
     }
 
 }
+

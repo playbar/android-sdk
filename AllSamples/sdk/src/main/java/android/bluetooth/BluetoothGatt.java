@@ -41,7 +41,6 @@ public final class BluetoothGatt implements BluetoothProfile {
     private static final boolean DBG = true;
     private static final boolean VDBG = false;
 
-    private final Context mContext;
     private IBluetoothGatt mService;
     private BluetoothGattCallback mCallback;
     private int mClientIf;
@@ -197,109 +196,43 @@ public final class BluetoothGatt implements BluetoothProfile {
             }
 
             /**
-             * A new GATT service has been discovered.
-             * The service is added to the internal list and the search
-             * continues.
-             * @hide
-             */
-            public void onGetService(String address, int srvcType,
-                                     int srvcInstId, ParcelUuid srvcUuid) {
-                if (VDBG) Log.d(TAG, "onGetService() - Device=" + address + " UUID=" + srvcUuid);
-                if (!address.equals(mDevice.getAddress())) {
-                    return;
-                }
-                mServices.add(new BluetoothGattService(mDevice, srvcUuid.getUuid(),
-                                                       srvcInstId, srvcType));
-            }
-
-            /**
-             * An included service has been found durig GATT discovery.
-             * The included service is added to the respective parent.
-             * @hide
-             */
-            public void onGetIncludedService(String address, int srvcType,
-                                             int srvcInstId, ParcelUuid srvcUuid,
-                                             int inclSrvcType, int inclSrvcInstId,
-                                             ParcelUuid inclSrvcUuid) {
-                if (VDBG) Log.d(TAG, "onGetIncludedService() - Device=" + address
-                    + " UUID=" + srvcUuid + " Included=" + inclSrvcUuid);
-
-                if (!address.equals(mDevice.getAddress())) {
-                    return;
-                }
-                BluetoothGattService service = getService(mDevice,
-                        srvcUuid.getUuid(), srvcInstId, srvcType);
-                BluetoothGattService includedService = getService(mDevice,
-                        inclSrvcUuid.getUuid(), inclSrvcInstId, inclSrvcType);
-
-                if (service != null && includedService != null) {
-                    service.addIncludedService(includedService);
-                }
-            }
-
-            /**
-             * A new GATT characteristic has been discovered.
-             * Add the new characteristic to the relevant service and continue
-             * the remote device inspection.
-             * @hide
-             */
-            public void onGetCharacteristic(String address, int srvcType,
-                             int srvcInstId, ParcelUuid srvcUuid,
-                             int charInstId, ParcelUuid charUuid,
-                             int charProps) {
-                if (VDBG) Log.d(TAG, "onGetCharacteristic() - Device=" + address + " UUID=" +
-                               charUuid);
-
-                if (!address.equals(mDevice.getAddress())) {
-                    return;
-                }
-                BluetoothGattService service = getService(mDevice, srvcUuid.getUuid(),
-                                                          srvcInstId, srvcType);
-                if (service != null) {
-                    service.addCharacteristic(new BluetoothGattCharacteristic(
-                           service, charUuid.getUuid(), charInstId, charProps, 0));
-                }
-            }
-
-            /**
-             * A new GATT descriptor has been discovered.
-             * Finally, add the descriptor to the related characteristic.
-             * This should conclude the remote device update.
-             * @hide
-             */
-            public void onGetDescriptor(String address, int srvcType,
-                             int srvcInstId, ParcelUuid srvcUuid,
-                             int charInstId, ParcelUuid charUuid,
-                             int descrInstId, ParcelUuid descUuid) {
-                if (VDBG) Log.d(TAG, "onGetDescriptor() - Device=" + address + " UUID=" + descUuid);
-
-                if (!address.equals(mDevice.getAddress())) {
-                    return;
-                }
-                BluetoothGattService service = getService(mDevice, srvcUuid.getUuid(),
-                                                          srvcInstId, srvcType);
-                if (service == null) return;
-
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(
-                    charUuid.getUuid(), charInstId);
-                if (characteristic == null) return;
-
-                characteristic.addDescriptor(new BluetoothGattDescriptor(
-                    characteristic, descUuid.getUuid(), descrInstId, 0));
-            }
-
-            /**
              * Remote search has been completed.
              * The internal object structure should now reflect the state
              * of the remote device database. Let the application know that
              * we are done at this point.
              * @hide
              */
-            public void onSearchComplete(String address, int status) {
+            public void onSearchComplete(String address, List<BluetoothGattService> services,
+                                         int status) {
                 if (DBG) Log.d(TAG, "onSearchComplete() = Device=" + address + " Status=" + status);
                 if (!address.equals(mDevice.getAddress())) {
                     return;
                 }
+
+                for (BluetoothGattService s : services) {
+                    //services we receive don't have device set properly.
+                    s.setDevice(mDevice);
+                }
+
+                mServices.addAll(services);
+
+                // Fix references to included services, as they doesn't point to right objects.
+                for (BluetoothGattService fixedService : mServices) {
+                    ArrayList<BluetoothGattService> includedServices =
+                        new ArrayList(fixedService.getIncludedServices());
+                    fixedService.getIncludedServices().clear();
+
+                    for(BluetoothGattService brokenRef : includedServices) {
+                        BluetoothGattService includedService = getService(mDevice,
+                            brokenRef.getUuid(), brokenRef.getInstanceId(), brokenRef.getType());
+                        if (includedService != null) {
+                            fixedService.addIncludedService(includedService);
+                        } else {
+                            Log.e(TAG, "Broken GATT database: can't find included service.");
+                        }
+                    }
+                }
+
                 try {
                     mCallback.onServicesDiscovered(BluetoothGatt.this, status);
                 } catch (Exception ex) {
@@ -312,11 +245,12 @@ public final class BluetoothGatt implements BluetoothProfile {
              * Updates the internal value.
              * @hide
              */
-            public void onCharacteristicRead(String address, int status, int srvcType,
-                             int srvcInstId, ParcelUuid srvcUuid,
-                             int charInstId, ParcelUuid charUuid, byte[] value) {
+            public void onCharacteristicRead(String address, int status, int handle, byte[] value) {
                 if (VDBG) Log.d(TAG, "onCharacteristicRead() - Device=" + address
-                            + " UUID=" + charUuid + " Status=" + status);
+                            + " handle=" + handle + " Status=" + status);
+
+                 Log.w(TAG, "onCharacteristicRead() - Device=" + address
+                            + " handle=" + handle + " Status=" + status);
 
                 if (!address.equals(mDevice.getAddress())) {
                     return;
@@ -331,9 +265,7 @@ public final class BluetoothGatt implements BluetoothProfile {
                   && mAuthRetry == false) {
                     try {
                         mAuthRetry = true;
-                        mService.readCharacteristic(mClientIf, address,
-                            srvcType, srvcInstId, srvcUuid,
-                            charInstId, charUuid, AUTHENTICATION_MITM);
+                        mService.readCharacteristic(mClientIf, address, handle, AUTHENTICATION_MITM);
                         return;
                     } catch (RemoteException e) {
                         Log.e(TAG,"",e);
@@ -342,13 +274,11 @@ public final class BluetoothGatt implements BluetoothProfile {
 
                 mAuthRetry = false;
 
-                BluetoothGattService service = getService(mDevice, srvcUuid.getUuid(),
-                                                          srvcInstId, srvcType);
-                if (service == null) return;
-
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(
-                        charUuid.getUuid(), charInstId);
-                if (characteristic == null) return;
+                BluetoothGattCharacteristic characteristic = getCharacteristicById(mDevice, handle);
+                if (characteristic == null) {
+                    Log.w(TAG, "onCharacteristicRead() failed to find characteristic!");
+                    return;
+                }
 
                 if (status == 0) characteristic.setValue(value);
 
@@ -364,11 +294,9 @@ public final class BluetoothGatt implements BluetoothProfile {
              * Let the app know how we did...
              * @hide
              */
-            public void onCharacteristicWrite(String address, int status, int srvcType,
-                             int srvcInstId, ParcelUuid srvcUuid,
-                             int charInstId, ParcelUuid charUuid) {
+            public void onCharacteristicWrite(String address, int status, int handle) {
                 if (VDBG) Log.d(TAG, "onCharacteristicWrite() - Device=" + address
-                            + " UUID=" + charUuid + " Status=" + status);
+                            + " handle=" + handle + " Status=" + status);
 
                 if (!address.equals(mDevice.getAddress())) {
                     return;
@@ -378,12 +306,7 @@ public final class BluetoothGatt implements BluetoothProfile {
                     mDeviceBusy = false;
                 }
 
-                BluetoothGattService service = getService(mDevice, srvcUuid.getUuid(),
-                                                          srvcInstId, srvcType);
-                if (service == null) return;
-
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(
-                        charUuid.getUuid(), charInstId);
+                BluetoothGattCharacteristic characteristic = getCharacteristicById(mDevice, handle);
                 if (characteristic == null) return;
 
                 if ((status == GATT_INSUFFICIENT_AUTHENTICATION
@@ -391,8 +314,7 @@ public final class BluetoothGatt implements BluetoothProfile {
                   && mAuthRetry == false) {
                     try {
                         mAuthRetry = true;
-                        mService.writeCharacteristic(mClientIf, address,
-                            srvcType, srvcInstId, srvcUuid, charInstId, charUuid,
+                        mService.writeCharacteristic(mClientIf, address, handle,
                             characteristic.getWriteType(), AUTHENTICATION_MITM,
                             characteristic.getValue());
                         return;
@@ -415,21 +337,14 @@ public final class BluetoothGatt implements BluetoothProfile {
              * Updates the internal value.
              * @hide
              */
-            public void onNotify(String address, int srvcType,
-                             int srvcInstId, ParcelUuid srvcUuid,
-                             int charInstId, ParcelUuid charUuid,
-                             byte[] value) {
-                if (VDBG) Log.d(TAG, "onNotify() - Device=" + address + " UUID=" + charUuid);
+            public void onNotify(String address, int handle, byte[] value) {
+                if (VDBG) Log.d(TAG, "onNotify() - Device=" + address + " handle=" + handle);
 
                 if (!address.equals(mDevice.getAddress())) {
                     return;
                 }
-                BluetoothGattService service = getService(mDevice, srvcUuid.getUuid(),
-                                                          srvcInstId, srvcType);
-                if (service == null) return;
 
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(
-                        charUuid.getUuid(), charInstId);
+                BluetoothGattCharacteristic characteristic = getCharacteristicById(mDevice, handle);
                 if (characteristic == null) return;
 
                 characteristic.setValue(value);
@@ -445,12 +360,8 @@ public final class BluetoothGatt implements BluetoothProfile {
              * Descriptor has been read.
              * @hide
              */
-            public void onDescriptorRead(String address, int status, int srvcType,
-                             int srvcInstId, ParcelUuid srvcUuid,
-                             int charInstId, ParcelUuid charUuid,
-                             int descrInstId, ParcelUuid descrUuid,
-                             byte[] value) {
-                if (VDBG) Log.d(TAG, "onDescriptorRead() - Device=" + address + " UUID=" + charUuid);
+            public void onDescriptorRead(String address, int status, int handle, byte[] value) {
+                if (VDBG) Log.d(TAG, "onDescriptorRead() - Device=" + address + " handle=" + handle);
 
                 if (!address.equals(mDevice.getAddress())) {
                     return;
@@ -460,16 +371,7 @@ public final class BluetoothGatt implements BluetoothProfile {
                     mDeviceBusy = false;
                 }
 
-                BluetoothGattService service = getService(mDevice, srvcUuid.getUuid(),
-                                                          srvcInstId, srvcType);
-                if (service == null) return;
-
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(
-                        charUuid.getUuid(), charInstId);
-                if (characteristic == null) return;
-
-                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                        descrUuid.getUuid(), descrInstId);
+                BluetoothGattDescriptor descriptor = getDescriptorById(mDevice, handle);
                 if (descriptor == null) return;
 
                 if (status == 0) descriptor.setValue(value);
@@ -479,9 +381,7 @@ public final class BluetoothGatt implements BluetoothProfile {
                   && mAuthRetry == false) {
                     try {
                         mAuthRetry = true;
-                        mService.readDescriptor(mClientIf, address,
-                            srvcType, srvcInstId, srvcUuid, charInstId, charUuid,
-                            descrInstId, descrUuid, AUTHENTICATION_MITM);
+                        mService.readDescriptor(mClientIf, address, handle, AUTHENTICATION_MITM);
                         return;
                     } catch (RemoteException e) {
                         Log.e(TAG,"",e);
@@ -501,11 +401,8 @@ public final class BluetoothGatt implements BluetoothProfile {
              * Descriptor write operation complete.
              * @hide
              */
-            public void onDescriptorWrite(String address, int status, int srvcType,
-                             int srvcInstId, ParcelUuid srvcUuid,
-                             int charInstId, ParcelUuid charUuid,
-                             int descrInstId, ParcelUuid descrUuid) {
-                if (VDBG) Log.d(TAG, "onDescriptorWrite() - Device=" + address + " UUID=" + charUuid);
+            public void onDescriptorWrite(String address, int status, int handle) {
+                if (VDBG) Log.d(TAG, "onDescriptorWrite() - Device=" + address + " handle=" + handle);
 
                 if (!address.equals(mDevice.getAddress())) {
                     return;
@@ -515,16 +412,7 @@ public final class BluetoothGatt implements BluetoothProfile {
                     mDeviceBusy = false;
                 }
 
-                BluetoothGattService service = getService(mDevice, srvcUuid.getUuid(),
-                                                          srvcInstId, srvcType);
-                if (service == null) return;
-
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(
-                        charUuid.getUuid(), charInstId);
-                if (characteristic == null) return;
-
-                BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                        descrUuid.getUuid(), descrInstId);
+                BluetoothGattDescriptor descriptor = getDescriptorById(mDevice, handle);
                 if (descriptor == null) return;
 
                 if ((status == GATT_INSUFFICIENT_AUTHENTICATION
@@ -532,9 +420,8 @@ public final class BluetoothGatt implements BluetoothProfile {
                   && mAuthRetry == false) {
                     try {
                         mAuthRetry = true;
-                        mService.writeDescriptor(mClientIf, address,
-                            srvcType, srvcInstId, srvcUuid, charInstId, charUuid,
-                            descrInstId, descrUuid, characteristic.getWriteType(),
+                        mService.writeDescriptor(mClientIf, address, handle,
+                            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
                             AUTHENTICATION_MITM, descriptor.getValue());
                         return;
                     } catch (RemoteException e) {
@@ -608,9 +495,8 @@ public final class BluetoothGatt implements BluetoothProfile {
             }
         };
 
-    /*package*/ BluetoothGatt(Context context, IBluetoothGatt iGatt, BluetoothDevice device,
+    /*package*/ BluetoothGatt(IBluetoothGatt iGatt, BluetoothDevice device,
                                 int transport) {
-        mContext = context;
         mService = iGatt;
         mDevice = device;
         mTransport = transport;
@@ -649,6 +535,36 @@ public final class BluetoothGatt implements BluetoothProfile {
         return null;
     }
 
+
+    /**
+     * Returns a characteristic with id equal to instanceId.
+     * @hide
+     */
+    /*package*/ BluetoothGattCharacteristic getCharacteristicById(BluetoothDevice device, int instanceId) {
+        for(BluetoothGattService svc : mServices) {
+            for(BluetoothGattCharacteristic charac : svc.getCharacteristics()) {
+                if (charac.getInstanceId() == instanceId)
+                    return charac;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns a descriptor with id equal to instanceId.
+     * @hide
+     */
+    /*package*/ BluetoothGattDescriptor getDescriptorById(BluetoothDevice device, int instanceId) {
+        for(BluetoothGattService svc : mServices) {
+            for(BluetoothGattCharacteristic charac : svc.getCharacteristics()) {
+                for(BluetoothGattDescriptor desc : charac.getDescriptors()) {
+                    if (desc.getInstanceId() == instanceId)
+                        return desc;
+                }
+            }
+        }
+        return null;
+    }
 
     /**
      * Register an application callback to start using GATT.
@@ -727,6 +643,9 @@ public final class BluetoothGatt implements BluetoothProfile {
             }
             mConnState = CONN_STATE_CONNECTING;
         }
+
+        mAutoConnect = autoConnect;
+
         if (!registerApp(callback)) {
             synchronized(mStateLock) {
                 mConnState = CONN_STATE_IDLE;
@@ -735,8 +654,7 @@ public final class BluetoothGatt implements BluetoothProfile {
             return false;
         }
 
-        // the connection will continue after successful callback registration
-        mAutoConnect = autoConnect;
+        // The connection will continue in the onClientRegistered callback
         return true;
     }
 
@@ -898,9 +816,7 @@ public final class BluetoothGatt implements BluetoothProfile {
 
         try {
             mService.readCharacteristic(mClientIf, device.getAddress(),
-                service.getType(), service.getInstanceId(),
-                new ParcelUuid(service.getUuid()), characteristic.getInstanceId(),
-                new ParcelUuid(characteristic.getUuid()), AUTHENTICATION_NONE);
+                characteristic.getInstanceId(), AUTHENTICATION_NONE);
         } catch (RemoteException e) {
             Log.e(TAG,"",e);
             mDeviceBusy = false;
@@ -943,11 +859,8 @@ public final class BluetoothGatt implements BluetoothProfile {
 
         try {
             mService.writeCharacteristic(mClientIf, device.getAddress(),
-                service.getType(), service.getInstanceId(),
-                new ParcelUuid(service.getUuid()), characteristic.getInstanceId(),
-                new ParcelUuid(characteristic.getUuid()),
-                characteristic.getWriteType(), AUTHENTICATION_NONE,
-                characteristic.getValue());
+                characteristic.getInstanceId(), characteristic.getWriteType(),
+                AUTHENTICATION_NONE, characteristic.getValue());
         } catch (RemoteException e) {
             Log.e(TAG,"",e);
             mDeviceBusy = false;
@@ -988,11 +901,8 @@ public final class BluetoothGatt implements BluetoothProfile {
         }
 
         try {
-            mService.readDescriptor(mClientIf, device.getAddress(), service.getType(),
-                service.getInstanceId(), new ParcelUuid(service.getUuid()),
-                characteristic.getInstanceId(), new ParcelUuid(characteristic.getUuid()),
-                descriptor.getInstanceId(), new ParcelUuid(descriptor.getUuid()),
-                AUTHENTICATION_NONE);
+            mService.readDescriptor(mClientIf, device.getAddress(),
+                descriptor.getInstanceId(), AUTHENTICATION_NONE);
         } catch (RemoteException e) {
             Log.e(TAG,"",e);
             mDeviceBusy = false;
@@ -1032,11 +942,8 @@ public final class BluetoothGatt implements BluetoothProfile {
         }
 
         try {
-            mService.writeDescriptor(mClientIf, device.getAddress(), service.getType(),
-                service.getInstanceId(), new ParcelUuid(service.getUuid()),
-                characteristic.getInstanceId(), new ParcelUuid(characteristic.getUuid()),
-                descriptor.getInstanceId(), new ParcelUuid(descriptor.getUuid()),
-                characteristic.getWriteType(), AUTHENTICATION_NONE,
+            mService.writeDescriptor(mClientIf, device.getAddress(), descriptor.getInstanceId(),
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT, AUTHENTICATION_NONE,
                 descriptor.getValue());
         } catch (RemoteException e) {
             Log.e(TAG,"",e);
@@ -1168,10 +1075,7 @@ public final class BluetoothGatt implements BluetoothProfile {
 
         try {
             mService.registerForNotification(mClientIf, device.getAddress(),
-                service.getType(), service.getInstanceId(),
-                new ParcelUuid(service.getUuid()), characteristic.getInstanceId(),
-                new ParcelUuid(characteristic.getUuid()),
-                enable);
+                characteristic.getInstanceId(), enable);
         } catch (RemoteException e) {
             Log.e(TAG,"",e);
             return false;

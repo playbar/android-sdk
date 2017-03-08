@@ -20,40 +20,32 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.support.annotation.NonNull;
 
-public class SharedPreferencesCompat {
+public final class SharedPreferencesCompat {
 
-    public static class EditorCompat {
+    public final static class EditorCompat {
 
         private static EditorCompat sInstance;
 
-        private interface Helper {
-            void apply(@NonNull SharedPreferences.Editor editor);
-        }
-
-        private static class EditorHelperBaseImpl implements Helper {
-
-            @Override
-            public void apply(@NonNull SharedPreferences.Editor editor) {
-                editor.commit();
+        private static class Helper {
+            Helper() {
             }
-        }
 
-        private static class EditorHelperApi9Impl implements Helper {
-
-            @Override
             public void apply(@NonNull SharedPreferences.Editor editor) {
-                EditorCompatGingerbread.apply(editor);
+                try {
+                    editor.apply();
+                } catch (AbstractMethodError unused) {
+                    // The app injected its own pre-Gingerbread
+                    // SharedPreferences.Editor implementation without
+                    // an apply method.
+                    editor.commit();
+                }
             }
         }
 
         private final Helper mHelper;
 
         private EditorCompat() {
-            if (Build.VERSION.SDK_INT >= 9) {
-                mHelper = new EditorHelperApi9Impl();
-            } else {
-                mHelper = new EditorHelperBaseImpl();
-            }
+            mHelper = new Helper();
         }
 
         public static EditorCompat getInstance() {
@@ -64,8 +56,13 @@ public class SharedPreferencesCompat {
         }
 
         public void apply(@NonNull SharedPreferences.Editor editor) {
+            // Note that this redirection is needed to not break the public API chain
+            // of getInstance().apply() calls. Otherwise this method could (and should)
+            // be static.
             mHelper.apply(editor);
         }
     }
+
+    private SharedPreferencesCompat() {}
 
 }

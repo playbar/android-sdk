@@ -32,7 +32,6 @@ import android.telephony.Rlog;
 
 import java.util.List;
 
-import com.android.internal.telephony.IIccPhoneBook;
 import com.android.internal.telephony.uicc.AdnRecord;
 import com.android.internal.telephony.uicc.IccConstants;
 
@@ -92,19 +91,22 @@ public class IccProvider extends ContentProvider {
 
         switch (URL_MATCHER.match(url)) {
             case ADN:
-                return loadFromEf(IccConstants.EF_ADN, SubscriptionManager.getDefaultSubId());
+                return loadFromEf(IccConstants.EF_ADN,
+                        SubscriptionManager.getDefaultSubscriptionId());
 
             case ADN_SUB:
                 return loadFromEf(IccConstants.EF_ADN, getRequestSubId(url));
 
             case FDN:
-                return loadFromEf(IccConstants.EF_FDN, SubscriptionManager.getDefaultSubId());
+                return loadFromEf(IccConstants.EF_FDN,
+                        SubscriptionManager.getDefaultSubscriptionId());
 
             case FDN_SUB:
                 return loadFromEf(IccConstants.EF_FDN, getRequestSubId(url));
 
             case SDN:
-                return loadFromEf(IccConstants.EF_SDN, SubscriptionManager.getDefaultSubId());
+                return loadFromEf(IccConstants.EF_SDN,
+                        SubscriptionManager.getDefaultSubscriptionId());
 
             case SDN_SUB:
                 return loadFromEf(IccConstants.EF_SDN, getRequestSubId(url));
@@ -168,7 +170,7 @@ public class IccProvider extends ContentProvider {
         switch (match) {
             case ADN:
                 efType = IccConstants.EF_ADN;
-                subId = SubscriptionManager.getDefaultSubId();
+                subId = SubscriptionManager.getDefaultSubscriptionId();
                 break;
 
             case ADN_SUB:
@@ -178,7 +180,7 @@ public class IccProvider extends ContentProvider {
 
             case FDN:
                 efType = IccConstants.EF_FDN;
-                subId = SubscriptionManager.getDefaultSubId();
+                subId = SubscriptionManager.getDefaultSubscriptionId();
                 pin2 = initialValues.getAsString("pin2");
                 break;
 
@@ -261,7 +263,7 @@ public class IccProvider extends ContentProvider {
         switch (match) {
             case ADN:
                 efType = IccConstants.EF_ADN;
-                subId = SubscriptionManager.getDefaultSubId();
+                subId = SubscriptionManager.getDefaultSubscriptionId();
                 break;
 
             case ADN_SUB:
@@ -271,7 +273,7 @@ public class IccProvider extends ContentProvider {
 
             case FDN:
                 efType = IccConstants.EF_FDN;
-                subId = SubscriptionManager.getDefaultSubId();
+                subId = SubscriptionManager.getDefaultSubscriptionId();
                 break;
 
             case FDN_SUB:
@@ -345,7 +347,7 @@ public class IccProvider extends ContentProvider {
         switch (match) {
             case ADN:
                 efType = IccConstants.EF_ADN;
-                subId = SubscriptionManager.getDefaultSubId();
+                subId = SubscriptionManager.getDefaultSubscriptionId();
                 break;
 
             case ADN_SUB:
@@ -355,7 +357,7 @@ public class IccProvider extends ContentProvider {
 
             case FDN:
                 efType = IccConstants.EF_FDN;
-                subId = SubscriptionManager.getDefaultSubId();
+                subId = SubscriptionManager.getDefaultSubscriptionId();
                 pin2 = values.getAsString("pin2");
                 break;
 
@@ -389,7 +391,8 @@ public class IccProvider extends ContentProvider {
     }
 
     private MatrixCursor loadFromEf(int efType, int subId) {
-        if (DBG) log("loadFromEf: efType=" + efType + ", subscription=" + subId);
+        if (DBG) log("loadFromEf: efType=0x" +
+                Integer.toHexString(efType).toUpperCase() + ", subscription=" + subId);
 
         List<AdnRecord> adnRecords = null;
         try {
@@ -423,8 +426,9 @@ public class IccProvider extends ContentProvider {
     private boolean
     addIccRecordToEf(int efType, String name, String number, String[] emails,
             String pin2, int subId) {
-        if (DBG) log("addIccRecordToEf: efType=" + efType + ", name=" + name +
-                ", number=" + number + ", emails=" + emails + ", subscription=" + subId);
+        if (DBG) log("addIccRecordToEf: efType=0x" + Integer.toHexString(efType).toUpperCase() +
+                ", name=" + Rlog.pii(TAG, name) + ", number=" + Rlog.pii(TAG, number) +
+                ", emails=" + Rlog.pii(TAG, emails) + ", subscription=" + subId);
 
         boolean success = false;
 
@@ -452,9 +456,9 @@ public class IccProvider extends ContentProvider {
     private boolean
     updateIccRecordInEf(int efType, String oldName, String oldNumber,
             String newName, String newNumber, String pin2, int subId) {
-        if (DBG) log("updateIccRecordInEf: efType=" + efType +
-                ", oldname=" + oldName + ", oldnumber=" + oldNumber +
-                ", newname=" + newName + ", newnumber=" + newNumber +
+        if (DBG) log("updateIccRecordInEf: efType=0x" + Integer.toHexString(efType).toUpperCase() +
+                ", oldname=" + Rlog.pii(TAG, oldName) + ", oldnumber=" + Rlog.pii(TAG, oldNumber) +
+                ", newname=" + Rlog.pii(TAG, newName) + ", newnumber=" + Rlog.pii(TAG, newName) +
                 ", subscription=" + subId);
 
         boolean success = false;
@@ -478,9 +482,10 @@ public class IccProvider extends ContentProvider {
 
     private boolean deleteIccRecordFromEf(int efType, String name, String number, String[] emails,
             String pin2, int subId) {
-        if (DBG) log("deleteIccRecordFromEf: efType=" + efType +
-                ", name=" + name + ", number=" + number + ", emails=" + emails +
-                ", pin2=" + pin2 + ", subscription=" + subId);
+        if (DBG) log("deleteIccRecordFromEf: efType=0x" +
+                Integer.toHexString(efType).toUpperCase() + ", name=" + Rlog.pii(TAG, name) +
+                ", number=" + Rlog.pii(TAG, number) + ", emails=" + Rlog.pii(TAG, emails) +
+                ", pin2=" + Rlog.pii(TAG, pin2) + ", subscription=" + subId);
 
         boolean success = false;
 
@@ -512,7 +517,7 @@ public class IccProvider extends ContentProvider {
             String alphaTag = record.getAlphaTag();
             String number = record.getNumber();
 
-            if (DBG) log("loadRecord: " + alphaTag + ", " + number + ",");
+            if (DBG) log("loadRecord: " + alphaTag + ", " + Rlog.pii(TAG, number));
             contact[0] = alphaTag;
             contact[1] = number;
 
@@ -520,7 +525,7 @@ public class IccProvider extends ContentProvider {
             if (emails != null) {
                 StringBuilder emailString = new StringBuilder();
                 for (String email: emails) {
-                    if (DBG) log("Adding email:" + email);
+                    log("Adding email:" + Rlog.pii(TAG, email));
                     emailString.append(email);
                     emailString.append(",");
                 }

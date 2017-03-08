@@ -73,6 +73,8 @@ public abstract class BaseCommands implements CommandsInterface {
     protected RegistrantList mHardwareConfigChangeRegistrants = new RegistrantList();
     protected RegistrantList mPhoneRadioCapabilityChangedRegistrants =
             new RegistrantList();
+    protected RegistrantList mPcoDataRegistrants = new RegistrantList();
+
 
     protected Registrant mGsmSmsRegistrant;
     protected Registrant mCdmaSmsRegistrant;
@@ -101,7 +103,7 @@ public abstract class BaseCommands implements CommandsInterface {
     protected int mPreferredNetworkType;
     // CDMA subscription received from PhoneFactory
     protected int mCdmaSubscription;
-    // Type of Phone, GSM or CDMA. Set by CDMAPhone or GSMPhone.
+    // Type of Phone, GSM or CDMA. Set by GsmCdmaPhone.
     protected int mPhoneType;
     // RIL Version
     protected int mRilVersion = -1;
@@ -548,7 +550,7 @@ public abstract class BaseCommands implements CommandsInterface {
 
     @Override
     public void unSetOnRestrictedStateChanged(Handler h) {
-        if (mRestrictedStateRegistrant != null && mRestrictedStateRegistrant.getHandler() != h) {
+        if (mRestrictedStateRegistrant != null && mRestrictedStateRegistrant.getHandler() == h) {
             mRestrictedStateRegistrant.clear();
             mRestrictedStateRegistrant = null;
         }
@@ -899,5 +901,15 @@ public abstract class BaseCommands implements CommandsInterface {
           mLceInfoRegistrant.clear();
           mLceInfoRegistrant = null;
       }
+    }
+
+    @Override
+    public void registerForPcoData(Handler h, int what, Object obj) {
+        mPcoDataRegistrants.add(new Registrant(h, what, obj));
+    }
+
+    @Override
+    public void unregisterForPcoData(Handler h) {
+        mPcoDataRegistrants.remove(h);
     }
 }

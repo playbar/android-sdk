@@ -16,6 +16,7 @@
 
 package com.android.printspooler.ui;
 
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Loader;
@@ -32,7 +33,7 @@ import java.util.List;
 
 public class PrinterRegistry {
 
-    private static final int LOADER_ID_PRINTERS_LOADER = 1;
+    private final int mLoaderId;
 
     private final Activity mActivity;
 
@@ -51,12 +52,17 @@ public class PrinterRegistry {
         public void onPrintersInvalid();
     }
 
-    public PrinterRegistry(Activity activity, Runnable readyCallback) {
+    public PrinterRegistry(Activity activity, Runnable readyCallback, int loaderId,
+            int internalLoaderId) {
+        mLoaderId = loaderId;
         mActivity = activity;
         mReadyCallback = readyCallback;
         mHandler = new MyHandler(activity.getMainLooper());
-        activity.getLoaderManager().initLoader(LOADER_ID_PRINTERS_LOADER,
-                null, mLoaderCallbacks);
+
+        Bundle loaderData = new Bundle(1);
+        loaderData.putInt(null, internalLoaderId);
+
+        activity.getLoaderManager().initLoader(loaderId, loaderData, mLoaderCallbacks);
     }
 
     public void setOnPrintersChangeListener(OnPrintersChangeListener listener) {
@@ -89,7 +95,7 @@ public class PrinterRegistry {
         return false;
     }
 
-    public void setTrackedPrinter(PrinterId printerId) {
+    public void setTrackedPrinter(@Nullable PrinterId printerId) {
         FusedPrintersProvider provider = getPrinterProvider();
         if (provider != null) {
             provider.setTrackedPrinter(printerId);
@@ -105,7 +111,7 @@ public class PrinterRegistry {
     }
 
     private FusedPrintersProvider getPrinterProvider() {
-        Loader<?> loader = mActivity.getLoaderManager().getLoader(LOADER_ID_PRINTERS_LOADER);
+        Loader<?> loader = mActivity.getLoaderManager().getLoader(mLoaderId);
         return (FusedPrintersProvider) loader;
     }
 
@@ -113,38 +119,29 @@ public class PrinterRegistry {
             new LoaderCallbacks<List<PrinterInfo>>() {
         @Override
         public void onLoaderReset(Loader<List<PrinterInfo>> loader) {
-            if (loader.getId() == LOADER_ID_PRINTERS_LOADER) {
-                mPrinters.clear();
-                if (mOnPrintersChangeListener != null) {
-                    // Post a message as we are in onLoadFinished and certain operations
-                    // are not allowed in this callback, such as fragment transactions.
-                    // Clients should not handle this explicitly.
-                    mHandler.obtainMessage(MyHandler.MSG_PRINTERS_INVALID,
-                            mOnPrintersChangeListener).sendToTarget();
-                }
-            }
+            mPrinters.clear();
+
+            // Post a message as we are in onLoadFinished and certain operations
+            // are not allowed in this callback, such as fragment transactions.
+            // Clients should not handle this explicitly.
+            mHandler.obtainMessage(MyHandler.MSG_PRINTERS_INVALID).sendToTarget();
         }
 
         // LoaderCallbacks#onLoadFinished
         @Override
         public void onLoadFinished(Loader<List<PrinterInfo>> loader, List<PrinterInfo> printers) {
-            if (loader.getId() == LOADER_ID_PRINTERS_LOADER) {
-                mPrinters.clear();
-                mPrinters.addAll(printers);
-                if (mOnPrintersChangeListener != null) {
-                    // Post a message as we are in onLoadFinished and certain operations
-                    // are not allowed in this callback, such as fragment transactions.
-                    // Clients should not handle this explicitly.
-                    SomeArgs args = SomeArgs.obtain();
-                    args.arg1 = mOnPrintersChangeListener;
-                    args.arg2 = printers;
-                    mHandler.obtainMessage(MyHandler.MSG_PRINTERS_CHANGED, args).sendToTarget();
-                }
-                if (!mReady) {
-                    mReady = true;
-                    if (mReadyCallback != null) {
-                        mReadyCallback.run();
-                    }
+            mPrinters.clear();
+            mPrinters.addAll(printers);
+
+            // Post a message as we are in onLoadFinished and certain operations
+            // are not allowed in this callback, such as fragment transactions.
+            // Clients should not handle this explicitly.
+            mHandler.obtainMessage(MyHandler.MSG_PRINTERS_CHANGED, printers).sendToTarget();
+
+            if (!mReady) {
+                mReady = true;
+                if (mReadyCallback != null) {
+                    mReadyCallback.run();
                 }
             }
         }
@@ -152,14 +149,11 @@ public class PrinterRegistry {
         // LoaderCallbacks#onCreateLoader
         @Override
         public Loader<List<PrinterInfo>> onCreateLoader(int id, Bundle args) {
-            if (id == LOADER_ID_PRINTERS_LOADER) {
-                return new FusedPrintersProvider(mActivity);
-            }
-            return null;
+            return new FusedPrintersProvider(mActivity, args.getInt(null));
         }
     };
 
-    private static final class MyHandler extends Handler {
+    private final class MyHandler extends Handler {
         public static final int MSG_PRINTERS_CHANGED = 0;
         public static final int MSG_PRINTERS_INVALID = 1;
 
@@ -172,16 +166,17 @@ public class PrinterRegistry {
         public void handleMessage(Message message) {
             switch (message.what) {
                 case MSG_PRINTERS_CHANGED: {
-                    SomeArgs args = (SomeArgs) message.obj;
-                    OnPrintersChangeListener callback = (OnPrintersChangeListener) args.arg1;
-                    List<PrinterInfo> printers = (List<PrinterInfo>) args.arg2;
-                    args.recycle();
-                    callback.onPrintersChanged(printers);
+                    List<PrinterInfo> printers = (List<PrinterInfo>) message.obj;
+
+                    if (mOnPrintersChangeListener != null) {
+                        mOnPrintersChangeListener.onPrintersChanged(printers);
+                    }
                 } break;
 
                 case MSG_PRINTERS_INVALID: {
-                    OnPrintersChangeListener callback = (OnPrintersChangeListener) message.obj;
-                    callback.onPrintersInvalid();
+                    if (mOnPrintersChangeListener != null) {
+                        mOnPrintersChangeListener.onPrintersInvalid();
+                    }
                 } break;
             }
         }

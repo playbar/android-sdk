@@ -1,136 +1,171 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1996, 1999, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.security;
 
-import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.EOFException;
 import java.io.OutputStream;
+import java.io.FilterOutputStream;
+import java.io.PrintStream;
+import java.io.ByteArrayOutputStream;
 
 /**
- * {@code DigestOutputStream} is a {@code FilterOutputStream} which maintains an
- * associated message digest.
+ * A transparent stream that updates the associated message digest using
+ * the bits going through the stream.
+ *
+ * <p>To complete the message digest computation, call one of the
+ * <code>digest</code> methods on the associated message
+ * digest after your calls to one of this digest ouput stream's
+ * {@link #write(int) write} methods.
+ *
+ * <p>It is possible to turn this stream on or off (see
+ * {@link #on(boolean) on}). When it is on, a call to one of the
+ * <code>write</code> methods results in
+ * an update on the message digest.  But when it is off, the message
+ * digest is not updated. The default is for the stream to be on.
+ *
+ * @see MessageDigest
+ * @see DigestInputStream
+ *
+ * @author Benjamin Renaud
  */
 public class DigestOutputStream extends FilterOutputStream {
 
+    private boolean on = true;
+
     /**
-     * The message digest for this stream.
+     * The message digest associated with this stream.
      */
     protected MessageDigest digest;
 
-    // Indicates whether digest functionality is on or off
-    private boolean isOn = true;
-
     /**
-     * Constructs a new instance of this {@code DigestOutputStream}, using the
-     * given {@code stream} and the {@code digest}.
+     * Creates a digest output stream, using the specified output stream
+     * and message digest.
      *
-     * @param stream
-     *            the output stream.
-     * @param digest
-     *            the message digest.
+     * @param stream the output stream.
+     *
+     * @param digest the message digest to associate with this stream.
      */
     public DigestOutputStream(OutputStream stream, MessageDigest digest) {
         super(stream);
-        this.digest = digest;
+        setMessageDigest(digest);
     }
 
     /**
-     * Returns the message digest for this stream.
+     * Returns the message digest associated with this stream.
      *
-     * @return the message digest for this stream.
+     * @return the message digest associated with this stream.
+     * @see #setMessageDigest(java.security.MessageDigest)
      */
     public MessageDigest getMessageDigest() {
         return digest;
     }
 
     /**
-     * Sets the message digest which this stream will use.
+     * Associates the specified message digest with this stream.
      *
-     * @param digest
-     *            the message digest which this stream will use.
+     * @param digest the message digest to be associated with this stream.
+     * @see #getMessageDigest()
      */
     public void setMessageDigest(MessageDigest digest) {
         this.digest = digest;
     }
 
     /**
-     * Writes the specified {@code int} to the stream. Updates the digest if
-     * this function is {@link #on(boolean)}.
+     * Updates the message digest (if the digest function is on) using
+     * the specified byte, and in any case writes the byte
+     * to the output stream. That is, if the digest function is on
+     * (see {@link #on(boolean) on}), this method calls
+     * <code>update</code> on the message digest associated with this
+     * stream, passing it the byte <code>b</code>. This method then
+     * writes the byte to the output stream, blocking until the byte
+     * is actually written.
      *
-     * @param b
-     *            the byte to be written.
-     * @throws IOException
-     *             if writing to the stream causes a {@code IOException}
+     * @param b the byte to be used for updating and writing to the
+     * output stream.
+     *
+     * @exception IOException if an I/O error occurs.
+     *
+     * @see MessageDigest#update(byte)
      */
-    @Override
     public void write(int b) throws IOException {
-        // update digest only if digest functionality is on
-        if (isOn) {
+        if (on) {
             digest.update((byte)b);
         }
-        // write the byte
         out.write(b);
     }
 
     /**
-     * Writes {@code len} bytes into the stream, starting from the specified
-     * offset. Updates the digest if this function is {@link #on(boolean)}.
+     * Updates the message digest (if the digest function is on) using
+     * the specified subarray, and in any case writes the subarray to
+     * the output stream. That is, if the digest function is on (see
+     * {@link #on(boolean) on}), this method calls <code>update</code>
+     * on the message digest associated with this stream, passing it
+     * the subarray specifications. This method then writes the subarray
+     * bytes to the output stream, blocking until the bytes are actually
+     * written.
      *
-     * @param b
-     *            the buffer to write to.
-     * @param off
-     *            the index of the first byte in {@code b} to write.
-     * @param len
-     *            the number of bytes in {@code b} to write.
-     * @throws IOException
-     *             if writing to the stream causes an {@code IOException}.
+     * @param b the array containing the subarray to be used for updating
+     * and writing to the output stream.
+     *
+     * @param off the offset into <code>b</code> of the first byte to
+     * be updated and written.
+     *
+     * @param len the number of bytes of data to be updated and written
+     * from <code>b</code>, starting at offset <code>off</code>.
+     *
+     * @exception IOException if an I/O error occurs.
+     *
+     * @see MessageDigest#update(byte[], int, int)
      */
-    @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        // update digest only if digest functionality is on
-        if (isOn) {
+        if (on) {
             digest.update(b, off, len);
         }
-        // write len bytes
         out.write(b, off, len);
     }
 
     /**
-     * Enables or disables the digest function (default is on).
+     * Turns the digest function on or off. The default is on.  When
+     * it is on, a call to one of the <code>write</code> methods results in an
+     * update on the message digest.  But when it is off, the message
+     * digest is not updated.
      *
-     * @param on
-     *            {@code true} if the digest should be computed, {@code false}
-     *            otherwise.
-     * @see MessageDigest
+     * @param on true to turn the digest function on, false to turn it
+     * off.
      */
     public void on(boolean on) {
-        isOn = on;
+        this.on = on;
     }
 
     /**
-     * Returns a string containing a concise, human-readable description of this
-     * {@code DigestOutputStream} including the digest.
-     *
-     * @return a printable representation for this {@code DigestOutputStream}.
+     * Prints a string representation of this digest output stream and
+     * its associated message digest object.
      */
-    @Override
-    public String toString() {
-        return super.toString() + ", " + digest.toString() +
-            (isOn ? ", is on" : ", is off");
-    }
+     public String toString() {
+         return "[Digest Output Stream] " + digest.toString();
+     }
 }

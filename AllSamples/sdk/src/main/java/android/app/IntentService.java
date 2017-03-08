@@ -17,6 +17,7 @@
 package android.app;
 
 import android.annotation.WorkerThread;
+import android.annotation.Nullable;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -45,7 +46,8 @@ import android.os.Message;
  * <div class="special reference">
  * <h3>Developer Guides</h3>
  * <p>For a detailed discussion about how to create services, read the
- * <a href="{@docRoot}guide/topics/fundamentals/services.html">Services</a> developer guide.</p>
+ * <a href="{@docRoot}guide/components/services.html">Services</a> developer
+ * guide.</p>
  * </div>
  *
  * @see android.os.AsyncTask
@@ -113,7 +115,7 @@ public abstract class IntentService extends Service {
     }
 
     @Override
-    public void onStart(Intent intent, int startId) {
+    public void onStart(@Nullable Intent intent, int startId) {
         Message msg = mServiceHandler.obtainMessage();
         msg.arg1 = startId;
         msg.obj = intent;
@@ -127,7 +129,7 @@ public abstract class IntentService extends Service {
      * @see android.app.Service#onStartCommand
      */
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
         onStart(intent, startId);
         return mRedelivery ? START_REDELIVER_INTENT : START_NOT_STICKY;
     }
@@ -139,10 +141,11 @@ public abstract class IntentService extends Service {
 
     /**
      * Unless you provide binding for your service, you don't need to implement this
-     * method, because the default implementation returns null. 
+     * method, because the default implementation returns null.
      * @see android.app.Service#onBind
      */
     @Override
+    @Nullable
     public IBinder onBind(Intent intent) {
         return null;
     }
@@ -158,7 +161,11 @@ public abstract class IntentService extends Service {
      *
      * @param intent The value passed to {@link
      *               android.content.Context#startService(Intent)}.
+     *               This may be null if the service is being restarted after
+     *               its process has gone away; see
+     *               {@link android.app.Service#onStartCommand}
+     *               for details.
      */
     @WorkerThread
-    protected abstract void onHandleIntent(Intent intent);
+    protected abstract void onHandleIntent(@Nullable Intent intent);
 }

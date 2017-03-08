@@ -19,6 +19,7 @@ package com.android.internal.telephony.sip;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
+import android.service.carrier.CarrierIdentifier;
 
 import com.android.internal.telephony.BaseCommands;
 import com.android.internal.telephony.CommandsInterface;
@@ -27,9 +28,11 @@ import com.android.internal.telephony.cdma.CdmaSmsBroadcastConfigInfo;
 import com.android.internal.telephony.dataconnection.DataProfile;
 import com.android.internal.telephony.gsm.SmsBroadcastConfigInfo;
 
+import java.util.List;
+
 /**
  * SIP doesn't need CommandsInterface. The class does nothing but made to work
- * with PhoneBase's constructor.
+ * with Phone's constructor.
  */
 class SipCommandInterface extends BaseCommands implements CommandsInterface {
     SipCommandInterface(Context context) {
@@ -256,8 +259,8 @@ class SipCommandInterface extends BaseCommands implements CommandsInterface {
     }
 
     @Override
-    public void setupDataCall(String radioTechnology, String profile,
-            String apn, String user, String password, String authType,
+    public void setupDataCall(int radioTechnology, int profile,
+            String apn, String user, String password, int authType,
             String protocol, Message result) {
     }
 
@@ -472,7 +475,7 @@ class SipCommandInterface extends BaseCommands implements CommandsInterface {
     }
 
     @Override
-    public void setPhoneType(int phoneType) { //Set by CDMAPhone and GSMPhone constructor
+    public void setPhoneType(int phoneType) { //Set by GsmCdmaPhone
     }
 
     @Override
@@ -625,6 +628,14 @@ class SipCommandInterface extends BaseCommands implements CommandsInterface {
 
     @Override
     public void getModemActivityInfo(Message result) {
+    }
+
+    @Override
+    public void setAllowedCarriers(List<CarrierIdentifier> carriers, Message result) {
+    }
+
+    @Override
+    public void getAllowedCarriers(Message result) {
     }
 
 }

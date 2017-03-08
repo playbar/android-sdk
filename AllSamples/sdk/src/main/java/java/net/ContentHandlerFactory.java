@@ -1,35 +1,54 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 1995, 1997, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package java.net;
 
 /**
- * Defines a factory which is responsible for creating a {@code ContentHandler}.
+ * This interface defines a factory for content handlers. An
+ * implementation of this interface should map a MIME type into an
+ * instance of <code>ContentHandler</code>.
+ * <p>
+ * This interface is used by the <code>URLStreamHandler</code> class
+ * to create a <code>ContentHandler</code> for a MIME type.
  *
- * @see ContentHandler
+ * @author  James Gosling
+ * @see     java.net.ContentHandler
+ * @see     java.net.URLStreamHandler
+ * @since   JDK1.0
  */
 public interface ContentHandlerFactory {
     /**
-     * Creates a content handler to handle {@code contentType}.
+     * Creates a new <code>ContentHandler</code> to read an object from
+     * a <code>URLStreamHandler</code>.
      *
-     * @param contentType
-     *            specifies the content type which is handled by the returned
-     *            {@code ContentHandler}.
-     * @return content handler object for a specific content type.
+     * @param   mimetype   the MIME type for which a content handler is desired.
+
+     * @return  a new <code>ContentHandler</code> to read an object from a
+     *          <code>URLStreamHandler</code>.
+     * @see     java.net.ContentHandler
+     * @see     java.net.URLStreamHandler
      */
-    ContentHandler createContentHandler(String contentType);
+    ContentHandler createContentHandler(String mimetype);
 }

@@ -18,20 +18,23 @@ package android.support.v17.leanback.app;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.support.v17.leanback.R;
+import android.support.v17.leanback.widget.ClassPresenterSelector;
+import android.support.v17.leanback.widget.DividerPresenter;
+import android.support.v17.leanback.widget.DividerRow;
 import android.support.v17.leanback.widget.FocusHighlightHelper;
+import android.support.v17.leanback.widget.HorizontalGridView;
 import android.support.v17.leanback.widget.ItemBridgeAdapter;
 import android.support.v17.leanback.widget.PresenterSelector;
-import android.support.v17.leanback.widget.OnItemViewSelectedListener;
 import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.RowHeaderPresenter;
-import android.support.v17.leanback.widget.SinglePresenterSelector;
+import android.support.v17.leanback.widget.SectionRow;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v7.widget.RecyclerView;
-import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.View.OnLayoutChangeListener;
@@ -42,23 +45,44 @@ import android.widget.FrameLayout;
  */
 public class HeadersSupportFragment extends BaseRowSupportFragment {
 
-    interface OnHeaderClickedListener {
-        void onHeaderClicked();
+    /**
+     * Interface definition for a callback to be invoked when a header item is clicked.
+     */
+    public interface OnHeaderClickedListener {
+        /**
+         * Called when a header item has been clicked.
+         *
+         * @param viewHolder Row ViewHolder object corresponding to the selected Header.
+         * @param row Row object corresponding to the selected Header.
+         */
+        void onHeaderClicked(RowHeaderPresenter.ViewHolder viewHolder, Row row);
     }
 
-    interface OnHeaderViewSelectedListener {
+    /**
+     * Interface definition for a callback to be invoked when a header item is selected.
+     */
+    public interface OnHeaderViewSelectedListener {
+        /**
+         * Called when a header item has been selected.
+         *
+         * @param viewHolder Row ViewHolder object corresponding to the selected Header.
+         * @param row Row object corresponding to the selected Header.
+         */
         void onHeaderSelected(RowHeaderPresenter.ViewHolder viewHolder, Row row);
     }
 
     private OnHeaderViewSelectedListener mOnHeaderViewSelectedListener;
-    private OnHeaderClickedListener mOnHeaderClickedListener;
+    OnHeaderClickedListener mOnHeaderClickedListener;
     private boolean mHeadersEnabled = true;
     private boolean mHeadersGone = false;
     private int mBackgroundColor;
     private boolean mBackgroundColorSet;
 
-    private static final PresenterSelector sHeaderPresenter = new SinglePresenterSelector(
-            new RowHeaderPresenter(R.layout.lb_header));
+    private static final PresenterSelector sHeaderPresenter = new ClassPresenterSelector()
+            .addClassPresenter(DividerRow.class, new DividerPresenter())
+            .addClassPresenter(SectionRow.class,
+                    new RowHeaderPresenter(R.layout.lb_section_header, false))
+            .addClassPresenter(Row.class, new RowHeaderPresenter(R.layout.lb_header));
 
     public HeadersSupportFragment() {
         setPresenterSelector(sHeaderPresenter);
@@ -82,10 +106,9 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
             int position, int subposition) {
         if (mOnHeaderViewSelectedListener != null) {
             if (viewHolder != null && position >= 0) {
-                Row row = (Row) getAdapter().get(position);
                 ItemBridgeAdapter.ViewHolder vh = (ItemBridgeAdapter.ViewHolder) viewHolder;
                 mOnHeaderViewSelectedListener.onHeaderSelected(
-                        (RowHeaderPresenter.ViewHolder) vh.getViewHolder(), row);
+                        (RowHeaderPresenter.ViewHolder) vh.getViewHolder(), (Row) vh.getItem());
             } else {
                 mOnHeaderViewSelectedListener.onHeaderSelected(null, null);
             }
@@ -95,18 +118,18 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
     private final ItemBridgeAdapter.AdapterListener mAdapterListener =
             new ItemBridgeAdapter.AdapterListener() {
         @Override
-        public void onCreate(ItemBridgeAdapter.ViewHolder viewHolder) {
+        public void onCreate(final ItemBridgeAdapter.ViewHolder viewHolder) {
             View headerView = viewHolder.getViewHolder().view;
             headerView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     if (mOnHeaderClickedListener != null) {
-                        mOnHeaderClickedListener.onHeaderClicked();
+                        mOnHeaderClickedListener.onHeaderClicked(
+                                (RowHeaderPresenter.ViewHolder) viewHolder.getViewHolder(),
+                                (Row) viewHolder.getItem());
                     }
                 }
             });
-            headerView.setFocusable(true);
-            headerView.setFocusableInTouchMode(true);
             if (mWrapper != null) {
                 viewHolder.itemView.addOnLayoutChangeListener(sLayoutChangeListener);
             } else {
@@ -116,7 +139,7 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
 
     };
 
-    private static OnLayoutChangeListener sLayoutChangeListener = new OnLayoutChangeListener() {
+    static OnLayoutChangeListener sLayoutChangeListener = new OnLayoutChangeListener() {
         @Override
         public void onLayoutChange(View v, int left, int top, int right, int bottom,
             int oldLeft, int oldTop, int oldRight, int oldBottom) {
@@ -140,8 +163,15 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
         if (getBridgeAdapter() != null) {
             FocusHighlightHelper.setupHeaderItemFocusHighlight(listView);
         }
-        view.setBackgroundColor(getBackgroundColor());
-        updateFadingEdgeToBrandColor(getBackgroundColor());
+        if (mBackgroundColorSet) {
+            listView.setBackgroundColor(mBackgroundColor);
+            updateFadingEdgeToBrandColor(mBackgroundColor);
+        } else {
+            Drawable d = listView.getBackground();
+            if (d instanceof ColorDrawable) {
+                updateFadingEdgeToBrandColor(((ColorDrawable) d).getColor());
+            }
+        }
         updateListViewVisibility();
     }
 
@@ -185,8 +215,8 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
     }
 
     // Wrapper needed because of conflict between RecyclerView's use of alpha
-    // for ADD animations, and RowHeaderPresnter's use of alpha for selected level.
-    private final ItemBridgeAdapter.Wrapper mWrapper = new ItemBridgeAdapter.Wrapper() {
+    // for ADD animations, and RowHeaderPresenter's use of alpha for selected level.
+    final ItemBridgeAdapter.Wrapper mWrapper = new ItemBridgeAdapter.Wrapper() {
         @Override
         public void wrap(View wrapper, View wrapped) {
             ((FrameLayout) wrapper).addView(wrapped);
@@ -214,8 +244,8 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
         mBackgroundColor = color;
         mBackgroundColorSet = true;
 
-        if (getView() != null) {
-            getView().setBackgroundColor(mBackgroundColor);
+        if (getVerticalGridView() != null) {
+            getVerticalGridView().setBackgroundColor(mBackgroundColor);
             updateFadingEdgeToBrandColor(mBackgroundColor);
         }
     }
@@ -230,28 +260,12 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
         }
     }
 
-    int getBackgroundColor() {
-        if (getActivity() == null) {
-            throw new IllegalStateException("Activity must be attached");
-        }
-
-        if (mBackgroundColorSet) {
-            return mBackgroundColor;
-        }
-
-        TypedValue outValue = new TypedValue();
-        if (getActivity().getTheme().resolveAttribute(R.attr.defaultBrandColor, outValue, true)) {
-            return getResources().getColor(outValue.resourceId);
-        }
-        return getResources().getColor(R.color.lb_default_brand_color);
-    }
-
     @Override
-    void onTransitionStart() {
+    public void onTransitionStart() {
         super.onTransitionStart();
         if (!mHeadersEnabled) {
             // When enabling headers fragment,  the RowHeaderView gets a focus but
-            // isShown() is still false because its parent is INVSIBILE, accessibility
+            // isShown() is still false because its parent is INVISIBLE, accessibility
             // event is not sent.
             // Workaround is: prevent focus to a child view during transition and put
             // focus on it after transition is done.
@@ -266,7 +280,7 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
     }
 
     @Override
-    void onTransitionEnd() {
+    public void onTransitionEnd() {
         if (mHeadersEnabled) {
             final VerticalGridView listView = getVerticalGridView();
             if (listView != null) {
@@ -277,5 +291,10 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
             }
         }
         super.onTransitionEnd();
+    }
+
+    public boolean isScrolling() {
+        return getVerticalGridView().getScrollState()
+                != HorizontalGridView.SCROLL_STATE_IDLE;
     }
 }

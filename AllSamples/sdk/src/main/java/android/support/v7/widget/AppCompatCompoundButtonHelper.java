@@ -25,15 +25,13 @@ import android.support.annotation.Nullable;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v4.widget.CompoundButtonCompat;
 import android.support.v7.appcompat.R;
-import android.support.v7.graphics.drawable.DrawableUtils;
-import android.support.v7.internal.widget.TintManager;
+import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.widget.CompoundButton;
 
 class AppCompatCompoundButtonHelper {
 
     private final CompoundButton mView;
-    private final TintManager mTintManager;
 
     private ColorStateList mButtonTintList = null;
     private PorterDuff.Mode mButtonTintMode = null;
@@ -49,9 +47,8 @@ class AppCompatCompoundButtonHelper {
         void setButtonDrawable(Drawable buttonDrawable);
     }
 
-    AppCompatCompoundButtonHelper(CompoundButton view, TintManager tintManager) {
+    AppCompatCompoundButtonHelper(CompoundButton view) {
         mView = view;
-        mTintManager = tintManager;
     }
 
     void loadFromAttributes(AttributeSet attrs, int defStyleAttr) {
@@ -62,7 +59,8 @@ class AppCompatCompoundButtonHelper {
                 final int resourceId = a.getResourceId(
                         R.styleable.CompoundButton_android_button, 0);
                 if (resourceId != 0) {
-                    mView.setButtonDrawable(mTintManager.getDrawable(resourceId));
+                    mView.setButtonDrawable(
+                            AppCompatResources.getDrawable(mView.getContext(), resourceId));
                 }
             }
             if (a.hasValue(R.styleable.CompoundButton_buttonTint)) {

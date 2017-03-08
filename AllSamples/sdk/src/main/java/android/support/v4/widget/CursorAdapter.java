@@ -21,6 +21,7 @@ import android.database.ContentObserver;
 import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.os.Handler;
+import android.support.annotation.RestrictTo;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,6 +29,8 @@ import android.widget.BaseAdapter;
 import android.widget.Filter;
 import android.widget.FilterQueryProvider;
 import android.widget.Filterable;
+
+import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
 
 /**
  * Static library support version of the framework's {@link android.widget.CursorAdapter}.
@@ -42,46 +45,55 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected boolean mDataValid;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected boolean mAutoRequery;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected Cursor mCursor;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected Context mContext;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected int mRowIDColumn;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected ChangeObserver mChangeObserver;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected DataSetObserver mDataSetObserver;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected CursorFilter mCursorFilter;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(GROUP_ID)
     protected FilterQueryProvider mFilterQueryProvider;
 
     /**
@@ -190,6 +202,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * Returns the cursor.
      * @return the cursor.
      */
+    @Override
     public Cursor getCursor() {
         return mCursor;
     }
@@ -197,6 +210,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
     /**
      * @see android.widget.ListAdapter#getCount()
      */
+    @Override
     public int getCount() {
         if (mDataValid && mCursor != null) {
             return mCursor.getCount();
@@ -204,10 +218,11 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
             return 0;
         }
     }
-    
+
     /**
      * @see android.widget.ListAdapter#getItem(int)
      */
+    @Override
     public Object getItem(int position) {
         if (mDataValid && mCursor != null) {
             mCursor.moveToPosition(position);
@@ -220,6 +235,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
     /**
      * @see android.widget.ListAdapter#getItemId(int)
      */
+    @Override
     public long getItemId(int position) {
         if (mDataValid && mCursor != null) {
             if (mCursor.moveToPosition(position)) {
@@ -231,7 +247,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
             return 0;
         }
     }
-    
+
     @Override
     public boolean hasStableIds() {
         return true;
@@ -240,6 +256,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
     /**
      * @see android.widget.ListAdapter#getView(int, View, ViewGroup)
      */
+    @Override
     public View getView(int position, View convertView, ViewGroup parent) {
         if (!mDataValid) {
             throw new IllegalStateException("this should only be called when the cursor is valid");
@@ -273,7 +290,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
             return null;
         }
     }
-    
+
     /**
      * Makes a new view to hold the data pointed to by cursor.
      * @param context Interface to application's global information
@@ -304,13 +321,14 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * moved to the correct position.
      */
     public abstract void bindView(View view, Context context, Cursor cursor);
-    
+
     /**
      * Change the underlying cursor to a new cursor. If there is an existing cursor it will be
      * closed.
-     * 
+     *
      * @param cursor The new cursor to be used
      */
+    @Override
     public void changeCursor(Cursor cursor) {
         Cursor old = swapCursor(cursor);
         if (old != null) {
@@ -324,7 +342,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * closed.
      *
      * @param newCursor The new cursor to be used.
-     * @return Returns the previously set Cursor, or null if there wasa not one.
+     * @return Returns the previously set Cursor, or null if there was not one.
      * If the given new Cursor is the same instance is the previously set
      * Cursor, null is also returned.
      */
@@ -363,6 +381,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * @param cursor the cursor to convert to a CharSequence
      * @return a CharSequence representing the value
      */
+    @Override
     public CharSequence convertToString(Cursor cursor) {
         return cursor == null ? "" : cursor.toString();
     }
@@ -380,7 +399,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      *
      * This method is always executed on a background thread, not on the
      * application's main thread (or UI thread.)
-     * 
+     *
      * Contract: when constraint is null or empty, the original results,
      * prior to any filtering, must be returned.
      *
@@ -392,6 +411,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * @see #getFilterQueryProvider()
      * @see #setFilterQueryProvider(android.widget.FilterQueryProvider)
      */
+    @Override
     public Cursor runQueryOnBackgroundThread(CharSequence constraint) {
         if (mFilterQueryProvider != null) {
             return mFilterQueryProvider.runQuery(constraint);
@@ -400,6 +420,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
         return mCursor;
     }
 
+    @Override
     public Filter getFilter() {
         if (mCursorFilter == null) {
             mCursorFilter = new CursorFilter(this);
@@ -440,7 +461,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * Called when the {@link ContentObserver} on the cursor receives a change notification.
      * The default implementation provides the auto-requery logic, but may be overridden by
      * sub classes.
-     * 
+     *
      * @see ContentObserver#onChange(boolean)
      */
     protected void onContentChanged() {
@@ -451,7 +472,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
     }
 
     private class ChangeObserver extends ContentObserver {
-        public ChangeObserver() {
+        ChangeObserver() {
             super(new Handler());
         }
 
@@ -467,6 +488,9 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
     }
 
     private class MyDataSetObserver extends DataSetObserver {
+        MyDataSetObserver() {
+        }
+
         @Override
         public void onChanged() {
             mDataValid = true;

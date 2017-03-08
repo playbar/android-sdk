@@ -1,543 +1,448 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Copyright (c) 2001, 2007, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package javax.crypto;
 
-import java.io.IOException;
-import java.security.AlgorithmParameters;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.Provider;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
-import org.apache.harmony.security.asn1.ASN1Any;
-import org.apache.harmony.security.asn1.ASN1Implicit;
-import org.apache.harmony.security.asn1.ASN1Integer;
-import org.apache.harmony.security.asn1.ASN1OctetString;
-import org.apache.harmony.security.asn1.ASN1Sequence;
-import org.apache.harmony.security.asn1.ASN1SetOf;
-import org.apache.harmony.security.asn1.ASN1Type;
-import org.apache.harmony.security.utils.AlgNameMapper;
-import org.apache.harmony.security.x509.AlgorithmIdentifier;
-
+import java.io.*;
+import java.security.*;
+import java.security.spec.*;
+import sun.security.x509.AlgorithmId;
+import sun.security.util.DerValue;
+import sun.security.util.DerInputStream;
+import sun.security.util.DerOutputStream;
 
 /**
- * This class implements the {@code EncryptedPrivateKeyInfo} ASN.1 type as
- * specified in <a href="http://www.ietf.org/rfc/rfc5208.txt">PKCS
- * #8 - Private-Key Information Syntax Standard</a>.
- * <p>
- * The definition of ASN.1 is as follows:
- * <dl>
- * EncryptedPrivateKeyInfo ::= SEQUENCE {
- * <dd>encryptionAlgorithm AlgorithmIdentifier,</dd>
- * <dd>encryptedData OCTET STRING }</dd>
- * </dl>
- * <dl>
- * AlgorithmIdentifier ::= SEQUENCE {
- * <dd>algorithm OBJECT IDENTIFIER,</dd>
- * <dd>parameters ANY DEFINED BY algorithm OPTIONAL }</dd>
- * </dl>
+ * This class implements the <code>EncryptedPrivateKeyInfo</code> type
+ * as defined in PKCS #8.
+ * <p>Its ASN.1 definition is as follows:
+ *
+ * <pre>
+ * EncryptedPrivateKeyInfo ::=  SEQUENCE {
+ *     encryptionAlgorithm   AlgorithmIdentifier,
+ *     encryptedData   OCTET STRING }
+ *
+ * AlgorithmIdentifier  ::=  SEQUENCE  {
+ *     algorithm              OBJECT IDENTIFIER,
+ *     parameters             ANY DEFINED BY algorithm OPTIONAL  }
+ * </pre>
+ *
+ * @author Valerie Peng
+ *
+ * @see java.security.spec.PKCS8EncodedKeySpec
+ *
+ * @since 1.4
  */
+
 public class EncryptedPrivateKeyInfo {
-    // Encryption algorithm name
-    private String algName;
-    // Encryption algorithm parameters
-    private final AlgorithmParameters algParameters;
-    // Encrypted private key data
-    private final byte[] encryptedData;
-    // Encryption algorithm OID
-    private String oid;
-    // This EncryptedPrivateKeyInfo ASN.1 DER encoding
-    private volatile byte[] encoded;
+
+    // the "encryptionAlgorithm" field
+    private AlgorithmId algid;
+
+    // the "encryptedData" field
+    private byte[] encryptedData;
+
+    // the ASN.1 encoded contents of this class
+    private byte[] encoded = null;
 
     /**
-     * Creates an {@code EncryptedPrivateKeyInfo} instance from its encoded
-     * representation by parsing it.
-     *
-     * @param encoded
-     *            the encoded representation of this object
-     * @throws IOException
-     *             if parsing the encoded representation fails.
-     * @throws NullPointerException
-     *             if {@code encoded} is {@code null}.
+     * Constructs (i.e., parses) an <code>EncryptedPrivateKeyInfo</code> from
+     * its ASN.1 encoding.
+     * @param encoded the ASN.1 encoding of this object. The contents of
+     * the array are copied to protect against subsequent modification.
+     * @exception NullPointerException if the <code>encoded</code> is null.
+     * @exception IOException if error occurs when parsing the ASN.1 encoding.
      */
-    public EncryptedPrivateKeyInfo(byte[] encoded) throws IOException {
+    public EncryptedPrivateKeyInfo(byte[] encoded)
+        throws IOException {
         if (encoded == null) {
-            throw new NullPointerException("encoded == null");
+            throw new NullPointerException("the encoded parameter " +
+                                           "must be non-null");
         }
-        this.encoded = new byte[encoded.length];
-        System.arraycopy(encoded, 0, this.encoded, 0, encoded.length);
-        Object[] values;
+        this.encoded = (byte[])encoded.clone();
+        DerValue val = new DerValue(this.encoded);
 
-        values = (Object[])asn1.decode(encoded);
+        DerValue[] seq = new DerValue[2];
 
-        AlgorithmIdentifier aId = (AlgorithmIdentifier) values[0];
+        seq[0] = val.data.getDerValue();
+        seq[1] = val.data.getDerValue();
 
-        algName = aId.getAlgorithm();
-        // algName == oid now
-        boolean mappingExists = mapAlgName();
-        // algName == name from map oid->name if mapping exists, or
-        // algName == oid if mapping does not exist
-
-        AlgorithmParameters aParams = null;
-        byte[] params = aId.getParameters();
-        if (params != null && !isNullValue(params)) {
-            try {
-                aParams = AlgorithmParameters.getInstance(algName);
-                aParams.init(aId.getParameters());
-                if (!mappingExists) {
-                    algName = aParams.getAlgorithm();
-                }
-            } catch (NoSuchAlgorithmException e) {
-            }
+        if (val.data.available() != 0) {
+            throw new IOException("overrun, bytes = " + val.data.available());
         }
-        algParameters = aParams;
 
-        encryptedData = (byte[]) values[1];
-    }
+        this.algid = AlgorithmId.parse(seq[0]);
+        if (seq[0].data.available() != 0) {
+            throw new IOException("encryptionAlgorithm field overrun");
+        }
 
-    private static boolean isNullValue(byte[] toCheck) {
-        return toCheck[0] == 5 && toCheck[1] == 0;
+        this.encryptedData = seq[1].getOctetString();
+        if (seq[1].data.available() != 0) {
+            throw new IOException("encryptedData field overrun");
+        }
     }
 
     /**
-     * Creates an {@code EncryptedPrivateKeyInfo} instance from an algorithm
-     * name and its encrypted data.
+     * Constructs an <code>EncryptedPrivateKeyInfo</code> from the
+     * encryption algorithm name and the encrypted data.
      *
-     * @param encryptionAlgorithmName
-     *            the name of an algorithm.
-     * @param encryptedData
-     *            the encrypted data.
-     * @throws NoSuchAlgorithmException
-     *             if the {@code encrAlgName} is not a supported algorithm.
-     * @throws NullPointerException
-     *             if {@code encrAlgName} or {@code encryptedData} is {@code
-     *             null}.
-     * @throws IllegalArgumentException
-     *             if {@code encryptedData} is empty.
+     * <p>Note: This constructor will use null as the value of the
+     * algorithm parameters. If the encryption algorithm has
+     * parameters whose value is not null, a different constructor,
+     * e.g. EncryptedPrivateKeyInfo(AlgorithmParameters, byte[]),
+     * should be used.
+     *
+     * @param algName encryption algorithm name. See Appendix A in the
+     * <a href=
+     *   "{@docRoot}openjdk-redirect.html?v=8&path=/technotes/guides/security/crypto/CryptoSpec.html#AppA">
+     * Java Cryptography Architecture Reference Guide</a>
+     * for information about standard Cipher algorithm names.
+     * @param encryptedData encrypted data. The contents of
+     * <code>encrypedData</code> are copied to protect against subsequent
+     * modification when constructing this object.
+     * @exception NullPointerException if <code>algName</code> or
+     * <code>encryptedData</code> is null.
+     * @exception IllegalArgumentException if <code>encryptedData</code>
+     * is empty, i.e. 0-length.
+     * @exception NoSuchAlgorithmException if the specified algName is
+     * not supported.
      */
-    public EncryptedPrivateKeyInfo(String encryptionAlgorithmName, byte[] encryptedData)
+    public EncryptedPrivateKeyInfo(String algName, byte[] encryptedData)
         throws NoSuchAlgorithmException {
-        if (encryptionAlgorithmName == null) {
-            throw new NullPointerException("encryptionAlgorithmName == null");
-        }
-        this.algName = encryptionAlgorithmName;
-        if (!mapAlgName()) {
-            throw new NoSuchAlgorithmException("Unsupported algorithm: " + this.algName);
-        }
+
+        if (algName == null)
+                throw new NullPointerException("the algName parameter " +
+                                               "must be non-null");
+        this.algid = AlgorithmId.get(algName);
+
         if (encryptedData == null) {
-            throw new NullPointerException("encryptedData == null");
+            throw new NullPointerException("the encryptedData " +
+                                           "parameter must be non-null");
+        } else if (encryptedData.length == 0) {
+            throw new IllegalArgumentException("the encryptedData " +
+                                                "parameter must not be empty");
+        } else {
+            this.encryptedData = (byte[])encryptedData.clone();
         }
-        if (encryptedData.length == 0) {
-            throw new IllegalArgumentException("encryptedData.length == 0");
-        }
-        this.encryptedData = new byte[encryptedData.length];
-        System.arraycopy(encryptedData, 0,
-                this.encryptedData, 0, encryptedData.length);
-        this.algParameters = null;
+        // delay the generation of ASN.1 encoding until
+        // getEncoded() is called
+        this.encoded = null;
     }
 
     /**
-     * Creates an {@code EncryptedPrivateKeyInfo} instance from the
-     * encryption algorithm parameters an its encrypted data.
+     * Constructs an <code>EncryptedPrivateKeyInfo</code> from the
+     * encryption algorithm parameters and the encrypted data.
      *
-     * @param algParams
-     *            the encryption algorithm parameters.
-     * @param encryptedData
-     *            the encrypted data.
-     * @throws NoSuchAlgorithmException
-     *             if the algorithm name of the specified {@code algParams}
-     *             parameter is not supported.
-     * @throws NullPointerException
-     *             if {@code algParams} or {@code encryptedData} is
-     *             {@code null}.
+     * @param algParams the algorithm parameters for the encryption
+     * algorithm. <code>algParams.getEncoded()</code> should return
+     * the ASN.1 encoded bytes of the <code>parameters</code> field
+     * of the <code>AlgorithmIdentifer</code> component of the
+     * <code>EncryptedPrivateKeyInfo</code> type.
+     * @param encryptedData encrypted data. The contents of
+     * <code>encrypedData</code> are copied to protect against
+     * subsequent modification when constructing this object.
+     * @exception NullPointerException if <code>algParams</code> or
+     * <code>encryptedData</code> is null.
+     * @exception IllegalArgumentException if <code>encryptedData</code>
+     * is empty, i.e. 0-length.
+     * @exception NoSuchAlgorithmException if the specified algName of
+     * the specified <code>algParams</code> parameter is not supported.
      */
-    public EncryptedPrivateKeyInfo(AlgorithmParameters algParams, byte[] encryptedData)
-        throws NoSuchAlgorithmException {
+    public EncryptedPrivateKeyInfo(AlgorithmParameters algParams,
+        byte[] encryptedData) throws NoSuchAlgorithmException {
+
         if (algParams == null) {
-            throw new NullPointerException("algParams == null");
+            throw new NullPointerException("algParams must be non-null");
         }
-        this.algParameters = algParams;
+        this.algid = AlgorithmId.get(algParams);
+
         if (encryptedData == null) {
-            throw new NullPointerException("encryptedData == null");
+            throw new NullPointerException("encryptedData must be non-null");
+        } else if (encryptedData.length == 0) {
+            throw new IllegalArgumentException("the encryptedData " +
+                                                "parameter must not be empty");
+        } else {
+            this.encryptedData = (byte[])encryptedData.clone();
         }
-        if (encryptedData.length == 0) {
-            throw new IllegalArgumentException("encryptedData.length == 0");
-        }
-        this.encryptedData = new byte[encryptedData.length];
-        System.arraycopy(encryptedData, 0,
-                this.encryptedData, 0, encryptedData.length);
-        this.algName = this.algParameters.getAlgorithm();
-        if (!mapAlgName()) {
-            throw new NoSuchAlgorithmException("Unsupported algorithm: " + this.algName);
-        }
+
+        // delay the generation of ASN.1 encoding until
+        // getEncoded() is called
+        this.encoded = null;
     }
 
+
     /**
-     * Returns the name of the encryption algorithm.
+     * Returns the encryption algorithm.
+     * <p>Note: Standard name is returned instead of the specified one
+     * in the constructor when such mapping is available.
+     * See Appendix A in the
+     * <a href=
+     *   "{@docRoot}openjdk-redirect.html?v=8&path=/technotes/guides/security/crypto/CryptoSpec.html#AppA">
+     * Java Cryptography Architecture Reference Guide</a>
+     * for information about standard Cipher algorithm names.
      *
-     * @return the name of the encryption algorithm.
+     * @return the encryption algorithm name.
      */
     public String getAlgName() {
-        return algName;
+        return this.algid.getName();
     }
 
     /**
-     * Returns the parameters used by the encryption algorithm.
-     *
-     * @return the parameters used by the encryption algorithm.
+     * Returns the algorithm parameters used by the encryption algorithm.
+     * @return the algorithm parameters.
      */
     public AlgorithmParameters getAlgParameters() {
-        return algParameters;
+        return this.algid.getParameters();
     }
 
     /**
-     * Returns the encrypted data of this key.
-     *
-     * @return the encrypted data of this key, each time this method is called a
-     *         new array is returned.
+     * Returns the encrypted data.
+     * @return the encrypted data. Returns a new array
+     * each time this method is called.
      */
     public byte[] getEncryptedData() {
-        byte[] ret = new byte[encryptedData.length];
-        System.arraycopy(encryptedData, 0, ret, 0, encryptedData.length);
-        return ret;
+        return (byte[])this.encryptedData.clone();
     }
 
     /**
-     * Returns the {@code PKCS8EncodedKeySpec} object extracted from the
-     * encrypted data.
-     * <p>
-     * The cipher must be initialize in either {@code Cipher.DECRYPT_MODE} or
-     * {@code Cipher.UNWRAP_MODE} with the same parameters and key used for
-     * encrypting this.
+     * Extract the enclosed PKCS8EncodedKeySpec object from the
+     * encrypted data and return it.
+     * <br>Note: In order to successfully retrieve the enclosed
+     * PKCS8EncodedKeySpec object, <code>cipher</code> needs
+     * to be initialized to either Cipher.DECRYPT_MODE or
+     * Cipher.UNWRAP_MODE, with the same key and parameters used
+     * for generating the encrypted data.
      *
-     * @param cipher
-     *            the cipher initialized for decrypting the encrypted data.
-     * @return the extracted {@code PKCS8EncodedKeySpec}.
-     * @throws InvalidKeySpecException
-     *             if the specified cipher is not suited to decrypt the
-     *             encrypted data.
-     * @throws NullPointerException
-     *             if {@code cipher} is {@code null}.
+     * @param cipher the initialized cipher object which will be
+     * used for decrypting the encrypted data.
+     * @return the PKCS8EncodedKeySpec object.
+     * @exception NullPointerException if <code>cipher</code>
+     * is null.
+     * @exception InvalidKeySpecException if the given cipher is
+     * inappropriate for the encrypted data or the encrypted
+     * data is corrupted and cannot be decrypted.
      */
     public PKCS8EncodedKeySpec getKeySpec(Cipher cipher)
         throws InvalidKeySpecException {
-        if (cipher == null) {
-            throw new NullPointerException("cipher == null");
-        }
+        byte[] encoded = null;
         try {
-            byte[] decryptedData = cipher.doFinal(encryptedData);
-            try {
-                ASN1PrivateKeyInfo.verify(decryptedData);
-            } catch (IOException e1) {
-                throw new InvalidKeySpecException("Decrypted data does not represent valid PKCS#8 PrivateKeyInfo");
-            }
-            return new PKCS8EncodedKeySpec(decryptedData);
-        } catch (IllegalStateException e) {
-            throw new InvalidKeySpecException(e.getMessage());
-        } catch (IllegalBlockSizeException e) {
-            throw new InvalidKeySpecException(e.getMessage());
-        } catch (BadPaddingException e) {
-            throw new InvalidKeySpecException(e.getMessage());
+            encoded = cipher.doFinal((byte[])encryptedData);
+            checkPKCS8Encoding(encoded);
+        } catch (GeneralSecurityException gse) {
+            InvalidKeySpecException ikse = new
+                InvalidKeySpecException(
+                    "Cannot retrieve the PKCS8EncodedKeySpec");
+            ikse.initCause(gse);
+            throw ikse;
+        } catch (IOException ioe) {
+            InvalidKeySpecException ikse = new
+                InvalidKeySpecException(
+                    "Cannot retrieve the PKCS8EncodedKeySpec");
+            ikse.initCause(ioe);
+            throw ikse;
+        } catch (IllegalStateException ise) {
+            InvalidKeySpecException ikse = new
+                InvalidKeySpecException(
+                    "Cannot retrieve the PKCS8EncodedKeySpec");
+            ikse.initCause(ise);
+            throw ikse;
         }
+        return new PKCS8EncodedKeySpec(encoded);
     }
 
-    /**
-     * Returns the {@code PKCS8EncodedKeySpec} object extracted from the
-     * encrypted data.
-     *
-     * @param decryptKey
-     *            the key to decrypt the encrypted data with.
-     * @return the extracted {@code PKCS8EncodedKeySpec}.
-     * @throws NoSuchAlgorithmException
-     *             if no usable cipher can be found to decrypt the encrypted
-     *             data.
-     * @throws InvalidKeyException
-     *             if {@code decryptKey} is not usable to decrypt the encrypted
-     *             data.
-     * @throws NullPointerException
-     *             if {@code decryptKey} is {@code null}.
-     */
-    public PKCS8EncodedKeySpec getKeySpec(Key decryptKey) throws NoSuchAlgorithmException,
-               InvalidKeyException {
-        if (decryptKey == null) {
-            throw new NullPointerException("decryptKey == null");
-        }
+    private PKCS8EncodedKeySpec getKeySpecImpl(Key decryptKey,
+        Provider provider) throws NoSuchAlgorithmException,
+        InvalidKeyException {
+        byte[] encoded = null;
+        Cipher c;
         try {
-            Cipher cipher = Cipher.getInstance(algName);
-            if (algParameters == null) {
-                cipher.init(Cipher.DECRYPT_MODE, decryptKey);
+            if (provider == null) {
+                // use the most preferred one
+                c = Cipher.getInstance(algid.getName());
             } else {
-                cipher.init(Cipher.DECRYPT_MODE, decryptKey, algParameters);
+                c = Cipher.getInstance(algid.getName(), provider);
             }
-            byte[] decryptedData = cipher.doFinal(encryptedData);
-            try {
-                ASN1PrivateKeyInfo.verify(decryptedData);
-            } catch (IOException e1) {
-                throw invalidKey();
-            }
-            return new PKCS8EncodedKeySpec(decryptedData);
-        } catch (NoSuchPaddingException e) {
-            throw new NoSuchAlgorithmException(e.getMessage());
-        } catch (InvalidAlgorithmParameterException e) {
-            throw new NoSuchAlgorithmException(e.getMessage());
-        } catch (IllegalStateException e) {
-            throw new InvalidKeyException(e.getMessage());
-        } catch (IllegalBlockSizeException e) {
-            throw new InvalidKeyException(e.getMessage());
-        } catch (BadPaddingException e) {
-            throw new InvalidKeyException(e.getMessage());
+            c.init(Cipher.DECRYPT_MODE, decryptKey, algid.getParameters());
+            encoded = c.doFinal(encryptedData);
+            checkPKCS8Encoding(encoded);
+        } catch (NoSuchAlgorithmException nsae) {
+            // rethrow
+            throw nsae;
+        } catch (GeneralSecurityException gse) {
+            InvalidKeyException ike = new InvalidKeyException
+                ("Cannot retrieve the PKCS8EncodedKeySpec");
+            ike.initCause(gse);
+            throw ike;
+        } catch (IOException ioe) {
+            InvalidKeyException ike = new InvalidKeyException
+                ("Cannot retrieve the PKCS8EncodedKeySpec");
+            ike.initCause(ioe);
+            throw ike;
         }
+        return new PKCS8EncodedKeySpec(encoded);
     }
 
     /**
-     * Returns the {@code PKCS8EncodedKeySpec} object extracted from the
-     * encrypted data.
+     * Extract the enclosed PKCS8EncodedKeySpec object from the
+     * encrypted data and return it.
+     * @param decryptKey key used for decrypting the encrypted data.
+     * @return the PKCS8EncodedKeySpec object.
+     * @exception NullPointerException if <code>decryptKey</code>
+     * is null.
+     * @exception NoSuchAlgorithmException if cannot find appropriate
+     * cipher to decrypt the encrypted data.
+     * @exception InvalidKeyException if <code>decryptKey</code>
+     * cannot be used to decrypt the encrypted data or the decryption
+     * result is not a valid PKCS8KeySpec.
      *
-     * @param decryptKey
-     *            the key to decrypt the encrypted data with.
-     * @param providerName
-     *            the name of a provider whose cipher implementation should be
-     *            used.
-     * @return the extracted {@code PKCS8EncodedKeySpec}.
-     * @throws NoSuchProviderException
-     *             if no provider with {@code providerName} can be found.
-     * @throws NoSuchAlgorithmException
-     *             if no usable cipher can be found to decrypt the encrypted
-     *             data.
-     * @throws InvalidKeyException
-     *             if {@code decryptKey} is not usable to decrypt the encrypted
-     *             data.
-     * @throws NullPointerException
-     *             if {@code decryptKey} or {@code providerName} is {@code null}
-     *             .
+     * @since 1.5
      */
-    public PKCS8EncodedKeySpec getKeySpec(Key decryptKey, String providerName)
-        throws NoSuchProviderException,
-               NoSuchAlgorithmException,
-               InvalidKeyException {
+    public PKCS8EncodedKeySpec getKeySpec(Key decryptKey)
+        throws NoSuchAlgorithmException, InvalidKeyException {
         if (decryptKey == null) {
-            throw new NullPointerException("decryptKey == null");
+            throw new NullPointerException("decryptKey is null");
+        }
+        return getKeySpecImpl(decryptKey, null);
+    }
+
+    /**
+     * Extract the enclosed PKCS8EncodedKeySpec object from the
+     * encrypted data and return it.
+     * @param decryptKey key used for decrypting the encrypted data.
+     * @param providerName the name of provider whose Cipher
+     * implementation will be used.
+     * @return the PKCS8EncodedKeySpec object.
+     * @exception NullPointerException if <code>decryptKey</code>
+     * or <code>providerName</code> is null.
+     * @exception NoSuchProviderException if no provider
+     * <code>providerName</code> is registered.
+     * @exception NoSuchAlgorithmException if cannot find appropriate
+     * cipher to decrypt the encrypted data.
+     * @exception InvalidKeyException if <code>decryptKey</code>
+     * cannot be used to decrypt the encrypted data or the decryption
+     * result is not a valid PKCS8KeySpec.
+     *
+     * @since 1.5
+     */
+    public PKCS8EncodedKeySpec getKeySpec(Key decryptKey,
+        String providerName) throws NoSuchProviderException,
+        NoSuchAlgorithmException, InvalidKeyException {
+        if (decryptKey == null) {
+            throw new NullPointerException("decryptKey is null");
         }
         if (providerName == null) {
-            throw new NullPointerException("providerName == null");
+            throw new NullPointerException("provider is null");
         }
-        try {
-            Cipher cipher = Cipher.getInstance(algName, providerName);
-            if (algParameters == null) {
-                cipher.init(Cipher.DECRYPT_MODE, decryptKey);
-            } else {
-                cipher.init(Cipher.DECRYPT_MODE, decryptKey, algParameters);
-            }
-            byte[] decryptedData = cipher.doFinal(encryptedData);
-            try {
-                ASN1PrivateKeyInfo.verify(decryptedData);
-            } catch (IOException e1) {
-                throw invalidKey();
-            }
-            return new PKCS8EncodedKeySpec(decryptedData);
-        } catch (NoSuchPaddingException e) {
-            throw new NoSuchAlgorithmException(e.getMessage());
-        } catch (InvalidAlgorithmParameterException e) {
-            throw new NoSuchAlgorithmException(e.getMessage());
-        } catch (IllegalStateException e) {
-            throw new InvalidKeyException(e.getMessage());
-        } catch (IllegalBlockSizeException e) {
-            throw new InvalidKeyException(e.getMessage());
-        } catch (BadPaddingException e) {
-            throw new InvalidKeyException(e.getMessage());
+        Provider provider = Security.getProvider(providerName);
+        if (provider == null) {
+            throw new NoSuchProviderException("provider " +
+                providerName + " not found");
         }
+        return getKeySpecImpl(decryptKey, provider);
     }
 
     /**
-     * Returns the {@code PKCS8EncodedKeySpec} object extracted from the
-     * encrypted data.
+     * Extract the enclosed PKCS8EncodedKeySpec object from the
+     * encrypted data and return it.
+     * @param decryptKey key used for decrypting the encrypted data.
+     * @param provider the name of provider whose Cipher implementation
+     * will be used.
+     * @return the PKCS8EncodedKeySpec object.
+     * @exception NullPointerException if <code>decryptKey</code>
+     * or <code>provider</code> is null.
+     * @exception NoSuchAlgorithmException if cannot find appropriate
+     * cipher to decrypt the encrypted data in <code>provider</code>.
+     * @exception InvalidKeyException if <code>decryptKey</code>
+     * cannot be used to decrypt the encrypted data or the decryption
+     * result is not a valid PKCS8KeySpec.
      *
-     * @param decryptKey
-     *            the key to decrypt the encrypted data with.
-     * @param provider
-     *            the provider whose cipher implementation should be used.
-     * @return the extracted {@code PKCS8EncodedKeySpec}.
-     * @throws NoSuchAlgorithmException
-     *             if no usable cipher can be found to decrypt the encrypted
-     *             data.
-     * @throws InvalidKeyException
-     *             if {@code decryptKey} is not usable to decrypt the encrypted
-     *             data.
-     * @throws NullPointerException
-     *             if {@code decryptKey} or {@code provider} is {@code null}.
+     * @since 1.5
      */
-    public PKCS8EncodedKeySpec getKeySpec(Key decryptKey, Provider provider)
-        throws NoSuchAlgorithmException,
-               InvalidKeyException {
+    public PKCS8EncodedKeySpec getKeySpec(Key decryptKey,
+        Provider provider) throws NoSuchAlgorithmException,
+        InvalidKeyException {
         if (decryptKey == null) {
-            throw new NullPointerException("decryptKey == null");
+            throw new NullPointerException("decryptKey is null");
         }
         if (provider == null) {
-            throw new NullPointerException("provider == null");
+            throw new NullPointerException("provider is null");
         }
-        try {
-            Cipher cipher = Cipher.getInstance(algName, provider);
-            if (algParameters == null) {
-                cipher.init(Cipher.DECRYPT_MODE, decryptKey);
-            } else {
-                cipher.init(Cipher.DECRYPT_MODE, decryptKey, algParameters);
-            }
-            byte[] decryptedData = cipher.doFinal(encryptedData);
-            try {
-                ASN1PrivateKeyInfo.verify(decryptedData);
-            } catch (IOException e1) {
-                throw invalidKey();
-            }
-            return new PKCS8EncodedKeySpec(decryptedData);
-        } catch (NoSuchPaddingException e) {
-            throw new NoSuchAlgorithmException(e.getMessage());
-        } catch (InvalidAlgorithmParameterException e) {
-            throw new NoSuchAlgorithmException(e.getMessage());
-        } catch (IllegalStateException e) {
-            throw new InvalidKeyException(e.getMessage());
-        } catch (IllegalBlockSizeException e) {
-            throw new InvalidKeyException(e.getMessage());
-        } catch (BadPaddingException e) {
-            throw new InvalidKeyException(e.getMessage());
-        }
-    }
-
-    private InvalidKeyException invalidKey() throws InvalidKeyException {
-        throw new InvalidKeyException("Decrypted data does not represent valid PKCS#8 PrivateKeyInfo");
+        return getKeySpecImpl(decryptKey, provider);
     }
 
     /**
-     * Returns the ASN.1 encoded representation of this object.
-     *
-     * @return the ASN.1 encoded representation of this object.
-     * @throws IOException
-     *             if encoding this object fails.
+     * Returns the ASN.1 encoding of this object.
+     * @return the ASN.1 encoding. Returns a new array
+     * each time this method is called.
+     * @exception IOException if error occurs when constructing its
+     * ASN.1 encoding.
      */
     public byte[] getEncoded() throws IOException {
-        if (encoded == null) {
-            // Generate ASN.1 encoding:
-            encoded = asn1.encode(this);
+        if (this.encoded == null) {
+            DerOutputStream out = new DerOutputStream();
+            DerOutputStream tmp = new DerOutputStream();
+
+            // encode encryption algorithm
+            algid.encode(tmp);
+
+            // encode encrypted data
+            tmp.putOctetString(encryptedData);
+
+            // wrap everything into a SEQUENCE
+            out.write(DerValue.tag_Sequence, tmp);
+            this.encoded = out.toByteArray();
         }
-        byte[] ret = new byte[encoded.length];
-        System.arraycopy(encoded, 0, ret, 0, encoded.length);
-        return ret;
+        return (byte[])this.encoded.clone();
     }
 
-    // Performs all needed alg name mappings.
-    // Returns 'true' if mapping available 'false' otherwise
-    private boolean mapAlgName() {
-        if (AlgNameMapper.isOID(this.algName)) {
-            // OID provided to the ctor
-            // get rid of possible leading "OID."
-            this.oid = AlgNameMapper.normalize(this.algName);
-            // try to find mapping OID->algName
-            this.algName = AlgNameMapper.map2AlgName(this.oid);
-            // if there is no mapping OID->algName
-            // set OID as algName
-            if (this.algName == null) {
-                this.algName = this.oid;
-            }
-        } else {
-            String stdName = AlgNameMapper.getStandardName(this.algName);
-            // Alg name provided to the ctor
-            // try to find mapping algName->OID or
-            // (algName->stdAlgName)->OID
-            this.oid = AlgNameMapper.map2OID(this.algName);
-            if (this.oid == null) {
-                if (stdName == null) {
-                    // no above mappings available
-                    return false;
-                }
-                this.oid = AlgNameMapper.map2OID(stdName);
-                if (this.oid == null) {
-                    return false;
-                }
-                this.algName = stdName;
-            } else if (stdName != null) {
-                this.algName = stdName;
-            }
+    private static void checkTag(DerValue val, byte tag, String valName)
+        throws IOException {
+        if (val.getTag() != tag) {
+            throw new IOException("invalid key encoding - wrong tag for " +
+                                  valName);
         }
-        return true;
     }
 
-    //
-    // EncryptedPrivateKeyInfo DER encoder/decoder.
-    // EncryptedPrivateKeyInfo ASN.1 definition
-    // (as defined in PKCS #8: Private-Key Information Syntax Standard
-    //  http://www.ietf.org/rfc/rfc2313.txt)
-    //
-    // EncryptedPrivateKeyInfo ::=  SEQUENCE {
-    //      encryptionAlgorithm   AlgorithmIdentifier,
-    //      encryptedData   OCTET STRING }
-    //
+    private static void checkPKCS8Encoding(byte[] encodedKey)
+        throws IOException {
+        DerInputStream in = new DerInputStream(encodedKey);
+        DerValue[] values = in.getSequence(3);
 
-    private static final byte[] nullParam = new byte[] { 5, 0 };
-
-    private static final ASN1Sequence asn1 = new ASN1Sequence(new ASN1Type[] {
-            AlgorithmIdentifier.ASN1, ASN1OctetString.getInstance() }) {
-
-                @Override
-                protected void getValues(Object object, Object[] values) {
-
-                    EncryptedPrivateKeyInfo epki = (EncryptedPrivateKeyInfo) object;
-
-                    try {
-                        byte[] algParmsEncoded = (epki.algParameters == null) ? nullParam
-                                : epki.algParameters.getEncoded();
-                        values[0] = new AlgorithmIdentifier(epki.oid, algParmsEncoded);
-                        values[1] = epki.encryptedData;
-                    } catch (IOException e) {
-                        throw new RuntimeException(e.getMessage());
-                    }
-                }
-    };
-
-    // PrivateKeyInfo DER decoder.
-    // PrivateKeyInfo ASN.1 definition
-    // (as defined in PKCS #8: Private-Key Information Syntax Standard
-    //  http://www.ietf.org/rfc/rfc2313.txt)
-    //
-    //
-    //    PrivateKeyInfo ::= SEQUENCE {
-    //        version Version,
-    //        privateKeyAlgorithm PrivateKeyAlgorithmIdentifier,
-    //        privateKey PrivateKey,
-    //        attributes [0] IMPLICIT Attributes OPTIONAL }
-    //
-    //      Version ::= INTEGER
-    //
-    //      PrivateKeyAlgorithmIdentifier ::= AlgorithmIdentifier
-    //
-    //      PrivateKey ::= OCTET STRING
-    //
-    //      Attributes ::= SET OF Attribute
-
-    private static final ASN1SetOf ASN1Attributes = new ASN1SetOf(ASN1Any.getInstance());
-
-    private static final ASN1Sequence ASN1PrivateKeyInfo = new ASN1Sequence(
-            new ASN1Type[] { ASN1Integer.getInstance(), AlgorithmIdentifier.ASN1,
-                    ASN1OctetString.getInstance(),
-                    new ASN1Implicit(0, ASN1Attributes) }) {
-        {
-            setOptional(3); //attributes are optional
+        switch (values.length) {
+        case 4:
+            checkTag(values[3], DerValue.TAG_CONTEXT, "attributes");
+        case 3:
+            checkTag(values[0], DerValue.tag_Integer, "version");
+            DerInputStream algid = values[1].toDerInputStream();
+            algid.getOID();
+            if (algid.available() != 0) {
+                algid.getDerValue();
+            }
+            checkTag(values[2], DerValue.tag_OctetString, "privateKey");
+            break;
+        default:
+            throw new IOException("invalid key encoding");
         }
-    };
+    }
 }
