@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.example.plasma;
+package com.bar.plasma;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -37,7 +37,7 @@ public class Plasma extends Activity
 
     /* load our native library */
     static {
-        System.loadLibrary("plasma");
+        System.loadLibrary("bar");
     }
 }
 

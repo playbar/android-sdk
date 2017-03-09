@@ -23,16 +23,19 @@ cmake_minimum_required(VERSION 3.4.1)
 # now build app's shared lib
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 
-add_library(native-activity SHARED
+add_library(bar SHARED
             main.cpp
+            plasma.c
             android_native_app_glue.c)
 
-target_include_directories(native-activity PRIVATE
+target_include_directories(bar PRIVATE
                            ${CMAKE_SOURCE_DIR})
 
 # add lib dependencies
-target_link_libraries(native-activity
+target_link_libraries(bar
                       android
+                      jnigraphics
                       EGL
                       GLESv1_CM
+                      m
                       log)

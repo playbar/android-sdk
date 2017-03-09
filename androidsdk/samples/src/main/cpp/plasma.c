@@ -360,7 +360,7 @@ stats_endFrame( Stats*  s )
     s->lastTime = now;
 }
 
-JNIEXPORT void JNICALL Java_com_example_plasma_PlasmaView_renderPlasma(JNIEnv * env, jobject  obj, jobject bitmap,  jlong  time_ms)
+JNIEXPORT void JNICALL Java_com_bar_plasma_PlasmaView_renderPlasma(JNIEnv * env, jobject  obj, jobject bitmap,  jlong  time_ms)
 {
     AndroidBitmapInfo  info;
     void*              pixels;
