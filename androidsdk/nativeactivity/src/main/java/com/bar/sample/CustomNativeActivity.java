@@ -1,4 +1,4 @@
-package com.bar.na;
+package com.bar.sample;
 
 import android.app.NativeActivity;
 import android.os.Bundle;

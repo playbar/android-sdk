@@ -21,7 +21,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 
-import com.bar.na.R;
+import com.bar.sample.R;
 
 public class ViewFromOtherTaskActivity extends Activity {
     @Override

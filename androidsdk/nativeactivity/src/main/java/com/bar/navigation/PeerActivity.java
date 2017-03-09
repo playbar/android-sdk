@@ -22,7 +22,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import com.bar.na.R;
+import com.bar.sample.R;
 
 public class PeerActivity extends Activity {
     private static final String EXTRA_PEER_COUNT =

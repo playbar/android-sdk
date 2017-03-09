@@ -47,5 +47,9 @@
 
     <string name="interstitial_label">Interstitial</string>
     <string name="interstitial_description">This is an interstitial activity running in response to a notification. It presents a summary of info in a lightweight manner that does not exist as a task in Recents. Tap the button below to jump to the primary content.</string>
+  <string name="info">Ensure that Android Beam is enabled by turning it on in
+        the system Settings (select the setting icon above), then place this device up
+        against another Android device that supports Android Beam to send a
+        message.</string>
 
 </resources>

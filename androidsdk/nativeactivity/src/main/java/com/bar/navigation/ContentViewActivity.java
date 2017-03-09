@@ -22,7 +22,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;
 
-import com.bar.na.R;
+import com.bar.sample.R;
 
 public class ContentViewActivity extends Activity {
     public static final String EXTRA_TEXT = "com.example.android.appnavigation.EXTRA_TEXT";

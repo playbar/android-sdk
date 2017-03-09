@@ -20,7 +20,7 @@ package com.bar.navigation;
 import android.app.Activity;
 import android.os.Bundle;
 
-import com.bar.na.R;
+import com.bar.sample.R;
 
 public class SimpleUpActivity extends Activity {
     @Override
