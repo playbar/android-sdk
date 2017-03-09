@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.actionbarcompat;
+package com.bar.actionbarcompat;
 
 import android.content.ComponentName;
 import android.content.Context;

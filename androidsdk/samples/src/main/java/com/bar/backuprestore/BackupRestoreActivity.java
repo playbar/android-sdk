@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.backuprestore;
+package com.bar.backuprestore;
 
 import android.app.Activity;
 import android.app.backup.BackupManager;
@@ -26,70 +26,12 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.RadioGroup;
 
+import com.bar.R;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
-/**
- * This example is intended to demonstrate a few approaches that an Android
- * application developer can take when implementing a
- * {@link android.app.backup.BackupAgent BackupAgent}.  This feature, added
- * to the Android platform with API version 8, allows the application to
- * back up its data to a device-provided storage location, transparently to
- * the user.  If the application is uninstalled and then reinstalled, or if
- * the user starts using a new Android device, the backed-up information
- * can be provided automatically when the application is reinstalled.
- *
- * <p>Participating in the backup/restore mechanism is simple.  The application
- * provides a class that extends {@link android.app.backup.BackupAgent}, and
- * overrides the two core callback methods
- * {@link android.app.backup.BackupAgent#onBackup(android.os.ParcelFileDescriptor, android.app.backup.BackupDataOutput, android.os.ParcelFileDescriptor) onBackup()}
- * and
- * {@link android.app.backup.BackupAgent#onRestore(android.app.backup.BackupDataInput, int, android.os.ParcelFileDescriptor) onRestore()}.
- * It also publishes the agent class to the operating system by naming the class
- * with the <code>android:backupAgent</code> attribute of the
- * <code>&lt;application&gt;</code> tag in the application's manifest.
- * When a backup or restore operation is performed, the application's agent class
- * is instantiated within the application's execution context and the corresponding
- * method invoked.  Please see the documentation on the
- * {@link android.app.backup.BackupAgent BackupAgent} class for details about the
- * data interchange between the agent and the backup mechanism.
- *
- * <p>This example application maintains a few pieces of simple data, and provides
- * three different sample agent implementations, each illustrating an alternative
- * approach.  The three sample agent classes are:
- *
- * <p><ol type="1">
- * <li>{@link ExampleAgent} - this agent backs up the application's data in a single
- *     record.  It illustrates the direct "by hand" processes of saving backup state for
- *     future reference, sending data to the backup transport, and reading it from a restore
- *     dataset.</li>
- * <li>{@link FileHelperExampleAgent} - this agent takes advantage of the suite of
- *     helper classes provided along with the core BackupAgent API.  By extending
- *     {@link android.app.backup.BackupHelperAgent} and using the targeted
- *     {link android.app.backup.FileBackupHelper FileBackupHelper} class, it achieves
- *     the same result as {@link ExampleAgent} - backing up the application's saved
- *     data file in a single chunk, and restoring it upon request -- in only a few lines
- *     of code.</li>
- * <li>{@link MultiRecordExampleAgent} - this agent stores each separate bit of data
- *     managed by the UI in separate records within the backup dataset.  It illustrates
- *     how an application's backup agent can do selective updates of only what information
- *     has changed since the last backup.</li></ol>
- *
- * <p>You can build the application to use any of these agent implementations simply by
- * changing the class name supplied in the <code>android:backupAgent</code> manifest
- * attribute to indicate the agent you wish to use.  <strong>Note:</strong> the backed-up
- * data and backup-state tracking of these agents are not compatible!  If you change which
- * agent the application uses, you should also wipe the backup state associated with
- * the application on your handset.  The 'bmgr' shell application on the device can
- * do this; simply run the following command from your desktop computer while attached
- * to the device via adb:
- *
- * <p><code>adb shell bmgr wipe com.example.android.backuprestore</code>
- *
- * <p>You can then install the new version of the application, and its next backup pass
- * will start over from scratch with the new agent.
- */
 public class BackupRestoreActivity extends Activity {
     static final String TAG = "BRActivity";
 

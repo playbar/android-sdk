@@ -5,7 +5,7 @@ android {
     buildToolsVersion = '23.0.2'
 
     defaultConfig {
-        applicationId = 'com.bar.sample'
+        applicationId = 'com.bar'
         minSdkVersion   19
         targetSdkVersion  23
         ndk {

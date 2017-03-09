@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-package com.example.android.actionbarcompat;
+package com.bar.actionbarcompat;
 
 import android.app.Activity;
 import android.content.Context;
-import android.view.Menu;
-import android.view.MenuItem;
 
 /**
- * An extension of {@link com.example.android.actionbarcompat.ActionBarHelper} that provides Android
+ * An extension of {@link com.bar.actionbarcompat.ActionBarHelper} that provides Android
  * 4.0-specific functionality for IceCreamSandwich devices. It thus requires API level 14.
  */
 public class ActionBarHelperICS extends ActionBarHelperHoneycomb {

@@ -36,7 +36,7 @@ import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.bar.sample.R;
+import com.bar.R;
 
 import java.nio.charset.Charset;
 

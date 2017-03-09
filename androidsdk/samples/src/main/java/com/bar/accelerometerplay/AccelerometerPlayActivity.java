@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.accelerometerplay;
+package com.bar.accelerometerplay;
 
 import android.app.Activity;
 import android.content.Context;
@@ -35,7 +35,7 @@ import android.view.Surface;
 import android.view.View;
 import android.view.WindowManager;
 
-import com.bar.sample.R;
+import com.bar.R;
 
 /**
  * This is an example of using the accelerometer to integrate the device's

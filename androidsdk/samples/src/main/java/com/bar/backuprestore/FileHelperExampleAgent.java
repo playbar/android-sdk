@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.backuprestore;
+package com.bar.backuprestore;
 
 import java.io.IOException;
 

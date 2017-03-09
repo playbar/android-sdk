@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package com.example.android.actionbarcompat;
+package com.bar.actionbarcompat;
 
 import android.app.Activity;
 import android.content.Context;
-import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 
-import com.bar.sample.R;
+import com.bar.R;
 
 /**
  * An extension of {@link ActionBarHelper} that provides Android 3.0-specific functionality for
