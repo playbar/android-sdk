@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.basicglsurfaceview;
+package com.bar.basicglsurfaceview;
 
 import android.app.Activity;
 import android.os.Bundle;

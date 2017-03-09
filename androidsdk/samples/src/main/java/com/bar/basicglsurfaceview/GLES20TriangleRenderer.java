@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.basicglsurfaceview;
+package com.bar.basicglsurfaceview;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,6 +34,8 @@ import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import android.os.SystemClock;
 import android.util.Log;
+
+import com.bar.R;
 
 class GLES20TriangleRenderer implements GLSurfaceView.Renderer {
 
