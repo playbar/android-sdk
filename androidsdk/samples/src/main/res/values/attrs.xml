@@ -28,4 +28,8 @@
         <attr name="borderDrawable" format="reference" />
     </declare-styleable>
 
+    <declare-styleable name="FoldingMenu">
+        <attr name="foldNumber" format="integer" />
+    </declare-styleable>
+
 </resources>

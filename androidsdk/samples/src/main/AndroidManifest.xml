@@ -7,19 +7,38 @@
     <uses-sdk android:minSdkVersion="19"></uses-sdk>
     <uses-permission android:name="android.permission.VIBRATE"></uses-permission>
     <uses-permission android:name="android.permission.WAKE_LOCK"></uses-permission>
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.PROFILER" />
+    <uses-feature android:name="android.hardware.camera" />
 
     <application android:icon="@drawable/icon" android:label="@string/app_name">
 
-        <activity android:name="com.bar.plasma.Plasma"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+        <activity android:name="com.bar.foldinglayout.sample.MainActivity"
+            android:theme="@style/Theme.Ptr"
             android:launchMode="singleTask"
             android:configChanges="orientation|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.bar.foldinglayout.sample.FoldingLayoutActivity"
+            android:label="@string/app_folding" >
+
+        </activity>
+        <activity
+            android:name="com.bar.foldinglayout.sample.FoldingDrawerLayoutActivity"
+            android:label="@string/app_foldingdrawer" >
+
+        </activity>
+
+        <activity
+            android:name="com.bar.foldinglayout.sample.FoldingPaneLayoutActivity"
+            android:label="@string/app_foldingpanel" >
+
         </activity>
 
         <!--<activity android:name="android.app.NativeActivity"-->

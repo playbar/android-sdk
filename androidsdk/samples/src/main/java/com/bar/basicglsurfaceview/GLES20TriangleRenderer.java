@@ -226,7 +226,7 @@ class GLES20TriangleRenderer implements GLSurfaceView.Renderer {
         "attribute vec4 aPosition;\n" +
         "attribute vec2 aTextureCoord;\n" +
         "varying vec2 vTextureCoord;\n" +
-        "void main() {\n" +
+        "void mainback() {\n" +
         "  gl_Position = uMVPMatrix * aPosition;\n" +
         "  vTextureCoord = aTextureCoord;\n" +
         "}\n";
@@ -235,7 +235,7 @@ class GLES20TriangleRenderer implements GLSurfaceView.Renderer {
         "precision mediump float;\n" +
         "varying vec2 vTextureCoord;\n" +
         "uniform sampler2D sTexture;\n" +
-        "void main() {\n" +
+        "void mainback() {\n" +
         "  gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
         "}\n";
 
