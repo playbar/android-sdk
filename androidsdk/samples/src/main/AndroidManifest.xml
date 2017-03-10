@@ -10,11 +10,11 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.PROFILER" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.camera" />
 
     <application android:icon="@drawable/icon" android:label="@string/app_name">
-
-        <activity android:name="com.bar.segmented.SegmentedRadioActivity"
+        <activity android:name="com.bar.pedometer.Pedometer"
             android:theme="@style/Theme.Ptr"
             android:launchMode="singleTask"
             android:configChanges="orientation|keyboardHidden">
@@ -22,6 +22,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <activity android:name="com.bar.segmented.SegmentedRadioActivity"
+            android:theme="@style/Theme.Ptr"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|keyboardHidden">
         </activity>
 
         <activity android:name="com.bar.foldinglayout.sample.MainActivity"
