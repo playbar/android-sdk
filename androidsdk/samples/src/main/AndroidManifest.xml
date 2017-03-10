@@ -14,7 +14,7 @@
 
     <application android:icon="@drawable/icon" android:label="@string/app_name">
 
-        <activity android:name="com.bar.foldinglayout.sample.MainActivity"
+        <activity android:name="com.bar.segmented.SegmentedRadioActivity"
             android:theme="@style/Theme.Ptr"
             android:launchMode="singleTask"
             android:configChanges="orientation|keyboardHidden">
@@ -22,6 +22,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <activity android:name="com.bar.foldinglayout.sample.MainActivity"
+            android:theme="@style/Theme.Ptr"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|keyboardHidden">
         </activity>
 
         <activity

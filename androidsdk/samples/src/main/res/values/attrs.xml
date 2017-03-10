@@ -32,4 +32,8 @@
         <attr name="foldNumber" format="integer" />
     </declare-styleable>
 
+    <declare-styleable name="CompoundButton">
+        <attr name="android:button" />
+    </declare-styleable>
+
 </resources>
