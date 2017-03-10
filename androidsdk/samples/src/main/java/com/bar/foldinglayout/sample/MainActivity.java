@@ -30,8 +30,12 @@ import com.bar.R;
 public class MainActivity extends ActionBarActivity {
 	ListView listView;
 
-	String[] testValues = new String[] { "FoldingLayout",
-			"FoldingDrawerLayout", "FoldingPaneLayout" };
+	String[] testValues = new String[]
+			{
+					"FoldingLayout",
+					"FoldingDrawerLayout",
+					"FoldingPaneLayout"
+			};
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +52,7 @@ public class MainActivity extends ActionBarActivity {
 			public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 					long arg3) {
 				Intent intent = new Intent();
-				intent.setClassName("com.ptr.folding.sample","com.ptr.folding.sample."+testValues[arg2]
+				intent.setClassName("com.bar","com.bar.foldinglayout.sample."+testValues[arg2]
 					+ "Activity");
 	
 				startActivity(intent);

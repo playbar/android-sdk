@@ -26,17 +26,20 @@
 
         <activity
             android:name="com.bar.foldinglayout.sample.FoldingLayoutActivity"
+            android:theme="@style/Theme.Ptr"
             android:label="@string/app_folding" >
 
         </activity>
         <activity
             android:name="com.bar.foldinglayout.sample.FoldingDrawerLayoutActivity"
+            android:theme="@style/Theme.Ptr"
             android:label="@string/app_foldingdrawer" >
 
         </activity>
 
         <activity
             android:name="com.bar.foldinglayout.sample.FoldingPaneLayoutActivity"
+            android:theme="@style/Theme.Ptr"
             android:label="@string/app_foldingpanel" >
 
         </activity>
