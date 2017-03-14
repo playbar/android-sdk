@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.BluetoothChat;
+package com.bar.BluetoothChat;
 
 import android.app.ActionBar;
 import android.app.Activity;
@@ -39,6 +39,8 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.bar.R;
 
 /**
  * This is the main Activity that displays the current chat session.
@@ -87,7 +89,7 @@ public class BluetoothChat extends Activity {
         if(D) Log.e(TAG, "+++ ON CREATE +++");
 
         // Set up the window layout
-        setContentView(R.layout.main);
+        setContentView(R.layout.bluetoothchat);
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
