@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bar.BluetoothChat;
+package com.bar.bluetooth;
 
 import android.app.ActionBar;
 import android.app.Activity;
@@ -30,7 +30,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
 import android.widget.ArrayAdapter;

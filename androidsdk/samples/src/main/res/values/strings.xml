@@ -190,4 +190,28 @@
     <string name="insecure_connect">Connect a device - Insecure</string>
     <string name="discoverable">Make discoverable</string>
 
+    <string name="app_registration">App Registration</string>
+    <string name="bluetooth_not_available">Bluetooth is not available</string>
+    <string name="bluetooth_health_profile_not_available">Bluetooth health profile is not available</string>
+    <string name="channel_connection">Channel Connection</string>
+    <string name="channel_connection_desc">(some devices automatically initiate connection)</string>
+    <string name="connect">Connect</string>
+    <string name="connected">CONNECTED</string>
+    <string name="connection_state">Connection State</string>
+    <string name="data_ind">Data Indicator</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="disconnected">DISCONNECTED</string>
+    <string name="empty"> </string>
+    <string name="none">None...</string>
+    <string name="ok">Okay</string>
+    <string name="read_data">Reading data...</string>
+    <string name="read_data_done">Done with reading data...</string>
+    <string name="register">Register</string>
+    <string name="status_create_channel">Create channel status: %d</string>
+    <string name="status_destroy_channel">Destroy channel status: %d</string>
+    <string name="status_msg">Status Message</string>
+    <string name="status_reg">App registration status: %d</string>
+    <string name="status_unreg">App unregistration status: %d</string>
+    <string name="unregister">Unregister</string>
+
 </resources>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.bluetooth.health;
+package com.bar.bluetooth;
 
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
@@ -32,6 +32,8 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.util.Log;
 import android.widget.Toast;
+
+import com.bar.R;
 
 import java.io.FileInputStream;
 import java.io.IOException;

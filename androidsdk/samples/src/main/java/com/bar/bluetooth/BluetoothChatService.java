@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bar.BluetoothChat;
+package com.bar.bluetooth;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.bluetooth.health;
+package com.bar.bluetooth;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -42,6 +42,8 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.bar.R;
 
 /**
  * Main user interface for the Sample application.  All Bluetooth health-related
