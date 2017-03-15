@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">AndroidJni</string>
+    <string name="picasso_app_name">RoundedPicassoView</string>
+    <string name="action_settings">blog address</string>
+    <string name="hello">Hello World, DraggableGridViewSampleActivity!</string>
+    <string name="button1Text">Add Word</string>
+    <string name="button2Text">View Poem</string>
+    <string-array name="action_list">
+        <item>Bitmap</item>
+        <item>Ovals</item>
+        <item>Select Corners</item>
+        <item>Picasso</item>
+        <item>Color</item>
+        <item>Background</item>
+    </string-array>
+    <string-array name="ail__known_location_redirects_regex">
+        <item>((http|https)\:\/\/)*graph.facebook.com</item>
+    </string-array>
+</resources>
