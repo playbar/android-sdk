@@ -1,4 +1,4 @@
-package com.test.photoencrypt;
+package com.bar.photoencrypt;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -10,9 +10,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import com.bar.test.R;
-import com.test.photoencrypt.utils.FileUtils;
-
+import com.bar.R;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -24,10 +22,9 @@ import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.spec.SecretKeySpec;
+import com.bar.photoencrypt.utils.*;
 
-/**
- * Created by fuweiwei on 2015/11/25.
- */
+
 public class MainActivity extends FragmentActivity {
     private Button encryptButton,decryptButton,byteButton,rebyteButton;
     private ImageView img;

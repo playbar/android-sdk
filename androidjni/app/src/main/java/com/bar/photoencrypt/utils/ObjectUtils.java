@@ -1,4 +1,4 @@
-package com.test.photoencrypt.utils;
+package com.bar.photoencrypt.utils;
 
 import android.content.ContentValues;
 import android.util.Log;
