@@ -21,8 +21,15 @@ set_target_properties(shaderc_lib PROPERTIES IMPORTED_LOCATION
 add_library(vksample SHARED
             android_native_app_glue.c
             jniactivity.c
-            TriangleMain.cpp
-            TriangleVK.cpp
+            #LoadVK.cpp
+            #TriangleMain.cpp
+            #TriangleVK.cpp
+            #PrebuildLayer.cpp
+            #PrebuildLayerVK.cpp
+            #TraceableLayer.cpp
+            #TraceableLayerVK.cpp
+            FirstWindow.cpp
+            FirstWindowVK.cpp
             vulkan_wrapper.cpp)
 
 target_include_directories(vksample PRIVATE
