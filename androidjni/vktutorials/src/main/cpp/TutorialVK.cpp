@@ -2,7 +2,42 @@
 #include "vector"
 #include "my_log.h"
 
+const std::vector<const char*>validationLayers = {
+        "VK_LAYER_LUNARG_standard_validation"
+};
 
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
+                                      const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback)
+{
+    auto func = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
+    if (func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pCallback);
+    } else {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
+void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator)
+{
+    auto func = (PFN_vkDestroyDebugReportCallbackEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
+    if (func != nullptr) {
+        func(instance, callback, pAllocator);
+    }
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType,
+                                                    uint64_t obj, size_t location, int32_t code, const char* layerPrefix,
+                                                    const char* msg, void* userData)
+{
+    std::cerr << "validation layer: " << msg << std::endl;
+    return VK_FALSE;
+}
 
 TutorialVK::TutorialVK()
 {
@@ -23,6 +58,7 @@ void TutorialVK::initVulkan(android_app* app)
         return;
     }
     createInstance();
+    setupDebugCallback();
     initialized_ = true;
 }
 void TutorialVK::deleteVulkan()
@@ -46,7 +82,15 @@ void TutorialVK::createInstance()
     std::vector<const char *> device_extensions;
     instance_extensions.push_back("VK_KHR_surface");
     instance_extensions.push_back("VK_KHR_android_surface");
+    if( enableValidationLayers ){
+        instance_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+    }
     device_extensions.push_back("VK_KHR_swapchain");
+
+    if( enableValidationLayers && !checkValidationLayerSupport() ){
+//        throw std::runtime_error("validation layers requested, but not available!");
+        LOGE("validation layers requested, but not available!");
+    }
 
     VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -69,6 +113,42 @@ void TutorialVK::createInstance()
         throw std::runtime_error("failed to create instance!");
     }
 
-
-
 }
+
+void TutorialVK::setupDebugCallback()
+{
+    if( !enableValidationLayers)
+        return;
+    VkDebugReportCallbackCreateInfoEXT createInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+            .flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT,
+            .pfnCallback = debugCallback,
+    };
+    if( CreateDebugReportCallbackEXT(instance, &createInfo, nullptr, callback.replace()) != VK_SUCCESS ){
+        throw std::runtime_error("failed to set up debug callback!");
+    }
+}
+
+bool TutorialVK::checkValidationLayerSupport()
+{
+    uint32_t layerCount;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+    for (const char* layerName : validationLayers) {
+        bool layerFound = false;
+        for (const auto& layerProperties : availableLayers) {
+            if (strcmp(layerName, layerProperties.layerName) == 0) {
+                layerFound = true;
+                break;
+            }
+        }
+        if (!layerFound) {
+            return false;
+        }
+    }
+    return true;
+}
+
