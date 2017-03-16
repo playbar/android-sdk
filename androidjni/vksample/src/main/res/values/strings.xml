@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">vksample</string>
+    <string name="picasso_app_name">RoundedPicassoView</string>
+    <string name="action_settings">blog address</string>
+    <string name="hello">Hello World, DraggableGridViewSampleActivity!</string>
+    <string name="button1Text">Add Word</string>
+    <string name="button2Text">View Poem</string>
+</resources>

@@ -5,7 +5,7 @@
     android:id="@+id/activity_hello_jni"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.bar.hellojni.HelloJni">
+    tools:context="com.bar.jnitest.JniActivity">
 
     <TextView
         android:id="@+id/hello_textview"
