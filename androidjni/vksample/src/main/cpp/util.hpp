@@ -271,13 +271,6 @@ timestamp_t get_milliseconds();
 int sample_main(int argc, char *argv[]);
 
 #ifdef __ANDROID__
-// Android specific definitions & helpers.
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "vulkanbasic", __VA_ARGS__))
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "vulkanbasic", __VA_ARGS__))
-#define LOGV(...)  ((void)__android_log_print(ANDROID_LOG_VERBOSE, "vulkanbasic", __VA_ARGS__))
-
-// Replace printf to logcat output.
-#define printf(...) __android_log_print(ANDROID_LOG_DEBUG, "TAG", __VA_ARGS__);
 
 bool Android_process_command();
 ANativeWindow* AndroidGetApplicationWindow();

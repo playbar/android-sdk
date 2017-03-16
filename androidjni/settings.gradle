@@ -1,2 +1,3 @@
 include ':app'
 include ':vksample'
+include ':vktutorials'

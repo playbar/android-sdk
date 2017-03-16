@@ -34,6 +34,7 @@ samples "init" utility functions
 #include <string.h>
 #include "util_init.hpp"
 #include "cube_data.h"
+#include "my_log.h"
 
 using namespace std;
 

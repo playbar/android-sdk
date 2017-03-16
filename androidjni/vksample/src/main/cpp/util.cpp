@@ -1,34 +1,3 @@
-/*
- * Vulkan Samples
- *
- * Copyright (C) 2015-2016 Valve Corporation
- * Copyright (C) 2015-2016 LunarG, Inc.
- * Copyright (C) 2015-2016 Google, Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
-/*
-VULKAN_SAMPLE_DESCRIPTION
-samples utility functions
-*/
-
 #include <stdio.h>
 #include <assert.h>
 #include <cstdlib>
@@ -36,6 +5,7 @@ samples utility functions
 #include <fstream>
 #include <iostream>
 #include "util.hpp"
+#include "my_log.h"
 
 #ifdef __ANDROID__
 // Android specific include files.
@@ -825,6 +795,9 @@ private:
 
 void Android_handle_cmd(android_app* app, int32_t cmd)  {
     switch( cmd ){
+        case APP_CMD_INPUT_CHANGED:
+            LOGV("F:%s, APP_CMD_INPUT_CHANGED", __FUNCTION__);
+            break;
         case APP_CMD_INIT_WINDOW:
             LOGV("F:%s, APP_CMD_INIT_WINDOW", __FUNCTION__);
             // The window is being shown, get it ready.
@@ -835,6 +808,46 @@ void Android_handle_cmd(android_app* app, int32_t cmd)  {
             LOGV("F:%s, APP_CMD_TERM_WINDOW", __FUNCTION__);
             // The window is being hidden or closed, clean it up.
             break;
+        case APP_CMD_WINDOW_RESIZED:
+            LOGV("F:%s, APP_CMD_WINDOW_RESIZED", __FUNCTION__);
+            break;
+        case APP_CMD_WINDOW_REDRAW_NEEDED:
+            LOGV("F:%s, APP_CMD_WINDOW_REDRAW_NEEDED", __FUNCTION__);
+            break;
+        case APP_CMD_CONTENT_RECT_CHANGED:
+            LOGV("F:%s, APP_CMD_CONTENT_RECT_CHANGED", __FUNCTION__);
+            break;
+        case APP_CMD_GAINED_FOCUS:
+            LOGV("F:%s, APP_CMD_GAINED_FOCUS", __FUNCTION__);
+            break;
+        case APP_CMD_LOST_FOCUS:
+            LOGV("F:%s, APP_CMD_LOST_FOCUS", __FUNCTION__);
+            break;
+        case APP_CMD_CONFIG_CHANGED:
+            LOGV("F:%s, APP_CMD_CONFIG_CHANGED", __FUNCTION__);
+            break;
+        case APP_CMD_LOW_MEMORY:
+            LOGV("F:%s, APP_CMD_LOW_MEMORY", __FUNCTION__);
+            break;
+        case APP_CMD_START:
+            LOGV("F:%s, APP_CMD_START", __FUNCTION__);
+            break;
+        case APP_CMD_RESUME:
+            LOGV("F:%s, APP_CMD_RESUME", __FUNCTION__);
+            break;
+        case APP_CMD_SAVE_STATE:
+            LOGV("F:%s, APP_CMD_SAVE_STATE", __FUNCTION__);
+            break;
+        case APP_CMD_PAUSE:
+            LOGV("F:%s, APP_CMD_SAVE_STATE", __FUNCTION__);
+            break;
+        case APP_CMD_STOP:
+            LOGV("F:%s, APP_CMD_STOP", __FUNCTION__);
+            break;
+        case APP_CMD_DESTROY:
+            LOGV("F:%s, APP_CMD_STOP", __FUNCTION__);
+            break;
+
         default :
             LOGI("event not handled: %d", cmd);
     }
