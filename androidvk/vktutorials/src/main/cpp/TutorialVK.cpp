@@ -60,6 +60,7 @@ void TutorialVK::initVulkan(android_app* app)
     createInstance();
     setupDebugCallback();
     pickPhysicalDevice();
+    createLogicalDevice();
     initialized_ = true;
 }
 void TutorialVK::deleteVulkan()
@@ -205,4 +206,42 @@ QueueFamilyIndices TutorialVK::findQueueFamilies(VkPhysicalDevice device)
         ++i;
     }
     return indices;
+}
+
+void TutorialVK::createLogicalDevice()
+{
+    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+    VkDeviceQueueCreateInfo queueCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = (uint32_t)indices.graphicsFamily,
+            .queueCount = 1,
+    };
+
+    float queuePriority = 1.0f;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkPhysicalDeviceFeatures deviceFeatures = {};
+
+    VkDeviceCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pQueueCreateInfos = &queueCreateInfo,
+            .queueCreateInfoCount = 1,
+            .pEnabledFeatures = &deviceFeatures,
+            .enabledExtensionCount = 0
+    };
+
+    if (enableValidationLayers) {
+        createInfo.enabledLayerCount = validationLayers.size();
+        createInfo.ppEnabledLayerNames = validationLayers.data();
+    } else {
+        createInfo.enabledLayerCount = 0;
+    }
+
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, device.replace()) != VK_SUCCESS) {
+//        throw std::runtime_error("failed to create logical device!");
+        LOGE("failed to create logical device!");
+    }
+
+    vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
 }

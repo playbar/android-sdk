@@ -96,6 +96,8 @@ private:
     VDeleter<VkSurfaceKHR> surface{instance, vkDestroySurfaceKHR};
 
     VkPhysicalDevice  physicalDevice = VK_NULL_HANDLE;
+    VDeleter<VkDevice> device{vkDestroyDevice};
+    VkQueue graphicsQueue;
 
 private:
     void createInstance();
@@ -104,6 +106,7 @@ private:
     void pickPhysicalDevice();
     bool isDeviceSuitable(VkPhysicalDevice device);
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+    void  createLogicalDevice();
 };
 
 #endif
