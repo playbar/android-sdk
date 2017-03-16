@@ -64,15 +64,24 @@ private:
     }
 };
 
+struct QueueFamilyIndices {
+    int graphicsFamily = -1;
+    bool isComplete() {
+        return graphicsFamily >= 0;
+    }
+};
+
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
                                       const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback);
 void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator);
+
 
 class TutorialVK
 {
 public:
     TutorialVK();
     ~TutorialVK();
+
 public:
     void initVulkan(android_app* app);
     void deleteVulkan();
@@ -80,14 +89,21 @@ public:
     void mainLoop();
 
 private:
+    android_app* androidAppCtx;
+    bool initialized_;
+    VDeleter<VkInstance> instance{vkDestroyInstance};
+    VDeleter<VkDebugReportCallbackEXT>callback{instance, DestroyDebugReportCallbackEXT };
+    VDeleter<VkSurfaceKHR> surface{instance, vkDestroySurfaceKHR};
+
+    VkPhysicalDevice  physicalDevice = VK_NULL_HANDLE;
+
+private:
     void createInstance();
     void setupDebugCallback();
     bool checkValidationLayerSupport();
-private:
-    VDeleter<VkInstance> instance{vkDestroyInstance};
-    VDeleter<VkDebugReportCallbackEXT>callback{instance, DestroyDebugReportCallbackEXT };
-    android_app* androidAppCtx;
-    bool initialized_;
+    void pickPhysicalDevice();
+    bool isDeviceSuitable(VkPhysicalDevice device);
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 };
 
 #endif
