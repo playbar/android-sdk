@@ -28,8 +28,10 @@ add_library(vksample SHARED
             #PrebuildLayerVK.cpp
             #TraceableLayer.cpp
             #TraceableLayerVK.cpp
-            FirstWindow.cpp
-            FirstWindowVK.cpp
+            #FirstWindow.cpp
+            #FirstWindowVK.cpp
+            Tutorial.cpp
+            TutorialVK.cpp
             vulkan_wrapper.cpp)
 
 target_include_directories(vksample PRIVATE
