@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4.1)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11  -Werror -DVK_USE_PLATFORM_ANDROID_KHR")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fexceptions  -Werror -DVK_USE_PLATFORM_ANDROID_KHR")
 
 get_filename_component(SHADERC_SRC
                        ${ANDROID_NDK}/sources/third_party/shaderc

@@ -76,6 +76,9 @@ public:
     void mainLoop();
 
 private:
+    void createInstance();
+private:
+    VDeleter<VkInstance> instance{vkDestroyInstance};
     android_app* androidAppCtx;
     bool initialized_;
 };

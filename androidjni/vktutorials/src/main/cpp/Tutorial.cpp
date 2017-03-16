@@ -10,12 +10,10 @@ void handle_cmd(android_app* app, int32_t cmd) {
     switch (cmd) {
         case APP_CMD_INIT_WINDOW:
             // The window is being shown, get it ready.
-//            InitVulkan(app);
             gTutorialVk.initVulkan(app);
             break;
         case APP_CMD_TERM_WINDOW:
             // The window is being hidden or closed, clean it up.
-//            DeleteVulkan();
             gTutorialVk.deleteVulkan();
             break;
         default:
@@ -44,7 +42,6 @@ void android_main(struct android_app* app) {
 
         // render if vulkan is ready
         if (gTutorialVk.isVulkanReady()) {
-//            VulkanDrawFrame();
             gTutorialVk.mainLoop();
         }
     } while (app->destroyRequested == 0);
