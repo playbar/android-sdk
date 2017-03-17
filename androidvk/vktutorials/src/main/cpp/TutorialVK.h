@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <functional>
+#include <vector>
 
 template <typename T>
 class VDeleter {
@@ -72,6 +73,12 @@ struct QueueFamilyIndices {
     }
 };
 
+struct SwapChainSupportDetails{
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
                                       const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback);
 void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator);
@@ -101,15 +108,26 @@ private:
     VkQueue graphicsQueue;
     VkQueue presentQueue;
 
+    VDeleter<VkSwapchainKHR> swapChain{device, vkDestroySwapchainKHR};
+    std::vector<VkImage> swapChainImages;
+    VkFormat swapChainImageFormat;
+    VkExtent2D swapChainExtent;
+
 private:
     void createInstance();
     void setupDebugCallback();
     void createSurface();
     bool checkValidationLayerSupport();
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device);
     void pickPhysicalDevice();
     bool isDeviceSuitable(VkPhysicalDevice device);
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>availablePresentModes);
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR & capabilities);
     void  createLogicalDevice();
+    void createSwapChain();
 };
 
 #endif
