@@ -114,7 +114,7 @@ private:
     VkExtent2D swapChainExtent;
     std::vector<VDeleter<VkImageView>> swapChainImageViews;
 
-    VDeleter<VkRenderPass> reanderPass{device, vkDestroyRenderPass};
+    VDeleter<VkRenderPass> renderPass{device, vkDestroyRenderPass};
     VDeleter<VkPipelineLayout> pipelineLayout{device, vkDestroyPipelineLayout};
 
 private:
@@ -135,6 +135,7 @@ private:
     void  createLogicalDevice();
     void createSwapChain();
     void createImageViews();
+    void createRenderPass();
     void createGraphicsPipeline();
 };
 
