@@ -370,8 +370,7 @@ VkResult loadShaderFromFile(const char* filePath, VkShaderModule* shaderOut,
                             ShaderType type) {
   // Read the file
   assert(androidAppCtx);
-  AAsset* file = AAssetManager_open(androidAppCtx->activity->assetManager,
-                             filePath, AASSET_MODE_BUFFER);
+  AAsset* file = AAssetManager_open(androidAppCtx->activity->assetManager, filePath, AASSET_MODE_BUFFER);
   size_t fileLength = AAsset_getLength(file);
 
   char* fileContent = new char[fileLength];

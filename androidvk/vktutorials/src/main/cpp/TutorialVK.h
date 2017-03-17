@@ -128,9 +128,12 @@ private:
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR & capabilities);
+    std::vector<char> readFile(const char* filePathe);
+    void createShaderModule(const std::vector<char>& code, VDeleter<VkShaderModule>& shaderModule);
     void  createLogicalDevice();
     void createSwapChain();
     void createImageViews();
+    void createGraphicsPipeline();
 };
 
 #endif

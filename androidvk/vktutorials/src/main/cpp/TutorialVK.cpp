@@ -1,4 +1,5 @@
 #include <limits>
+#include <assert.h>
 #include "TutorialVK.h"
 #include "vector"
 #include "set"
@@ -70,6 +71,7 @@ void TutorialVK::initVulkan(android_app* app)
     createLogicalDevice();
     createSwapChain();
     createImageViews();
+    createGraphicsPipeline();
     initialized_ = true;
 }
 void TutorialVK::deleteVulkan()
@@ -459,3 +461,54 @@ void TutorialVK::createImageViews()
     return;
 }
 
+std::vector<char> TutorialVK::readFile(const char* filePath)
+{
+    assert(androidAppCtx);
+    AAsset* file = AAssetManager_open(androidAppCtx->activity->assetManager, filePath, AASSET_MODE_STREAMING);
+    size_t fileLength = AAsset_getLength(file);
+    std::vector<char> buffer(fileLength);
+    AAsset_seek(file, 0, SEEK_SET);
+    AAsset_read(file, buffer.data(), fileLength);
+    AAsset_close(file);
+    return buffer;
+}
+
+void TutorialVK::createShaderModule(const std::vector<char>& code, VDeleter<VkShaderModule>& shaderModule)
+{
+    VkShaderModuleCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = code.size(),
+            .pCode = (uint32_t*)code.data(),
+    };
+
+    if( vkCreateShaderModule(device, &createInfo, nullptr, shaderModule.replace()) != VK_SUCCESS ){
+        LOGE("failed to create shader module!");
+    }
+}
+
+void TutorialVK::createGraphicsPipeline()
+{
+    auto vertShaderCode = readFile("shaders/shader_base.vert.spv");
+    auto fragShaderCode = readFile("shaders/shader_base.frag.spv");
+    VDeleter<VkShaderModule> vertShaderModule{device, vkDestroyShaderModule};
+    VDeleter<VkShaderModule> fragShaderModule{device, vkDestroyShaderModule};
+    createShaderModule(vertShaderCode, vertShaderModule);
+    createShaderModule(fragShaderCode, fragShaderModule);
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vertShaderModule,
+            .pName = "main",
+    };
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = fragShaderModule,
+            .pName = "main"
+    };
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+}
