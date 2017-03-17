@@ -1,5 +1,6 @@
 #include "TutorialVK.h"
 #include "vector"
+#include "set"
 #include "my_log.h"
 
 const std::vector<const char*>validationLayers = {
@@ -59,6 +60,7 @@ void TutorialVK::initVulkan(android_app* app)
     }
     createInstance();
     setupDebugCallback();
+    createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
     initialized_ = true;
@@ -137,6 +139,18 @@ void TutorialVK::setupDebugCallback()
     }
 }
 
+void TutorialVK::createSurface()
+{
+    VkAndroidSurfaceCreateInfoKHR createInfo = {
+            .sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = 0,
+            .window = androidAppCtx->window,
+    };
+    vkCreateAndroidSurfaceKHR(instance, &createInfo, nullptr, surface.replace());
+    return;
+}
+
 bool TutorialVK::checkValidationLayerSupport()
 {
     uint32_t layerCount;
@@ -200,6 +214,11 @@ QueueFamilyIndices TutorialVK::findQueueFamilies(VkPhysicalDevice device)
         if( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ){
             indices.graphicsFamily = i;
         }
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+        if( queueFamily.queueCount > 0 && presentSupport ){
+            indices.presentFamily = i;
+        }
         if( indices.isComplete() ){
             break;
         }
@@ -212,21 +231,25 @@ void TutorialVK::createLogicalDevice()
 {
     QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
-    VkDeviceQueueCreateInfo queueCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex = (uint32_t)indices.graphicsFamily,
-            .queueCount = 1,
-    };
-
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    std::set<int> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily};
     float queuePriority = 1.0f;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
+    for( int queueFamily : uniqueQueueFamilies ){
+        VkDeviceQueueCreateInfo queueCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .queueFamilyIndex = (uint32_t)queueFamily,
+                .queueCount = 1,
+                .pQueuePriorities = &queuePriority,
+        };
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
 
     VkPhysicalDeviceFeatures deviceFeatures = {};
 
     VkDeviceCreateInfo createInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pQueueCreateInfos = &queueCreateInfo,
-            .queueCreateInfoCount = 1,
+            .pQueueCreateInfos = queueCreateInfos.data(),
+            .queueCreateInfoCount = (uint32_t)queueCreateInfos.size(),
             .pEnabledFeatures = &deviceFeatures,
             .enabledExtensionCount = 0
     };
@@ -244,4 +267,6 @@ void TutorialVK::createLogicalDevice()
     }
 
     vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
+    vkGetDeviceQueue(device, indices.presentFamily, 0, &presentQueue);
+    return;
 }

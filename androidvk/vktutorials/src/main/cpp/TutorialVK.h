@@ -66,8 +66,9 @@ private:
 
 struct QueueFamilyIndices {
     int graphicsFamily = -1;
+    int presentFamily = -1;
     bool isComplete() {
-        return graphicsFamily >= 0;
+        return graphicsFamily >= 0 && presentFamily >=0;
     }
 };
 
@@ -98,10 +99,12 @@ private:
     VkPhysicalDevice  physicalDevice = VK_NULL_HANDLE;
     VDeleter<VkDevice> device{vkDestroyDevice};
     VkQueue graphicsQueue;
+    VkQueue presentQueue;
 
 private:
     void createInstance();
     void setupDebugCallback();
+    void createSurface();
     bool checkValidationLayerSupport();
     void pickPhysicalDevice();
     bool isDeviceSuitable(VkPhysicalDevice device);
