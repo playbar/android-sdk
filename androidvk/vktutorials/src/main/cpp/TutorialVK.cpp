@@ -15,7 +15,7 @@ const std::vector<const char*> deviceExtensions = {
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
-const bool enableValidationLayers = true;
+const bool enableValidationLayers = false;
 #endif
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
@@ -69,6 +69,7 @@ void TutorialVK::initVulkan(android_app* app)
     pickPhysicalDevice();
     createLogicalDevice();
     createSwapChain();
+    createImageViews();
     initialized_ = true;
 }
 void TutorialVK::deleteVulkan()
@@ -147,13 +148,17 @@ void TutorialVK::setupDebugCallback()
 
 void TutorialVK::createSurface()
 {
+    VkResult res = VK_SUCCESS;
     VkAndroidSurfaceCreateInfoKHR createInfo = {
             .sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
             .pNext = nullptr,
             .flags = 0,
             .window = androidAppCtx->window,
     };
-    vkCreateAndroidSurfaceKHR(instance, &createInfo, nullptr, surface.replace());
+    res = vkCreateAndroidSurfaceKHR(instance, &createInfo, nullptr, surface.replace());
+    if( res != VK_SUCCESS ){
+        LOGE("vkCreateAndroidSurfaceKHR error");
+    }
     return;
 }
 
@@ -346,6 +351,9 @@ void TutorialVK::createLogicalDevice()
             .enabledExtensionCount = 0
     };
 
+    createInfo.enabledExtensionCount = deviceExtensions.size();
+    createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
     if (enableValidationLayers) {
         createInfo.enabledLayerCount = validationLayers.size();
         createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -409,11 +417,45 @@ void TutorialVK::createSwapChain()
         LOGE("failed to create swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr );
+    VkResult res = VK_SUCCESS;
+    res = vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr );
     swapChainImages.resize( imageCount );
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+    res = vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+    if( res != VK_SUCCESS ){
+        LOGE("vkGetSwapchainImagesKHR error");
+    }
 
     swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
     return;
 }
+
+void TutorialVK::createImageViews()
+{
+    swapChainImageViews.resize(swapChainImages.size(), VDeleter<VkImageView>{device, vkDestroyImageView});
+
+    for (uint32_t i = 0; i < swapChainImages.size(); i++) {
+        VkImageViewCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = swapChainImages[i];
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = swapChainImageFormat;
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+        createInfo.pNext = NULL;
+
+        if (vkCreateImageView(device, &createInfo, nullptr, swapChainImageViews[i].replace()) != VK_SUCCESS) {
+//            throw std::runtime_error("failed to create image views!");
+            LOGE("failed to create image views!");
+        }
+    }
+    return;
+}
+

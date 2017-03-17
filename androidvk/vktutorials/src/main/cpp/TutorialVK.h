@@ -112,6 +112,8 @@ private:
     std::vector<VkImage> swapChainImages;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
+    std::vector<VDeleter<VkImageView>> swapChainImageViews;
+
 
 private:
     void createInstance();
@@ -128,6 +130,7 @@ private:
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR & capabilities);
     void  createLogicalDevice();
     void createSwapChain();
+    void createImageViews();
 };
 
 #endif
