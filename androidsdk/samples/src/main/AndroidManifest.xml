@@ -26,7 +26,7 @@
             <!--</intent-filter>-->
         <!--</activity>-->
 
-        <activity android:name="com.bar.dafruits.DemoScrollBarPanelActivity"
+        <activity android:name="com.bar.customfastscrollview.MainActivity"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
