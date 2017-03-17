@@ -213,5 +213,5 @@
     <string name="status_reg">App registration status: %d</string>
     <string name="status_unreg">App unregistration status: %d</string>
     <string name="unregister">Unregister</string>
-
+    <string name="test_button">test button</string>
 </resources>
