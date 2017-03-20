@@ -76,6 +76,7 @@ void TutorialVK::initVulkan(android_app* app)
     createFramebuffers();
     createCommandPool();
     createCommandBuffers();
+    createSemaphores();
     initialized_ = true;
 }
 void TutorialVK::deleteVulkan()
@@ -88,8 +89,41 @@ bool TutorialVK::isVulkanReady()
     return initialized_;
 }
 
-void TutorialVK::mainLoop()
+void TutorialVK::drawFrame()
 {
+    uint32_t imageIndex = 0;
+    vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    VkSemaphore  waitSemaphores [] = {imageAvailableSemaphore};
+    VkSemaphore signalSemphores[] = {renderFinishedSemaphore};
+    VkPipelineStageFlags waitStage[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = waitSemaphores,
+            .pWaitDstStageMask = waitStage,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &commandBuffers[imageIndex],
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = signalSemphores,
+    };
+
+    if( vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+    {
+        LOGE("failed to submit draw command buffer!");
+    }
+
+    VkSwapchainKHR swapChains[] = {swapChain};
+    VkPresentInfoKHR presentInfo = {
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = signalSemphores,
+            .swapchainCount = 1,
+            .pSwapchains = swapChains,
+            .pImageIndices = &imageIndex,
+    };
+
+    vkQueuePresentKHR( presentQueue, &presentInfo );
+    return;
 
 }
 
@@ -745,4 +779,17 @@ void TutorialVK::createCommandBuffers()
         }
     }
     return;
+}
+
+void TutorialVK::createSemaphores()
+{
+    VkSemaphoreCreateInfo semaphoreInfo = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+
+    if(vkCreateSemaphore(device, &semaphoreInfo, nullptr, imageAvailableSemaphore.replace()) != VK_SUCCESS  ||
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, renderFinishedSemaphore.replace()) != VK_SUCCESS )
+    {
+        LOGE("failed to create semaphores!");
+    }
 }

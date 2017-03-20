@@ -94,7 +94,7 @@ public:
     void initVulkan(android_app* app);
     void deleteVulkan();
     bool isVulkanReady();
-    void mainLoop();
+    void drawFrame();
 
 private:
     android_app* androidAppCtx;
@@ -122,6 +122,10 @@ private:
     VDeleter<VkCommandPool> commandPool{device, vkDestroyCommandPool};
     std::vector<VkCommandBuffer> commandBuffers;
 
+    VDeleter<VkSemaphore> imageAvailableSemaphore{device, vkDestroySemaphore};
+    VDeleter<VkSemaphore> renderFinishedSemaphore{device, vkDestroySemaphore};
+
+
 private:
     void createInstance();
     void setupDebugCallback();
@@ -145,6 +149,7 @@ private:
     void createFramebuffers();
     void createCommandPool();
     void createCommandBuffers();
+    void createSemaphores();
 };
 
 #endif
