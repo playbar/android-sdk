@@ -119,6 +119,9 @@ private:
     VDeleter<VkPipelineLayout> pipelineLayout{device, vkDestroyPipelineLayout};
     VDeleter<VkPipeline> graphicsPipeline{device, vkDestroyPipeline};
 
+    VDeleter<VkCommandPool> commandPool{device, vkDestroyCommandPool};
+    std::vector<VkCommandBuffer> commandBuffers;
+
 private:
     void createInstance();
     void setupDebugCallback();
@@ -140,6 +143,8 @@ private:
     void createRenderPass();
     void createGraphicsPipeline();
     void createFramebuffers();
+    void createCommandPool();
+    void createCommandBuffers();
 };
 
 #endif

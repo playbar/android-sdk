@@ -74,6 +74,8 @@ void TutorialVK::initVulkan(android_app* app)
     createRenderPass();
     createGraphicsPipeline();
     createFramebuffers();
+    createCommandPool();
+    createCommandBuffers();
     initialized_ = true;
 }
 void TutorialVK::deleteVulkan()
@@ -679,6 +681,68 @@ void TutorialVK::createFramebuffers()
             LOGE("failed to create framebuffer!");
         }
 
+    }
+    return;
+}
+
+void TutorialVK::createCommandPool()
+{
+   QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+    VkCommandPoolCreateInfo poolInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .queueFamilyIndex = (uint32_t)queueFamilyIndices.graphicsFamily,
+    };
+
+    if( vkCreateCommandPool(device, &poolInfo, nullptr, commandPool.replace()) != VK_SUCCESS )
+    {
+        LOGE("failed to create command pool!");
+    }
+}
+
+void TutorialVK::createCommandBuffers()
+{
+    commandBuffers.resize(swapChainFramebuffers.size());
+    VkCommandBufferAllocateInfo allocInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = commandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = (uint32_t)commandBuffers.size(),
+    };
+
+    if( vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS )
+    {
+        LOGE("failed to allocate command buffers!");
+    }
+
+    for( size_t i = 0; i < commandBuffers.size(); ++i )
+    {
+        VkCommandBufferBeginInfo beginInfo = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
+        };
+
+        vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
+
+        VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+        VkRenderPassBeginInfo renderPassInfo = {
+                .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                .renderPass = renderPass,
+                .framebuffer = swapChainFramebuffers[i],
+                .renderArea.offset = { 0, 0 },
+                .renderArea.extent = swapChainExtent,
+                .clearValueCount = 1,
+                .pClearValues = &clearColor,
+        };
+
+        vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
+        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline );
+        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0 );
+        vkCmdEndRenderPass(commandBuffers[i]);
+
+        if( vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS )
+        {
+            LOGE("failed to record command buffer!");
+        }
     }
     return;
 }
