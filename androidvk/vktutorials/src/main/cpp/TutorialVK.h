@@ -156,6 +156,8 @@ private:
 
     VDeleter<VkBuffer> vertexBuffer{device, vkDestroyBuffer};
     VDeleter<VkDeviceMemory> vertexBufferMemory{device, vkFreeMemory };
+    VDeleter<VkBuffer> indexBuffer{device, vkDestroyBuffer};
+    VDeleter<VkDeviceMemory> indexBufferMemory{device, vkFreeMemory};
 
     std::vector<VkCommandBuffer> commandBuffers;
 
@@ -191,6 +193,7 @@ private:
     void createCommandBuffers();
     void createSemaphores();
     void createVertexBuffer();
+    void createIndexBuffer();
     void createVertexBuffer_1();
 };
 
