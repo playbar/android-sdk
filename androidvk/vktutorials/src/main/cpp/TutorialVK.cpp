@@ -92,7 +92,12 @@ bool TutorialVK::isVulkanReady()
 void TutorialVK::drawFrame()
 {
     uint32_t imageIndex = 0;
-    vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    if(result == VK_ERROR_OUT_OF_DATE_KHR ){
+        recreateSwapChain();
+    }else if( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ){
+        LOGE("failed to acquire swap chain image!");
+    }
     VkSemaphore  waitSemaphores [] = {imageAvailableSemaphore};
     VkSemaphore signalSemphores[] = {renderFinishedSemaphore};
     VkPipelineStageFlags waitStage[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -122,9 +127,26 @@ void TutorialVK::drawFrame()
             .pImageIndices = &imageIndex,
     };
 
-    vkQueuePresentKHR( presentQueue, &presentInfo );
+   result = vkQueuePresentKHR( presentQueue, &presentInfo );
+    if( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ){
+        recreateSwapChain();
+    }else if( result != VK_SUCCESS){
+        LOGE("failed to present swap chain image!");
+    }
     return;
 
+}
+
+void TutorialVK::recreateSwapChain()
+{
+    vkDeviceWaitIdle(device);
+
+    createSwapChain();
+    createImageViews();
+    createRenderPass();
+    createGraphicsPipeline();
+    createFramebuffers();
+    createCommandBuffers();
 }
 
 void TutorialVK::createInstance()
@@ -452,10 +474,16 @@ void TutorialVK::createSwapChain()
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    if( vkCreateSwapchainKHR(device, &createInfo, nullptr, swapChain.replace()) != VK_SUCCESS ){
+    VkSwapchainKHR  oldSwapChain = swapChain;
+    createInfo.oldSwapchain = oldSwapChain;
+
+    VkSwapchainKHR  newSwapChain;
+    if( vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapChain) != VK_SUCCESS ){
 //        throw std::runtime_error("failed to create swap chain!");
         LOGE("failed to create swap chain!");
     }
+
+    swapChain = newSwapChain;
 
     VkResult res = VK_SUCCESS;
     res = vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr );
@@ -735,6 +763,9 @@ void TutorialVK::createCommandPool()
 
 void TutorialVK::createCommandBuffers()
 {
+    if( commandBuffers.size() > 0 ){
+        vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+    }
     commandBuffers.resize(swapChainFramebuffers.size());
     VkCommandBufferAllocateInfo allocInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,

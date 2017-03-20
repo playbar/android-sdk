@@ -95,6 +95,7 @@ public:
     void deleteVulkan();
     bool isVulkanReady();
     void drawFrame();
+    void recreateSwapChain();
 
 private:
     android_app* androidAppCtx;

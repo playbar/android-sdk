@@ -16,6 +16,9 @@ void handle_cmd(android_app* app, int32_t cmd) {
             // The window is being hidden or closed, clean it up.
             gTutorialVk.deleteVulkan();
             break;
+        case APP_CMD_WINDOW_RESIZED:
+            gTutorialVk.recreateSwapChain();
+            break;
         default:
             __android_log_print(ANDROID_LOG_INFO, "Vulkan Tutorials",
                                 "event not handled: %d", cmd);
