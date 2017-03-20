@@ -113,6 +113,7 @@ private:
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
     std::vector<VDeleter<VkImageView>> swapChainImageViews;
+    std::vector<VDeleter<VkFramebuffer> > swapChainFramebuffers;
 
     VDeleter<VkRenderPass> renderPass{device, vkDestroyRenderPass};
     VDeleter<VkPipelineLayout> pipelineLayout{device, vkDestroyPipelineLayout};
@@ -138,6 +139,7 @@ private:
     void createImageViews();
     void createRenderPass();
     void createGraphicsPipeline();
+    void createFramebuffers();
 };
 
 #endif

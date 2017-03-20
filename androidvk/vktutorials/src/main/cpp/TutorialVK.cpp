@@ -73,6 +73,7 @@ void TutorialVK::initVulkan(android_app* app)
     createImageViews();
     createRenderPass();
     createGraphicsPipeline();
+    createFramebuffers();
     initialized_ = true;
 }
 void TutorialVK::deleteVulkan()
@@ -651,6 +652,33 @@ void TutorialVK::createGraphicsPipeline()
 
     if( vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline.replace()) != VK_SUCCESS){
         LOGE("failed to create graphics pipeline!");
+    }
+    return;
+}
+
+void TutorialVK::createFramebuffers()
+{
+    swapChainFramebuffers.resize(swapChainImageViews.size(), VDeleter<VkFramebuffer>{device, vkDestroyFramebuffer});
+    for( size_t i = 0; i < swapChainImageViews.size(); ++i )
+    {
+        VkImageView  attachments[] = {
+                swapChainImageViews[i]
+        };
+
+        VkFramebufferCreateInfo framebufferInfo = {
+                .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                .renderPass = renderPass,
+                .attachmentCount = 1,
+                .pAttachments = attachments,
+                .width = swapChainExtent.width,
+                .height = swapChainExtent.height,
+                .layers = 1,
+        };
+
+        if( vkCreateFramebuffer(device, &framebufferInfo, nullptr, swapChainFramebuffers[i].replace()) != VK_SUCCESS){
+            LOGE("failed to create framebuffer!");
+        }
+
     }
     return;
 }
