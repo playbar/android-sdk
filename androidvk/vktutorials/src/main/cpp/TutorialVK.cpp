@@ -81,6 +81,7 @@ void TutorialVK::initVulkan(android_app* app)
     createGraphicsPipeline();
     createFramebuffers();
     createCommandPool();
+    createVertexBuffer();
     createCommandBuffers();
     createSemaphores();
     initialized_ = true;
@@ -600,8 +601,8 @@ void TutorialVK::createRenderPass()
 
 void TutorialVK::createGraphicsPipeline()
 {
-    auto vertShaderCode = readFile("shaders/shader_base.vert.spv");
-    auto fragShaderCode = readFile("shaders/shader_base.frag.spv");
+    auto vertShaderCode = readFile("shaders/shader_vertexbuffer.vert.spv");
+    auto fragShaderCode = readFile("shaders/shader_vertexbuffer.frag.spv");
     VDeleter<VkShaderModule> vertShaderModule{device, vkDestroyShaderModule};
     VDeleter<VkShaderModule> fragShaderModule{device, vkDestroyShaderModule};
     createShaderModule(vertShaderCode, vertShaderModule);
@@ -623,12 +624,15 @@ void TutorialVK::createGraphicsPipeline()
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-            .vertexBindingDescriptionCount = 0,
-            .pVertexBindingDescriptions = nullptr,
-            .vertexAttributeDescriptionCount = 0,
-            .pVertexAttributeDescriptions = nullptr,
+            .vertexBindingDescriptionCount = 1,
+            .pVertexBindingDescriptions = &bindingDescription,
+            .vertexAttributeDescriptionCount = attributeDescriptions.size(),
+            .pVertexAttributeDescriptions = attributeDescriptions.data(),
     };
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
@@ -767,6 +771,54 @@ void TutorialVK::createCommandPool()
     }
 }
 
+void TutorialVK::createVertexBuffer()
+{
+    VkBufferCreateInfo bufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = sizeof(vertices[0]) * vertices.size(),
+            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    if( vkCreateBuffer( device, &bufferInfo, nullptr, vertexBuffer.replace()) != VK_SUCCESS ){
+        LOGE("failed to create vertex buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize = memRequirements.size,
+            .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+    };
+
+    if( vkAllocateMemory(device, &allocInfo, nullptr, vertexBufferMemory.replace()) != VK_SUCCESS)
+    {
+        LOGE("failed to allocate vertex buffer memory!");
+    }
+
+    vkBindBufferMemory( device, vertexBuffer, vertexBufferMemory, 0 );
+    void *data;
+    vkMapMemory( device, vertexBufferMemory, 0, bufferInfo.size, 0, &data );
+    memcpy( data, vertices.data(), (size_t)bufferInfo.size);
+    vkUnmapMemory(device, vertexBufferMemory);
+    return;
+}
+
+uint32_t TutorialVK::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+    for( uint32_t i = 0; i < memProperties.memoryTypeCount; ++i )
+    {
+        if((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties ) == properties ){
+            return i;
+        }
+    }
+    LOGE("failed to find suitable memory type!");
+    return 0;
+}
+
 void TutorialVK::createCommandBuffers()
 {
     if( commandBuffers.size() > 0 ){
@@ -806,8 +858,13 @@ void TutorialVK::createCommandBuffers()
         };
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline );
-        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0 );
+
+        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+        vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
+
         vkCmdEndRenderPass(commandBuffers[i]);
 
         if( vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS )

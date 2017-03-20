@@ -153,6 +153,10 @@ private:
     VDeleter<VkPipeline> graphicsPipeline{device, vkDestroyPipeline};
 
     VDeleter<VkCommandPool> commandPool{device, vkDestroyCommandPool};
+
+    VDeleter<VkBuffer> vertexBuffer{device, vkDestroyBuffer};
+    VDeleter<VkDeviceMemory> vertexBufferMemory{device, vkFreeMemory };
+
     std::vector<VkCommandBuffer> commandBuffers;
 
     VDeleter<VkSemaphore> imageAvailableSemaphore{device, vkDestroySemaphore};
@@ -173,6 +177,7 @@ private:
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR & capabilities);
     std::vector<char> readFile(const char* filePathe);
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     void createShaderModule(const std::vector<char>& code, VDeleter<VkShaderModule>& shaderModule);
     void  createLogicalDevice();
     void createSwapChain();
@@ -183,6 +188,7 @@ private:
     void createCommandPool();
     void createCommandBuffers();
     void createSemaphores();
+    void createVertexBuffer();
 };
 
 #endif
