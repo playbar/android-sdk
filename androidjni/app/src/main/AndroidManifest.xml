@@ -11,8 +11,8 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
-        <activity android:name=".twowaygridview.sample.MainActivity">
+        android:theme="@style/AppTheme_2">
+        <activity android:name=".viewanimations.example.MyActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
