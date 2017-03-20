@@ -13,7 +13,7 @@ public class ExampleActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.example);
+        setContentView(R.layout.viewaniexample);
 
         final TextView t = (TextView) findViewById(R.id.notice);
         t.setText("Please input your Email and Password");

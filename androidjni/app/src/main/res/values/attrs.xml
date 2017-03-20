@@ -149,4 +149,9 @@
     <attr name="cb_color" format="color" />
     <attr name="cb_pressedRingWidth" format="dimension" />
   </declare-styleable>
+  <declare-styleable name="StaggeredGridView">
+    <attr name="drawSelectorOnTop_1" format="boolean" />
+    <attr name="numColumns_1" format="integer" />
+    <attr name="itemMargin" format="dimension" />
+  </declare-styleable>
 </resources>
