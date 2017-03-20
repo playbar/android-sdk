@@ -116,6 +116,7 @@ private:
 
     VDeleter<VkRenderPass> renderPass{device, vkDestroyRenderPass};
     VDeleter<VkPipelineLayout> pipelineLayout{device, vkDestroyPipelineLayout};
+    VDeleter<VkPipeline> graphicsPipeline{device, vkDestroyPipeline};
 
 private:
     void createInstance();
