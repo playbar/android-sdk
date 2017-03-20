@@ -179,6 +179,8 @@ private:
     std::vector<char> readFile(const char* filePathe);
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     void createShaderModule(const std::vector<char>& code, VDeleter<VkShaderModule>& shaderModule);
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VDeleter<VkBuffer> &buffer, VDeleter<VkDeviceMemory> &bufferMemory);
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void  createLogicalDevice();
     void createSwapChain();
     void createImageViews();
@@ -189,6 +191,7 @@ private:
     void createCommandBuffers();
     void createSemaphores();
     void createVertexBuffer();
+    void createVertexBuffer_1();
 };
 
 #endif
