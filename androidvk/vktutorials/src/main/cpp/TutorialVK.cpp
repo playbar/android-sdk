@@ -46,6 +46,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
     return VK_FALSE;
 }
 
+const std::vector<Vertex> vertices = {
+        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
+
 TutorialVK::TutorialVK()
 {
     initialized_ = false;
