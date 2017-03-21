@@ -57,16 +57,17 @@ public:
         return object == T(rhs);
     }
 
-private:
-    T object{VK_NULL_HANDLE};
-    std::function<void(T)> deleter;
-
     void cleanup() {
         if (object != VK_NULL_HANDLE) {
             deleter(object);
         }
         object = VK_NULL_HANDLE;
     }
+
+private:
+    T object{VK_NULL_HANDLE};
+    std::function<void(T)> deleter;
+
 };
 
 struct QueueFamilyIndices {

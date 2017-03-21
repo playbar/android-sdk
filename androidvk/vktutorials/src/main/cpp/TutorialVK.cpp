@@ -75,15 +75,18 @@ TutorialVK::TutorialVK()
 {
     initialized_ = false;
     androidAppCtx = nullptr;
+    LOGE("%s", __FUNCTION__ );
 }
 TutorialVK::~TutorialVK()
 {
-
+    LOGE("%s", __FUNCTION__ );
 }
 
 
 void TutorialVK::initVulkan(android_app* app)
 {
+    if( initialized_ )
+        return;
     androidAppCtx = app;
     if (!InitVulkan()) {
         LOGW("Vulkan is unavailable, install vulkan and re-start");
@@ -113,6 +116,25 @@ void TutorialVK::initVulkan(android_app* app)
 }
 void TutorialVK::deleteVulkan()
 {
+    vkDeviceWaitIdle(device);
+    int icount = 0;
+    commandPool.cleanup();
+    icount = swapChainFramebuffers.size();
+    for (int i = 0; i < icount; ++i) {
+        swapChainFramebuffers[i].replace();
+    }
+    graphicsPipeline.cleanup();
+    pipelineLayout.cleanup();
+    descriptorSetLayout.cleanup();
+    renderPass.cleanup();
+    icount = swapChainImages.size();
+    for (int i = 0; i < icount; ++i) {
+        swapChainImageViews[i].cleanup();
+    }
+    swapChain.cleanup();
+    device.cleanup();
+    surface.cleanup();
+    instance.cleanup();
     initialized_ = false;
 }
 
@@ -913,10 +935,10 @@ void TutorialVK::createCommandPool()
 void TutorialVK::createTextureImage()
 {
     int texWidth, texHeight, texChannels;
-    int re = chdir("/sdcard/");
-    if( re == -1 ){
-        LOGE("error");
-    }
+//    int re = chdir("/sdcard/");
+//    if( re == -1 ){
+//        LOGE("error");
+//    }
     stbi_uc* pixels = stbi_load("/sdcard/Android/data/com.vk/files/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 //    stbi_uc* pixels = stbi_load("/data/data/com.vk/log.txt", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     LOGW("fopen(%s) failed: %s", "log.txt", strerror(errno));
@@ -928,7 +950,8 @@ void TutorialVK::createTextureImage()
 
     VDeleter<VkImage> stagingImage{device, vkDestroyImage};
     VDeleter<VkDeviceMemory> stagingImageMemory{device, vkFreeMemory};
-    createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingImage, stagingImageMemory);
+    createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingImage, stagingImageMemory);
 
     VkImageSubresource subresource = {};
     subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;

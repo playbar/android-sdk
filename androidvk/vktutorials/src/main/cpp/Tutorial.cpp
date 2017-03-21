@@ -1,6 +1,7 @@
 #include <android/log.h>
 #include "android_native_app_glue.h"
 #include "TutorialVK.h"
+#include "my_log.h"
 
 // Process the next main command.
 
@@ -9,6 +10,7 @@ static TutorialVK gTutorialVk;
 void handle_cmd(android_app* app, int32_t cmd) {
     switch (cmd) {
         case APP_CMD_INIT_WINDOW:
+            LOGE("APP_CMD_INIT_WINDOW");
             // The window is being shown, get it ready.
             gTutorialVk.initVulkan(app);
             break;
