@@ -35,8 +35,9 @@ add_library(vksample SHARED
             vulkan_wrapper.cpp)
 
 target_include_directories(vksample PRIVATE
-                          ${CMAKE_CURRENT_SOURCE_DIR}/data
                           ${CMAKE_CURRENT_SOURCE_DIR}
+                          ${CMAKE_CURRENT_SOURCE_DIR}/data
+                          ${CMAKE_CURRENT_SOURCE_DIR}/stb
                           ${ANDROID_NDK}/sources/third_party/shaderc/include)
 
 target_link_libraries(vksample
