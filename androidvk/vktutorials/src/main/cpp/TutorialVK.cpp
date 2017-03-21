@@ -2,8 +2,17 @@
 #include <assert.h>
 #include "TutorialVK.h"
 #include "vector"
-#include "set"
 #include "my_log.h"
+#include <iostream>
+#include <stdexcept>
+#include <functional>
+#include <chrono>
+#include <fstream>
+#include <algorithm>
+#include <vector>
+#include <cstring>
+#include <array>
+#include <set>
 
 const std::vector<const char*>validationLayers = {
         "VK_LAYER_LUNARG_standard_validation"
@@ -84,11 +93,13 @@ void TutorialVK::initVulkan(android_app* app)
     createSwapChain();
     createImageViews();
     createRenderPass();
+    createDescriptorSetLayout();
     createGraphicsPipeline();
     createFramebuffers();
     createCommandPool();
     createVertexBuffer();
     createIndexBuffer();
+    createUniformBuffer();
     createCommandBuffers();
     createSemaphores();
     initialized_ = true;
@@ -101,6 +112,26 @@ void TutorialVK::deleteVulkan()
 bool TutorialVK::isVulkanReady()
 {
     return initialized_;
+}
+
+void TutorialVK::updateUniformBuffer()
+{
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
+
+    UniformBufferObject ubo = {};
+    ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+    ubo.proj[1][1] *= -1;
+
+    void* data;
+    vkMapMemory(device, uniformStagingBufferMemory, 0, sizeof(ubo), 0, &data);
+    memcpy(data, &ubo, sizeof(ubo));
+    vkUnmapMemory(device, uniformStagingBufferMemory);
+    copyBuffer(uniformStagingBuffer, uniformBuffer, sizeof(ubo));
 }
 
 void TutorialVK::drawFrame()
@@ -676,10 +707,33 @@ void TutorialVK::createRenderPass()
 
 }
 
+void TutorialVK::createDescriptorSetLayout()
+{
+    VkDescriptorSetLayoutBinding uboLayoutBinding = {
+            .binding = 0,
+            .descriptorCount =1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImmutableSamplers = nullptr,
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+    };
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .bindingCount = 1,
+            .pBindings = &uboLayoutBinding,
+    };
+
+    if( vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, descriptorSetLayout.replace()) != VK_SUCCESS )
+    {
+        LOGE("failed to create descriptor set layout!");
+    }
+
+}
+
 void TutorialVK::createGraphicsPipeline()
 {
-    auto vertShaderCode = readFile("shaders/shader_vertexbuffer.vert.spv");
-    auto fragShaderCode = readFile("shaders/shader_vertexbuffer.frag.spv");
+    auto vertShaderCode = readFile("shaders/shader_ubo.vert.spv");
+    auto fragShaderCode = readFile("shaders/shader_ubo.frag.spv");
     VDeleter<VkShaderModule> vertShaderModule{device, vkDestroyShaderModule};
     VDeleter<VkShaderModule> fragShaderModule{device, vkDestroyShaderModule};
     createShaderModule(vertShaderCode, vertShaderModule);
@@ -775,10 +829,11 @@ void TutorialVK::createGraphicsPipeline()
             .blendConstants[3] = 0.0f,
     };
 
+    VkDescriptorSetLayout setlayout[] = {descriptorSetLayout};
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 0,
-            .pushConstantRangeCount = 0,
+            .setLayoutCount = 1,
+            .pSetLayouts = setlayout,
     };
 
     if( vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, pipelineLayout.replace()) != VK_SUCCESS ){
@@ -846,6 +901,14 @@ void TutorialVK::createCommandPool()
     {
         LOGE("failed to create command pool!");
     }
+}
+
+void TutorialVK::createUniformBuffer()
+{
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStagingBuffer, uniformStagingBufferMemory);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uniformBuffer, uniformBufferMemory);
+
 }
 
 void TutorialVK::createVertexBuffer()

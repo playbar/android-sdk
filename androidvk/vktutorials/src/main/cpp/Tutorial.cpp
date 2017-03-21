@@ -45,6 +45,7 @@ void android_main(struct android_app* app) {
 
         // render if vulkan is ready
         if (gTutorialVk.isVulkanReady()) {
+            gTutorialVk.updateUniformBuffer();
             gTutorialVk.drawFrame();
         }
     } while (app->destroyRequested == 0);

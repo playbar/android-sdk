@@ -2,7 +2,10 @@
 #define __TutorialVK_H__
 #include <android_native_app_glue.h>
 #include "vulkan_wrapper.h"
-#include "glm/glm.hpp"
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <iostream>
 #include <stdexcept>
 #include <functional>
@@ -116,6 +119,12 @@ struct Vertex
 
 };
 
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 class TutorialVK
 {
 public:
@@ -126,6 +135,7 @@ public:
     void initVulkan(android_app* app);
     void deleteVulkan();
     bool isVulkanReady();
+    void updateUniformBuffer();
     void drawFrame();
     void recreateSwapChain();
 
@@ -149,6 +159,7 @@ private:
     std::vector<VDeleter<VkFramebuffer> > swapChainFramebuffers;
 
     VDeleter<VkRenderPass> renderPass{device, vkDestroyRenderPass};
+    VDeleter<VkDescriptorSetLayout> descriptorSetLayout{device, vkDestroyDescriptorSetLayout};
     VDeleter<VkPipelineLayout> pipelineLayout{device, vkDestroyPipelineLayout};
     VDeleter<VkPipeline> graphicsPipeline{device, vkDestroyPipeline};
 
@@ -158,6 +169,11 @@ private:
     VDeleter<VkDeviceMemory> vertexBufferMemory{device, vkFreeMemory };
     VDeleter<VkBuffer> indexBuffer{device, vkDestroyBuffer};
     VDeleter<VkDeviceMemory> indexBufferMemory{device, vkFreeMemory};
+
+    VDeleter<VkBuffer> uniformStagingBuffer{device, vkDestroyBuffer};
+    VDeleter<VkDeviceMemory> uniformStagingBufferMemory{ device, vkFreeMemory};
+    VDeleter<VkBuffer> uniformBuffer{device, vkDestroyBuffer};
+    VDeleter<VkDeviceMemory> uniformBufferMemory{device, vkFreeMemory};
 
     std::vector<VkCommandBuffer> commandBuffers;
 
@@ -187,13 +203,16 @@ private:
     void createSwapChain();
     void createImageViews();
     void createRenderPass();
+    void createDescriptorSetLayout();
     void createGraphicsPipeline();
     void createFramebuffers();
     void createCommandPool();
-    void createCommandBuffers();
-    void createSemaphores();
     void createVertexBuffer();
     void createIndexBuffer();
+    void createUniformBuffer();
+    void createCommandBuffers();
+    void createSemaphores();
+
     void createVertexBuffer_1();
 };
 
