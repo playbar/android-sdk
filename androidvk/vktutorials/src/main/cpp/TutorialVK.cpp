@@ -67,22 +67,22 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
     return VK_FALSE;
 }
 
-//const std::vector<Vertex> vertices = {
-//        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-//        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-//        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-//        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-//
-//        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-//        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-//        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-//        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-//};
-//
-//const std::vector<uint16_t> indices = {
-//        0, 1, 2, 2, 3, 0,
-//        4, 5, 6, 6, 7, 4
-//};
+const std::vector<Vertex> vertices = {
+        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+
+        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+};
+
+const std::vector<uint32_t> indices = {
+        0, 1, 2, 2, 3, 0,
+        4, 5, 6, 6, 7, 4
+};
 
 
 TutorialVK::TutorialVK()
@@ -122,7 +122,7 @@ void TutorialVK::initVulkan(android_app* app)
     createTextureImage();
     createTextureImageView();
     createTextureSampler();
-    loadModel();
+//    loadModel();
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffer();
@@ -135,20 +135,41 @@ void TutorialVK::initVulkan(android_app* app)
 void TutorialVK::deleteVulkan()
 {
     vkDeviceWaitIdle(device);
+    imageAvailableSemaphore.cleanup();
+    renderFinishedSemaphore.cleanup();
+    descriptorPool.cleanup();
+    uniformStagingBuffer.cleanup();
+    uniformStagingBufferMemory.cleanup();
+    uniformBuffer.cleanup();
+    uniformBufferMemory.cleanup();
+    indexBuffer.cleanup();
+    indexBufferMemory.cleanup();
+    vertexBuffer.cleanup();
+    vertexBufferMemory.cleanup();
+    textureSampler.cleanup();
+    textureImageView.cleanup();
+    textureImage.cleanup();
+    textureImageMemory.cleanup();
+
     int icount = 0;
-    commandPool.cleanup();
     icount = swapChainFramebuffers.size();
     for (int i = 0; i < icount; ++i) {
         swapChainFramebuffers[i].replace();
     }
+    depthImage.cleanup();
+    depthImageMemory.cleanup();
+    commandPool.cleanup();
     graphicsPipeline.cleanup();
     pipelineLayout.cleanup();
     descriptorSetLayout.cleanup();
     renderPass.cleanup();
-    icount = swapChainImages.size();
-    for (int i = 0; i < icount; ++i) {
+
+    icount = swapChainImageViews.size();
+    for( int i = 0; i < icount; ++i )
+    {
         swapChainImageViews[i].cleanup();
     }
+
     swapChain.cleanup();
     device.cleanup();
     surface.cleanup();
@@ -819,8 +840,8 @@ void TutorialVK::createGraphicsPipeline()
 {
     auto vertShaderCode = readFile("shaders/shader_textures.vert.spv");
     auto fragShaderCode = readFile("shaders/shader_textures.frag.spv");
-    VDeleter<VkShaderModule> vertShaderModule{device, vkDestroyShaderModule};
-    VDeleter<VkShaderModule> fragShaderModule{device, vkDestroyShaderModule};
+    VDeleter<VkShaderModule> vertShaderModule{device, DestroyShaderModule};
+    VDeleter<VkShaderModule> fragShaderModule{device, DestroyShaderModule};
     createShaderModule(vertShaderCode, vertShaderModule);
     createShaderModule(fragShaderCode, fragShaderModule);
 
@@ -1311,34 +1332,34 @@ void TutorialVK::loadModel()
 
     umap uniqueVertices;
 
-    for (const auto& shape : shapes)
-    {
-        for (const auto& index : shape.mesh.indices)
-        {
-            Vertex vertex = {};
-
-            vertex.pos = {
-                    attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]
-            };
-
-            vertex.texCoord = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
-
-            vertex.color = {1.0f, 1.0f, 1.0f};
-
-            if (uniqueVertices.count(vertex) == 0)
-            {
-//                uniqueVertices.insert(umap::value_type(vertex, vertices.size()));
-                uniqueVertices[vertex] = vertices.size();
-                vertices.push_back(vertex);
-            }
-            indices.push_back(uniqueVertices[vertex]);
-        }
-    }
+//    for (const auto& shape : shapes)
+//    {
+//        for (const auto& index : shape.mesh.indices)
+//        {
+//            Vertex vertex = {};
+//
+//            vertex.pos = {
+//                    attrib.vertices[3 * index.vertex_index + 0],
+//                    attrib.vertices[3 * index.vertex_index + 1],
+//                    attrib.vertices[3 * index.vertex_index + 2]
+//            };
+//
+//            vertex.texCoord = {
+//                    attrib.texcoords[2 * index.texcoord_index + 0],
+//                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+//            };
+//
+//            vertex.color = {1.0f, 1.0f, 1.0f};
+//
+//            if (uniqueVertices.count(vertex) == 0)
+//            {
+////                uniqueVertices.insert(umap::value_type(vertex, vertices.size()));
+//                uniqueVertices[vertex] = vertices.size();
+//                vertices.push_back(vertex);
+//            }
+//            indices.push_back(uniqueVertices[vertex]);
+//        }
+//    }
 }
 
 void TutorialVK::createUniformBuffer()

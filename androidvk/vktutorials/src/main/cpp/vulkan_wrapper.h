@@ -23,6 +23,30 @@
  * Returns 0 if vulkan is not available, non-zero if it is available.
  */
 int InitVulkan(void);
+#ifdef __cplusplus
+extern "C" {
+#endif
+void DestroyInstance(VkInstance instance, const VkAllocationCallbacks *pAllocator);
+void DestroyShaderModule(VkDevice device, VkShaderModule shaderModule, const VkAllocationCallbacks *pAllocator);
+void DestroySurfaceKHR(VkInstance instance, VkSurfaceKHR surface, const VkAllocationCallbacks *pAllocator);
+void DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator);
+void DestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks *pAllocator);
+void DestroyRenderPass(VkDevice device, VkRenderPass renderPass, const VkAllocationCallbacks *pAllocator);
+void DestroyDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout, const VkAllocationCallbacks *pAllocator);
+void DestroyPipelineLayout(VkDevice device, VkPipelineLayout pipelineLayout, const VkAllocationCallbacks *pAllocator);
+void DestroyPipeline(VkDevice device, VkPipeline pipeline, const VkAllocationCallbacks *pAllocator);
+void DestroyCommandPool(VkDevice device, VkCommandPool commandPool, const VkAllocationCallbacks *pAllocator);
+void DestroyImage(VkDevice device, VkImage image, const VkAllocationCallbacks *pAllocator);
+void FreeMemory(VkDevice device, VkDeviceMemory memory, const VkAllocationCallbacks *pAllocator);
+void DestroyImageView(VkDevice device, VkImageView imageView, const VkAllocationCallbacks *pAllocator);
+void DestroySampler(VkDevice device, VkSampler sampler, const VkAllocationCallbacks *pAllocator);
+void DestroyBuffer(VkDevice device, VkBuffer buffer, const VkAllocationCallbacks *pAllocator);
+void DestroyDescriptorPool(VkDevice device, VkDescriptorPool descriptorPool, const VkAllocationCallbacks *pAllocator);
+void DestroySemaphore(VkDevice device, VkSemaphore semaphore, const VkAllocationCallbacks *pAllocator);
+
+#ifdef __cplusplus
+}
+#endif
 
 // VK_core
 extern PFN_vkCreateInstance vkCreateInstance;

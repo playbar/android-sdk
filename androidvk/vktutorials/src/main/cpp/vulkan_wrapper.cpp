@@ -401,3 +401,87 @@ PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
 PFN_vkDebugReportMessageEXT vkDebugReportMessageEXT;
 
+void  DestroyInstance(VkInstance instance, const VkAllocationCallbacks* pAllocator)
+{
+    vkDestroyInstance( instance, pAllocator );
+}
+
+void DestroyShaderModule(VkDevice device, VkShaderModule shaderModule, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyShaderModule(device, shaderModule, pAllocator);
+}
+
+void DestroySurfaceKHR(VkInstance instance, VkSurfaceKHR surface, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroySurfaceKHR(instance, surface, pAllocator);
+}
+
+void DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyDevice(device, pAllocator);
+}
+
+void DestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroySwapchainKHR(device, swapchain, pAllocator);
+}
+
+void DestroyRenderPass(VkDevice device, VkRenderPass renderPass, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyRenderPass(device, renderPass, pAllocator);
+}
+
+void DestroyDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, pAllocator);
+}
+
+void DestroyPipelineLayout(VkDevice device, VkPipelineLayout pipelineLayout, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyPipelineLayout(device, pipelineLayout, pAllocator);
+}
+
+void DestroyPipeline(VkDevice device, VkPipeline pipeline, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyPipeline(device, pipeline, pAllocator);
+}
+
+void DestroyCommandPool(VkDevice device, VkCommandPool commandPool, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyCommandPool(device, commandPool, pAllocator);
+}
+
+void DestroyImage(VkDevice device, VkImage image, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyImage(device, image, pAllocator);
+}
+
+void FreeMemory(VkDevice device, VkDeviceMemory memory, const VkAllocationCallbacks *pAllocator)
+{
+    vkFreeMemory(device, memory, pAllocator);
+}
+
+void DestroyImageView(VkDevice device, VkImageView imageView, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyImageView(device, imageView, pAllocator);
+}
+
+void DestroySampler(VkDevice device, VkSampler sampler, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroySampler(device, sampler, pAllocator);
+}
+
+void DestroyBuffer(VkDevice device, VkBuffer buffer, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyBuffer(device, buffer, pAllocator);
+}
+
+void DestroyDescriptorPool(VkDevice device, VkDescriptorPool descriptorPool, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroyDescriptorPool(device, descriptorPool, pAllocator);
+}
+
+void DestroySemaphore(VkDevice device, VkSemaphore semaphore, const VkAllocationCallbacks *pAllocator)
+{
+    vkDestroySemaphore(device, semaphore, pAllocator);
+}

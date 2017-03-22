@@ -32,7 +32,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <activity android:name="android.app.NativeActivity"
+        <activity android:name="BarNativeActivity"
             android:label="@string/app_name"
             android:configChanges="orientation|keyboardHidden">
             <!-- Tell NativeActivity the name of or .so -->
