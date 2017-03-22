@@ -90,7 +90,7 @@ void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT
 
 struct Vertex
 {
-    glm::vec2 pos;
+    glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
 
@@ -108,7 +108,7 @@ struct Vertex
 
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
         attributeDescriptions[1].binding = 0;
@@ -172,6 +172,10 @@ private:
 
     VDeleter<VkCommandPool> commandPool{device, vkDestroyCommandPool};
 
+    VDeleter<VkImage> depthImage{device, vkDestroyImage};
+    VDeleter<VkDeviceMemory> depthImageMemory{device, vkFreeMemory};
+    VDeleter<VkImageView> depthImageView{device, vkDestroyImageView};
+
     VDeleter<VkImage> textureImage{device, vkDestroyImage};
     VDeleter<VkDeviceMemory> textureImageMemory{device, vkFreeMemory};
     VDeleter<VkImageView> textureImageView{device, vkDestroyImageView};
@@ -217,7 +221,10 @@ private:
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VDeleter<VkImage>& image, VDeleter<VkDeviceMemory>& imageMemory);
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void copyImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height);
-    void createImageView(VkImage image, VkFormat format, VDeleter<VkImageView> &imageView);
+    void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VDeleter<VkImageView> &imageView);
+    VkFormat findDepthFormat();
+    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    bool hasStencilComponent(VkFormat format);
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
     void  createLogicalDevice();
@@ -228,6 +235,7 @@ private:
     void createGraphicsPipeline();
     void createFramebuffers();
     void createCommandPool();
+    void createDepthResources();
     void createTextureImage();
     void createTextureImageView();
     void createTextureSampler();
