@@ -168,6 +168,8 @@ private:
 
     VDeleter<VkImage> textureImage{device, vkDestroyImage};
     VDeleter<VkDeviceMemory> textureImageMemory{device, vkFreeMemory};
+    VDeleter<VkImageView> textureImageView{device, vkDestroyImageView};
+    VDeleter<VkSampler> textureSampler{device, vkDestroySampler};
 
     VDeleter<VkBuffer> vertexBuffer{device, vkDestroyBuffer};
     VDeleter<VkDeviceMemory> vertexBufferMemory{device, vkFreeMemory };
@@ -209,6 +211,7 @@ private:
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VDeleter<VkImage>& image, VDeleter<VkDeviceMemory>& imageMemory);
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void copyImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height);
+    void createImageView(VkImage image, VkFormat format, VDeleter<VkImageView> &imageView);
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
     void  createLogicalDevice();
@@ -220,6 +223,8 @@ private:
     void createFramebuffers();
     void createCommandPool();
     void createTextureImage();
+    void createTextureImageView();
+    void createTextureSampler();
     void createVertexBuffer();
     void createIndexBuffer();
     void createUniformBuffer();

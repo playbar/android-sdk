@@ -105,6 +105,8 @@ void TutorialVK::initVulkan(android_app* app)
     createFramebuffers();
     createCommandPool();
     createTextureImage();
+    createTextureImageView();
+    createTextureSampler();
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffer();
@@ -577,26 +579,27 @@ void TutorialVK::createImageViews()
     swapChainImageViews.resize(swapChainImages.size(), VDeleter<VkImageView>{device, vkDestroyImageView});
 
     for (uint32_t i = 0; i < swapChainImages.size(); i++) {
-        VkImageViewCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = swapChainImages[i];
-        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        createInfo.format = swapChainImageFormat;
-        createInfo.components.r = VK_COMPONENT_SWIZZLE_R;
-        createInfo.components.g = VK_COMPONENT_SWIZZLE_G;
-        createInfo.components.b = VK_COMPONENT_SWIZZLE_B;
-        createInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = 1;
-        createInfo.subresourceRange.baseArrayLayer = 0;
-        createInfo.subresourceRange.layerCount = 1;
-        createInfo.pNext = NULL;
-
-        if (vkCreateImageView(device, &createInfo, nullptr, swapChainImageViews[i].replace()) != VK_SUCCESS) {
-//            throw std::runtime_error("failed to create image views!");
-            LOGE("failed to create image views!");
-        }
+        createImageView(swapChainImages[i], swapChainImageFormat, swapChainImageViews[i]);
+//        VkImageViewCreateInfo createInfo = {};
+//        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+//        createInfo.image = swapChainImages[i];
+//        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+//        createInfo.format = swapChainImageFormat;
+//        createInfo.components.r = VK_COMPONENT_SWIZZLE_R;
+//        createInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+//        createInfo.components.b = VK_COMPONENT_SWIZZLE_B;
+//        createInfo.components.a = VK_COMPONENT_SWIZZLE_A;
+//        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+//        createInfo.subresourceRange.baseMipLevel = 0;
+//        createInfo.subresourceRange.levelCount = 1;
+//        createInfo.subresourceRange.baseArrayLayer = 0;
+//        createInfo.subresourceRange.layerCount = 1;
+//        createInfo.pNext = NULL;
+//
+//        if (vkCreateImageView(device, &createInfo, nullptr, swapChainImageViews[i].replace()) != VK_SUCCESS) {
+////            throw std::runtime_error("failed to create image views!");
+//            LOGE("failed to create image views!");
+//        }
     }
     return;
 }
@@ -1094,6 +1097,7 @@ void TutorialVK::copyImage(VkImage srcImage, VkImage dstImage, uint32_t width, u
     endSingleTimeCommands(commandBuffer);
 }
 
+
 VkCommandBuffer TutorialVK::beginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1125,6 +1129,55 @@ void TutorialVK::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkQueueWaitIdle(graphicsQueue);
 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+void TutorialVK::createTextureImageView()
+{
+    createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM, textureImageView );
+}
+
+void TutorialVK::createImageView(VkImage image, VkFormat format, VDeleter<VkImageView> &imageView)
+{
+    VkImageViewCreateInfo viewInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = format,
+            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .subresourceRange.baseMipLevel = 0,
+            .subresourceRange.levelCount = 1,
+            .subresourceRange.baseArrayLayer = 0,
+            .subresourceRange.layerCount = 1,
+    };
+    if( vkCreateImageView(device, &viewInfo, nullptr, imageView.replace()) != VK_SUCCESS )
+    {
+        LOGE("failed to create texture image view!");
+    }
+}
+
+void TutorialVK::createTextureSampler()
+{
+    VkSamplerCreateInfo samplerInfo = {
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .magFilter = VK_FILTER_LINEAR,
+            .minFilter = VK_FILTER_LINEAR,
+            .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .anisotropyEnable = VK_TRUE,
+            .maxAnisotropy = 16,
+            .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+            .unnormalizedCoordinates = VK_FALSE,
+            .compareEnable = VK_FALSE,
+            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+    };
+
+    if(vkCreateSampler(device, &samplerInfo, nullptr, textureSampler.replace()) != VK_SUCCESS )
+    {
+        LOGE("failed to create texture sampler!");
+    }
+    return;
 }
 
 void TutorialVK::createUniformBuffer()
