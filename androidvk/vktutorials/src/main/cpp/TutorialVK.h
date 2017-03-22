@@ -5,11 +5,13 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/hash.hpp>
 
 #include <iostream>
 #include <stdexcept>
 #include <functional>
 #include <vector>
+//#include <hash_fun.h>
 
 template <typename T>
 class VDeleter {
@@ -124,7 +126,30 @@ struct Vertex
         return attributeDescriptions;
     };
 
+    bool operator==(const Vertex& other) const {
+//        return true;
+        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+    }
+
 };
+
+
+namespace std {
+    template<> struct hash<Vertex> {
+        size_t operator()(Vertex const& vertex) const {
+//            std::hash<glm::vec3> hv3;
+//            std::hash<glm::vec2> hv2;
+//            size_t re = (( hv3(vertex.pos) ^
+//                          (hv3(vertex.color) << 1)) >> 1) ^
+//                        (hv2(vertex.texCoord) << 1);
+//            return re;
+
+            return ((hash<glm::vec3>()(vertex.pos) ^
+                     (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+                   (hash<glm::vec2>()(vertex.texCoord) << 1);
+        }
+    };
+}
 
 struct UniformBufferObject {
     glm::mat4 model;
@@ -181,6 +206,8 @@ private:
     VDeleter<VkImageView> textureImageView{device, vkDestroyImageView};
     VDeleter<VkSampler> textureSampler{device, vkDestroySampler};
 
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
     VDeleter<VkBuffer> vertexBuffer{device, vkDestroyBuffer};
     VDeleter<VkDeviceMemory> vertexBufferMemory{device, vkFreeMemory };
     VDeleter<VkBuffer> indexBuffer{device, vkDestroyBuffer};
@@ -239,6 +266,7 @@ private:
     void createTextureImage();
     void createTextureImageView();
     void createTextureSampler();
+    void loadModel();
     void createVertexBuffer();
     void createIndexBuffer();
     void createUniformBuffer();

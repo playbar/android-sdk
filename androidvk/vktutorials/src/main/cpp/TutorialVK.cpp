@@ -14,9 +14,17 @@
 #include <array>
 #include <set>
 #include <unistd.h>
+#include <map>
+#include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
+const std::string MODEL_PATH = "/sdcard/Android/data/com.vk/files/chalet.obj";
+const std::string TEXTURE_PATH = "/sdcard/Android/data/com.vk/files/chalet.jpg";
 
 const std::vector<const char*>validationLayers = {
         "VK_LAYER_LUNARG_standard_validation"
@@ -59,22 +67,22 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
     return VK_FALSE;
 }
 
-const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-
-const std::vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-};
+//const std::vector<Vertex> vertices = {
+//        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+//        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+//        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+//        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+//
+//        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+//        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+//        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+//        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+//};
+//
+//const std::vector<uint16_t> indices = {
+//        0, 1, 2, 2, 3, 0,
+//        4, 5, 6, 6, 7, 4
+//};
 
 
 TutorialVK::TutorialVK()
@@ -114,6 +122,7 @@ void TutorialVK::initVulkan(android_app* app)
     createTextureImage();
     createTextureImageView();
     createTextureSampler();
+    loadModel();
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffer();
@@ -1034,11 +1043,7 @@ bool TutorialVK::hasStencilComponent(VkFormat format)
 void TutorialVK::createTextureImage()
 {
     int texWidth, texHeight, texChannels;
-//    int re = chdir("/sdcard/");
-//    if( re == -1 ){
-//        LOGE("error");
-//    }
-    stbi_uc* pixels = stbi_load("/sdcard/Android/data/com.vk/files/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 //    stbi_uc* pixels = stbi_load("/data/data/com.vk/log.txt", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     LOGW("fopen(%s) failed: %s", "log.txt", strerror(errno));
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -1291,6 +1296,51 @@ void TutorialVK::createTextureSampler()
     return;
 }
 
+void TutorialVK::loadModel()
+{
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string err;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
+        throw std::runtime_error(err);
+    }
+
+    typedef std::unordered_map<Vertex,int> umap;
+
+    umap uniqueVertices;
+
+    for (const auto& shape : shapes)
+    {
+        for (const auto& index : shape.mesh.indices)
+        {
+            Vertex vertex = {};
+
+            vertex.pos = {
+                    attrib.vertices[3 * index.vertex_index + 0],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            vertex.texCoord = {
+                    attrib.texcoords[2 * index.texcoord_index + 0],
+                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+            };
+
+            vertex.color = {1.0f, 1.0f, 1.0f};
+
+            if (uniqueVertices.count(vertex) == 0)
+            {
+//                uniqueVertices.insert(umap::value_type(vertex, vertices.size()));
+                uniqueVertices[vertex] = vertices.size();
+                vertices.push_back(vertex);
+            }
+            indices.push_back(uniqueVertices[vertex]);
+        }
+    }
+}
+
 void TutorialVK::createUniformBuffer()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -1497,7 +1547,7 @@ void TutorialVK::createCommandBuffers()
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16 );
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
