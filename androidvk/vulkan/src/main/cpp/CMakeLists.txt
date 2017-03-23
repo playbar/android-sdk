@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.4.1)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fexceptions -Werror -DVK_USE_PLATFORM_ANDROID_KHR")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fexceptions -Werror")
 
-add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
+#add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
+add_definitions(-DVK_USE_PLATFORM_ANDROID_KHR)
+add_definitions(-DVK_NO_PROTOTYPES)
 #add_definitions(-DGLM_LANG_STL11_FORCED)
 
 get_filename_component(SHADERC_SRC
@@ -14,28 +16,29 @@ add_library(shaderc_lib STATIC IMPORTED)
 set_target_properties(shaderc_lib PROPERTIES IMPORTED_LOCATION
                       ${SHADERC_SRC}/libs/${ANDROID_STL}/${ANDROID_ABI}/libshaderc.a)
 
-#file(GLOB UTILS_SOURCE *.cpp)
-#file(GLOB GLUE_SOURCE *.c)
-
-#add_library(vksample SHARED
-#            ${UTILS_SOURCE}
-#            ${GLUE_SOURCE})
+add_library(assimp_lib STATIC IMPORTED)
+set_target_properties(assimp_lib PROPERTIES IMPORTED_LOCATION
+                      ${CMAKE_CURRENT_SOURCE_DIR}/assimp/libassimp.a)
 
 add_library(vksample SHARED
             android_native_app_glue.c
+            cpu-features.c
             jniactivity.c
-            Tutorial.cpp
-            TutorialVK.cpp
-            vulkan_wrapper.cpp)
+            base/vulkanandroid.cpp
+            base/VulkanDebug.cpp
+            base/vulkanexamplebase.cpp
+            base/VulkanTools.cpp
+            bloom.cpp
+            )
 
 target_include_directories(vksample PRIVATE
                           ${CMAKE_CURRENT_SOURCE_DIR}
-                          ${CMAKE_CURRENT_SOURCE_DIR}/data
                           ${CMAKE_CURRENT_SOURCE_DIR}/stb
-                          ${CMAKE_CURRENT_SOURCE_DIR}/tinyobjloader
+                          ${CMAKE_CURRENT_SOURCE_DIR}/base
                           ${ANDROID_NDK}/sources/third_party/shaderc/include)
 
 target_link_libraries(vksample
                       android
                       log
-                      shaderc_lib)
+                      z
+                      assimp_lib )

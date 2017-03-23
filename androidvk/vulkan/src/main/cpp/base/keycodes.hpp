@@ -32,8 +32,6 @@
 // Dummy key codes 
 #define KEY_ESCAPE 0x0
 #define KEY_F1 0x1
-#define KEY_F2 0x2
-#define KEY_F2 0x11
 #define KEY_F2 0x12
 #define KEY_F3 0x13
 #define KEY_F4 0x14

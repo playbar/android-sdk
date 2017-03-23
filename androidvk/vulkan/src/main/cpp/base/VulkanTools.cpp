@@ -156,6 +156,8 @@ namespace vks
 				// Make sure any shader reads from the image have been finished
 				imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
 				break;
+            default:
+                break;
 			}
 
 			// Target layouts (new)
@@ -197,6 +199,8 @@ namespace vks
 				}
 				imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 				break;
+            default:
+                break;
 			}
 
 			// Put barrier inside setup command buffer

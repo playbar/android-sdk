@@ -22,7 +22,7 @@
 #include "VulkanBuffer.hpp"
 #include "VulkanDevice.hpp"
 
-#include "../external/stb/stb_font_consolas_24_latin1.inl"
+#include "../stb/stb_font_consolas_24_latin1.inl"
 
 // Defines for the STB font used
 // STB font files can be found at http://nothings.org/stb/font/

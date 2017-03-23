@@ -44,8 +44,7 @@ extern android_app* androidApp;
 #define LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG, "vulkanExample", __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "vulkanExample", __VA_ARGS__))
 
-// Function pointer prototypes
-// Not complete, just the functions used in the caps viewer!
+
 extern PFN_vkCreateInstance vkCreateInstance;
 extern PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr;
 extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
