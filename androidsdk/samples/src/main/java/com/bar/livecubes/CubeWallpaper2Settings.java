@@ -14,13 +14,14 @@
  * the License.
  */
 
-package com.example.android.livecubes.cube2;
+package com.bar.livecubes;
 
-import com.example.android.livecubes.R;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
+
+import com.bar.R;
 
 public class CubeWallpaper2Settings extends PreferenceActivity
     implements SharedPreferences.OnSharedPreferenceChangeListener {

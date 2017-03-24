@@ -216,4 +216,18 @@
     <string name="showInvisible">Show Invisible Contacts (Only)</string>
     <string name="targetAccountLabel">Target Account</string>
     <string name="undefinedTypeLabel">(Undefined)</string>
+    <string name="wallpapers">Example Wallpapers</string>
+
+    <!-- Wallpaper showing a cube -->
+    <string name="wallpaper_cube1">Cube</string>
+
+    <!-- Wallpaper showing a cube or dodecahedron, data read from resource -->
+    <string name="wallpaper_cube2">Cube - resource</string>
+
+    <!-- Wallpaper showing a cube, renderscript version -->
+    <string name="wallpaper_cube3">Cube - RenderScript</string>
+
+    <string name="cube2_settings">Settings</string>
+    <string name="cube2_settings_title">Select shape</string>
+    <string name="cube2_settings_summary">Choose whether to display a cube or a dodecahedron</string>
 </resources>
