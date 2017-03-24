@@ -74,7 +74,7 @@ public:
 public:
     template <typename T>
     const T* As() const {
-        return dynamic_cast<const T*>(this);
+        return (const T*)(this);
     }
 };
 
@@ -102,7 +102,7 @@ typedef std::fbx_unordered_map<std::string,std::shared_ptr<Property> > DirectPro
 typedef std::fbx_unordered_map<std::string,const Property*> PropertyMap;
 typedef std::fbx_unordered_map<std::string,const Element*> LazyPropertyMap;
 
-/** 
+/**
  *  Represents a property table as can be found in the newer FBX files (Properties60, Properties70)
  */
 class PropertyTable

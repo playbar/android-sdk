@@ -92,7 +92,7 @@ public:
     template <typename T>
     const T* Get(bool dieOnError = false) {
         const Object* const ob = Get(dieOnError);
-        return ob ? dynamic_cast<const T*>(ob) : NULL;
+        return ob ? (const T*)(ob) : NULL;
     }
 
     uint64_t ID() const {
@@ -781,11 +781,11 @@ public:
     }
 
     const Model* TargetAsModel() const {
-        return dynamic_cast<const Model*>(target);
+        return (const Model*)(target);
     }
 
     const NodeAttribute* TargetAsNodeAttribute() const {
-        return dynamic_cast<const NodeAttribute*>(target);
+        return (const NodeAttribute*)(target);
     }
 
     /** Property of Target() that is being animated*/

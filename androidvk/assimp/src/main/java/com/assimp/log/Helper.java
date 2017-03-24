@@ -16,7 +16,7 @@
  * This software contains code derived from the following Android classes:
  * android.util.Log, android.text.TextUtils.
  */
-package com.vk.log;
+package com.assimp.log;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;

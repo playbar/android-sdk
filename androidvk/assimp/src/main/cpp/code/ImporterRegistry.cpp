@@ -319,27 +319,27 @@ void GetImporterInstanceList(std::vector< BaseImporter* >& out)
 //#if (!defined ASSIMP_BUILD_NO_IFC_IMPORTER)
 //    out.push_back( new IFCImporter() );
 //#endif
-//#if ( !defined ASSIMP_BUILD_NO_XGL_IMPORTER )
-//    out.push_back( new XGLImporter() );
-//#endif
-//#if ( !defined ASSIMP_BUILD_NO_FBX_IMPORTER )
-//    out.push_back( new FBXImporter() );
-//#endif
-//#if ( !defined ASSIMP_BUILD_NO_ASSBIN_IMPORTER )
-//    out.push_back( new AssbinImporter() );
-//#endif
-//#if ( !defined ASSIMP_BUILD_NO_GLTF_IMPORTER )
-//    out.push_back( new glTFImporter() );
-//#endif
+#if ( !defined ASSIMP_BUILD_NO_XGL_IMPORTER )
+    out.push_back( new XGLImporter() );
+#endif
+#if ( !defined ASSIMP_BUILD_NO_FBX_IMPORTER )
+    out.push_back( new FBXImporter() );
+#endif
+#if ( !defined ASSIMP_BUILD_NO_ASSBIN_IMPORTER )
+    out.push_back( new AssbinImporter() );
+#endif
+#if ( !defined ASSIMP_BUILD_NO_GLTF_IMPORTER )
+    out.push_back( new glTFImporter() );
+#endif
 //#if ( !defined ASSIMP_BUILD_NO_C4D_IMPORTER )
 //    out.push_back( new C4DImporter() );
 //#endif
-//#if ( !defined ASSIMP_BUILD_NO_3MF_IMPORTER )
-//    out.push_back(new D3MFImporter() );
-//#endif
-//#ifndef ASSIMP_BUILD_NO_X3D_IMPORTER
-//    out.push_back( new X3DImporter() );
-//#endif
+#if ( !defined ASSIMP_BUILD_NO_3MF_IMPORTER )
+    out.push_back(new D3MFImporter() );
+#endif
+#ifndef ASSIMP_BUILD_NO_X3D_IMPORTER
+    out.push_back( new X3DImporter() );
+#endif
 }
 
 /** will delete all registered importers. */

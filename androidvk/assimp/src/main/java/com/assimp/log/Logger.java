@@ -1,4 +1,4 @@
-package com.vk.log;
+package com.assimp.log;
 
 /**
  * Logger is a wrapper of {@link android.util.Log}

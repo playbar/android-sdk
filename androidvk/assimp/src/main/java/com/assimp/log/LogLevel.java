@@ -1,4 +1,4 @@
-package com.vk.log;
+package com.assimp.log;
 
 public enum LogLevel {
 

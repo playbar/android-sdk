@@ -111,7 +111,7 @@ inline const T* ProcessSimpleConnection(const Connection& con,
         return NULL;
     }
 
-    return dynamic_cast<const T*>(ob);
+    return (const T*)(ob);
 }
 
 

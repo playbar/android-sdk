@@ -1,4 +1,4 @@
-package com.vk.log;
+package com.assimp.log;
 
 public interface LogAdapter {
   void d(String tag, String message);

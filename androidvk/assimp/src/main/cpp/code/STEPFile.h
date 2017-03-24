@@ -174,23 +174,23 @@ namespace STEP {
 
             template <typename T>
             const T& To() const {
-                return dynamic_cast<const T&>(*this);
+                return (const T&)(*this);
             }
 
             template <typename T>
             T& To() {
-                return dynamic_cast<T&>(*this);
+                return (T&)(*this);
             }
 
 
             template <typename T>
             const T* ToPtr() const {
-                return dynamic_cast<const T*>(this);
+                return (const T*)(this);
             }
 
             template <typename T>
             T* ToPtr() {
-                return dynamic_cast<T*>(this);
+                return (T*)(this);
             }
 
             // utilities to deal with SELECT entities, which currently lack automatic
@@ -451,23 +451,23 @@ namespace STEP {
         // utilities to simplify casting to concrete types
         template <typename T>
         const T& To() const {
-            return dynamic_cast<const T&>(*this);
+            return (const T&)(*this);
         }
 
         template <typename T>
         T& To() {
-            return dynamic_cast<T&>(*this);
+            return (T&)(*this);
         }
 
 
         template <typename T>
         const T* ToPtr() const {
-            return dynamic_cast<const T*>(this);
+            return (const T*)(this);
         }
 
         template <typename T>
         T* ToPtr() {
-            return dynamic_cast<T*>(this);
+            return (T*)(this);
         }
 
     public:
@@ -613,22 +613,22 @@ namespace STEP {
 
         template <typename T>
         const T& To() const {
-            return dynamic_cast<const T&>( **this );
+            return (const T&)( **this );
         }
 
         template <typename T>
         T& To()  {
-            return dynamic_cast<T&>( **this );
+            return (T&)( **this );
         }
 
         template <typename T>
         const T* ToPtr() const {
-            return dynamic_cast<const T*>( &**this );
+            return (const T*)( &**this );
         }
 
         template <typename T>
         T* ToPtr()  {
-            return dynamic_cast<T*>( &**this );
+            return (T*)( &**this );
         }
 
         Object* operator -> () {
@@ -740,7 +740,7 @@ namespace STEP {
     struct InternGenericConvert {
         void operator()(T& out, const std::shared_ptr< const EXPRESS::DataType >& in, const STEP::DB& /*db*/) {
             try{
-                out = dynamic_cast< const typename PickBaseType<T>::Type& > ( *in );
+                out = (const typename PickBaseType<T>::Type& ) ( *in );
             }
             catch(std::bad_cast&) {
                 throw TypeError("type error reading literal field");
@@ -767,7 +767,7 @@ namespace STEP {
     struct InternGenericConvertList {
         void operator()(ListOf<T, min_cnt, max_cnt>& out, const std::shared_ptr< const EXPRESS::DataType >& inp_base, const STEP::DB& db) {
 
-            const EXPRESS::LIST* inp = dynamic_cast<const EXPRESS::LIST*>(inp_base.get());
+            const EXPRESS::LIST* inp = (const EXPRESS::LIST*)(inp_base.get());
             if (!inp) {
                 throw TypeError("type error reading aggregate");
             }
@@ -797,7 +797,7 @@ namespace STEP {
     template <typename T>
     struct InternGenericConvert< Lazy<T> > {
         void operator()(Lazy<T>& out, const std::shared_ptr< const EXPRESS::DataType >& in_base, const STEP::DB& db) {
-            const EXPRESS::ENTITY* in = dynamic_cast<const EXPRESS::ENTITY*>(in_base.get());
+            const EXPRESS::ENTITY* in = (const EXPRESS::ENTITY*)(in_base.get());
             if (!in) {
                 throw TypeError("type error reading entity");
             }

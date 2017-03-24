@@ -40,11 +40,4 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.android.support:appcompat-v7:23.4.0'
-    compile 'com.android.support.constraint:constraint-layout:1.0.0-alpha7'
-    compile 'com.squareup.picasso:picasso:2.5.2'
-    compile 'com.android.support:support-v4:23.1.0'
-    compile "com.facebook.react:react-native:+"
-    compile 'com.caverock:androidsvg:1.2.2-beta-1@aar'
-    compile 'pl.droidsonroids.gif:android-gif-drawable:1.2.+'
 }

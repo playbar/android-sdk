@@ -457,7 +457,7 @@ Converter::Converter( aiScene* out, const Document& doc )
                 continue;
             }
 
-            const Material* mat = dynamic_cast<const Material*>( ob );
+            const Material* mat = (const Material*)( ob );
             if ( mat ) {
 
                 if ( materials_converted.find( mat ) == materials_converted.end() ) {
@@ -521,7 +521,7 @@ void Converter::ConvertNodes( uint64_t id, aiNode& parent, const aiMatrix4x4& pa
                 continue;
             }
 
-            const Model* const model = dynamic_cast<const Model*>( object );
+            const Model* const model = (const Model*)( object );
 
             if ( model ) {
                 nodes_chain.clear();
@@ -613,7 +613,7 @@ void Converter::ConvertLights( const Model& model )
 {
     const std::vector<const NodeAttribute*>& node_attrs = model.GetAttributes();
     for( const NodeAttribute* attr : node_attrs ) {
-        const Light* const light = dynamic_cast<const Light*>( attr );
+        const Light* const light = (const Light*)( attr );
         if ( light ) {
             ConvertLight( model, *light );
         }
@@ -624,7 +624,7 @@ void Converter::ConvertCameras( const Model& model )
 {
     const std::vector<const NodeAttribute*>& node_attrs = model.GetAttributes();
     for( const NodeAttribute* attr : node_attrs ) {
-        const Camera* const cam = dynamic_cast<const Camera*>( attr );
+        const Camera* const cam = (const Camera*)( attr );
         if ( cam ) {
             ConvertCamera( model, *cam );
         }
@@ -1119,7 +1119,7 @@ void Converter::ConvertModel( const Model& model, aiNode& nd, const aiMatrix4x4&
 
     for( const Geometry* geo : geos ) {
 
-        const MeshGeometry* const mesh = dynamic_cast< const MeshGeometry* >( geo );
+        const MeshGeometry* const mesh = ( const MeshGeometry* )( geo );
         if ( mesh ) {
             const std::vector<unsigned int>& indices = ConvertMesh( *mesh, model, node_global_transform );
             std::copy( indices.begin(), indices.end(), std::back_inserter( meshes ) );
@@ -1836,7 +1836,7 @@ void Converter::TrySetTextureProperties( aiMaterial* out_mat, const TextureMap& 
                 if ( !mesh )
                 {
                     for( const MeshMap::value_type& v : meshes_converted ) {
-                        const MeshGeometry* const mesh = dynamic_cast<const MeshGeometry*> ( v.first );
+                        const MeshGeometry* const mesh = (const MeshGeometry*) ( v.first );
                         if ( !mesh ) {
                             continue;
                         }
@@ -1914,13 +1914,13 @@ void Converter::TrySetTextureProperties( aiMaterial* out_mat, const LayeredTextu
     }
 
     int texCount = (*it).second->textureCount();
-    
+
     // Set the blend mode for layered textures
 	int blendmode= (*it).second->GetBlendMode();
 	out_mat->AddProperty(&blendmode,1,_AI_MATKEY_TEXOP_BASE,target,0);
 
 	for(int texIndex = 0; texIndex < texCount; texIndex++){
-    
+
         const Texture* const tex = ( *it ).second->getTexture(texIndex);
 
         aiString path;
@@ -1962,7 +1962,7 @@ void Converter::TrySetTextureProperties( aiMaterial* out_mat, const LayeredTextu
                 if ( !mesh )
                 {
                     for( const MeshMap::value_type& v : meshes_converted ) {
-                        const MeshGeometry* const mesh = dynamic_cast<const MeshGeometry*> ( v.first );
+                        const MeshGeometry* const mesh = (const MeshGeometry*) ( v.first );
                         if ( !mesh ) {
                             continue;
                         }
@@ -2323,7 +2323,7 @@ void Converter::ConvertAnimationStack( const AnimationStack& st )
         for( const AnimationCurveNode* node : nodes ) {
             ai_assert( node );
 
-            const Model* const model = dynamic_cast<const Model*>( node->Target() );
+            const Model* const model = (const Model*)( node->Target() );
             // this can happen - it could also be a NodeAttribute (i.e. for camera animations)
             if ( !model ) {
                 continue;

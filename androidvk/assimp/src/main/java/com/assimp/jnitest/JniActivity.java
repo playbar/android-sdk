@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.vk.jnitest;
+package com.assimp.jnitest;
 
-import android.support.v7.app.AppCompatActivity;
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import com.vk.R;
-import com.vk.log.Logger;
+import com.assimp.R;
+import com.assimp.log.Logger;
 
 
-public class JniActivity extends AppCompatActivity {
+public class JniActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

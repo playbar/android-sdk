@@ -32,6 +32,8 @@ add_library(assimp SHARED
             jniactivity.c
             contrib/ConvertUTF/ConvertUTF.c
             contrib/irrXML/irrXML.cpp
+            contrib/unzip/ioapi.c
+            contrib/unzip/unzip.c
             #contrib/openddlparser/code/OpenDDLParser.cpp
             #contrib/openddlparser/code/DDLNode.cpp
             #contrib/openddlparser/code/Value.cpp
@@ -109,6 +111,39 @@ add_library(assimp SHARED
             #code/OgreXmlSerializer.cpp
             #code/OgreMaterial.cpp
             code/ConvertToLHProcess.cpp
+            code/glTFImporter.cpp
+            code/AssbinLoader.cpp
+            code/XGLLoader.cpp
+            #code/IFCLoader.cpp
+            code/FBXAnimation.cpp
+            code/FBXBinaryTokenizer.cpp
+            code/FBXConverter.cpp
+            code/FBXDeformer.cpp
+            code/FBXDocument.cpp
+            code/FBXDocumentUtil.cpp
+            code/FBXImporter.cpp
+            code/FBXMaterial.cpp
+            code/FBXMeshGeometry.cpp
+            code/FBXModel.cpp
+            code/FBXNodeAttribute.cpp
+            code/FBXParser.cpp
+            code/FBXProperties.cpp
+            code/FBXTokenizer.cpp
+            code/FBXUtil.cpp
+            code/D3MFImporter.cpp
+            code/D3MFOpcPackage.cpp
+            code/MakeVerboseFormat.cpp
+            code/X3DImporter.cpp
+            code/X3DImporter_Geometry2D.cpp
+            code/X3DImporter_Geometry3D.cpp
+            code/X3DImporter_Group.cpp
+            code/X3DImporter_Light.cpp
+            code/X3DImporter_Metadata.cpp
+            code/X3DImporter_Networking.cpp
+            code/X3DImporter_Postprocess.cpp
+            code/X3DImporter_Rendering.cpp
+            code/X3DImporter_Shape.cpp
+            code/X3DImporter_Texturing.cpp
             code/ImporterRegistry.cpp  #
             code/PostStepRegistry.cpp  #
             code/DefaultIOSystem.cpp
@@ -119,7 +154,9 @@ target_include_directories(assimp PRIVATE
                           ${CMAKE_CURRENT_SOURCE_DIR}/include
                           ${CMAKE_CURRENT_SOURCE_DIR}/contrib
                           ${CMAKE_CURRENT_SOURCE_DIR}/contrib/irrXML
+                          ${CMAKE_CURRENT_SOURCE_DIR}/contrib/unzip
                           ${CMAKE_CURRENT_SOURCE_DIR}/contrib/openddlparser/include
+                          ${CMAKE_CURRENT_SOURCE_DIR}/contrib/rapidjson/include
                           ${CMAKE_CURRENT_SOURCE_DIR}/contrib/ConvertUTF)
 
 target_link_libraries(assimp
