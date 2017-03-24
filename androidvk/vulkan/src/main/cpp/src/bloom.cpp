@@ -523,6 +523,7 @@ public:
 	void loadAssets()
 	{
 		models.ufo.loadFromFile(getAssetPath() + "models/retroufo.dae", vertexLayout, 0.05f, vulkanDevice, queue);
+//		models.ufo.loadFromFile(getAssetPath() + "models/venus.fbx", vertexLayout, 0.05f, vulkanDevice, queue);
 		models.ufoGlow.loadFromFile(getAssetPath() + "models/retroufo_glow.dae", vertexLayout, 0.05f, vulkanDevice, queue);
 		models.skyBox.loadFromFile(getAssetPath() + "models/cube.obj", vertexLayout, 1.0f, vulkanDevice, queue);
 		textures.cubemap.loadFromFile(getAssetPath() + "textures/cubemap_space.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
