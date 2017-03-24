@@ -67,6 +67,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
     return VK_FALSE;
 }
 
+#ifndef SHOWMODEL
 const std::vector<Vertex> vertices = {
         {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
         {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
@@ -83,6 +84,7 @@ const std::vector<uint32_t> indices = {
         0, 1, 2, 2, 3, 0,
         4, 5, 6, 6, 7, 4
 };
+#endif
 
 
 TutorialVK::TutorialVK()
@@ -122,7 +124,7 @@ void TutorialVK::initVulkan(android_app* app)
     createTextureImage();
     createTextureImageView();
     createTextureSampler();
-//    loadModel();
+    loadModel();
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffer();
@@ -295,12 +297,12 @@ void TutorialVK::createInstance()
             .ppEnabledExtensionNames = instance_extensions.data(),
             .enabledLayerCount = 0,
     };
-//    if( enableValidationLayers ){
-//        createInfo.enabledLayerCount = validationLayers.size();
-//        createInfo.ppEnabledExtensionNames = validationLayers.data();
-//    }else{
-//        createInfo.enabledLayerCount = 0;
-//    }
+    if( enableValidationLayers ){
+        createInfo.enabledLayerCount = validationLayers.size();
+        createInfo.ppEnabledExtensionNames = validationLayers.data();
+    }else{
+        createInfo.enabledLayerCount = 0;
+    }
 
     if( vkCreateInstance(&createInfo, nullptr, instance.replace()) != VK_SUCCESS){
         throw std::runtime_error("failed to create instance!");
@@ -1317,6 +1319,7 @@ void TutorialVK::createTextureSampler()
     return;
 }
 
+#ifdef SHOWMODEL
 void TutorialVK::loadModel()
 {
     tinyobj::attrib_t attrib;
@@ -1332,35 +1335,39 @@ void TutorialVK::loadModel()
 
     umap uniqueVertices;
 
-//    for (const auto& shape : shapes)
-//    {
-//        for (const auto& index : shape.mesh.indices)
-//        {
-//            Vertex vertex = {};
-//
-//            vertex.pos = {
-//                    attrib.vertices[3 * index.vertex_index + 0],
-//                    attrib.vertices[3 * index.vertex_index + 1],
-//                    attrib.vertices[3 * index.vertex_index + 2]
-//            };
-//
-//            vertex.texCoord = {
-//                    attrib.texcoords[2 * index.texcoord_index + 0],
-//                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-//            };
-//
-//            vertex.color = {1.0f, 1.0f, 1.0f};
-//
-//            if (uniqueVertices.count(vertex) == 0)
-//            {
-////                uniqueVertices.insert(umap::value_type(vertex, vertices.size()));
-//                uniqueVertices[vertex] = vertices.size();
-//                vertices.push_back(vertex);
-//            }
-//            indices.push_back(uniqueVertices[vertex]);
-//        }
-//    }
+    for (const auto& shape : shapes)
+    {
+        for (const auto& index : shape.mesh.indices)
+        {
+            Vertex vertex = {};
+
+            vertex.pos = {
+                    attrib.vertices[3 * index.vertex_index + 0],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            vertex.texCoord = {
+                    attrib.texcoords[2 * index.texcoord_index + 0],
+                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+            };
+
+            vertex.color = {1.0f, 1.0f, 1.0f};
+
+            if (uniqueVertices.count(vertex) == 0)
+            {
+//                uniqueVertices.insert(umap::value_type(vertex, vertices.size()));
+                uniqueVertices[vertex] = vertices.size();
+                vertices.push_back(vertex);
+            }
+            indices.push_back(uniqueVertices[vertex]);
+        }
+    }
 }
+#else
+void TutorialVK::loadModel(){
+}
+#endif
 
 void TutorialVK::createUniformBuffer()
 {

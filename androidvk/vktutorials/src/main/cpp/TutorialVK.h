@@ -12,6 +12,8 @@
 #include <functional>
 #include <vector>
 
+//#define SHOWMODEL
+
 template <typename T>
 class VDeleter {
 public:
@@ -213,9 +215,10 @@ private:
     VDeleter<VkDeviceMemory> textureImageMemory{device, FreeMemory};
     VDeleter<VkImageView> textureImageView{device, DestroyImageView};
     VDeleter<VkSampler> textureSampler{device, DestroySampler};
-
-//    std::vector<Vertex> vertices;
-//    std::vector<uint32_t> indices;
+#ifdef SHOWMODEL
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+#endif
     VDeleter<VkBuffer> vertexBuffer{device, DestroyBuffer};
     VDeleter<VkDeviceMemory> vertexBufferMemory{device, FreeMemory };
     VDeleter<VkBuffer> indexBuffer{device, DestroyBuffer};
