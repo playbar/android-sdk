@@ -6,6 +6,8 @@ add_definitions(-DVK_USE_PLATFORM_ANDROID_KHR)
 add_definitions(-DASSIMP_BUILD_NO_C4D_IMPORTER)
 add_definitions(-DOPENDDL_NO_USE_CPP11)
 add_definitions(-DZLIB_CONST)
+add_definitions(-DASSIMP_BUILD_NO_OGRE_IMPORTER)
+add_definitions(-DASSIMP_BUILD_NO_OPENGEX_IMPORTER)
 
 get_filename_component(SHADERC_SRC
                        ${ANDROID_NDK}/sources/third_party/shaderc
@@ -22,14 +24,17 @@ set_target_properties(shaderc_lib PROPERTIES IMPORTED_LOCATION
 #file(GLOB UTILS_SOURCE *.cpp)
 #file(GLOB GLUE_SOURCE *.c)
 
-#add_library(vksample SHARED
+#add_library(assimp SHARED
 #            ${UTILS_SOURCE}
 #            ${GLUE_SOURCE})
 
-add_library(vksample SHARED
+add_library(assimp SHARED
             jniactivity.c
             contrib/ConvertUTF/ConvertUTF.c
             contrib/irrXML/irrXML.cpp
+            #contrib/openddlparser/code/OpenDDLParser.cpp
+            #contrib/openddlparser/code/DDLNode.cpp
+            #contrib/openddlparser/code/Value.cpp
             code/3DSConverter.cpp
             code/DefaultLogger.cpp
             code/scene.cpp
@@ -53,24 +58,71 @@ add_library(vksample SHARED
             code/AMFImporter_Postprocess.cpp
             code/MD3Loader.cpp
             code/MD2Loader.cpp
+            code/PlyLoader.cpp
+            code/MDLloader.cpp
+            code/PlyParser.cpp
+            code/ASELoader.cpp
+            code/ASEParser.cpp
+            code/HMPLoader.cpp
+            code/SMDLoader.cpp
+            code/MDCLoader.cpp
+            code/MD5Loader.cpp
+            code/MD5Parser.cpp
+            code/STLLoader.cpp
+            code/LWOLoader.cpp
+            code/DXFLoader.cpp
+            code/LWOBLoader.cpp
+            code/OFFLoader.cpp
+            code/ACLoader.cpp
+            code/Subdivision.cpp
+            code/LWOMaterial.cpp
+            code/RawLoader.cpp
+            code/SIBImporter.cpp
+            code/StandardShapes.cpp
+            code/NFFLoader.cpp
+            code/BVHLoader.cpp
+            code/IRRMeshLoader.cpp
+            code/IRRLoader.cpp
+            code/IRRShared.cpp
+            code/Q3DLoader.cpp
+            code/CSMLoader.cpp
+            code/UnrealLoader.cpp
+            code/LWSLoader.cpp
+            code/ColladaLoader.cpp
+            code/TerragenLoader.cpp
+            code/SkeletonMeshBuilder.cpp
+            code/MDLMaterialLoader.cpp
             code/RemoveComments.cpp
             code/SceneCombiner.cpp
             code/ObjFileMtlImporter.cpp
             code/SGSpatialSort.cpp
+            code/ColladaParser.cpp
+            code/CreateAnimMesh.cpp
+            code/B3DImporter.cpp
+            code/LWOAnimation.cpp
+            #code/OpenGEXImporter.cpp
+            code/MS3DLoader.cpp
+            code/COBLoader.cpp
+            #code/OgreImporter.cpp
+            #code/OgreBinarySerializer.cpp
+            #code/OgreStructs.cpp
+            #code/OgreXmlSerializer.cpp
+            #code/OgreMaterial.cpp
             code/ConvertToLHProcess.cpp
             code/ImporterRegistry.cpp  #
             code/PostStepRegistry.cpp  #
             code/DefaultIOSystem.cpp
             code/MaterialSystem.cpp)
 
-target_include_directories(vksample PRIVATE
+target_include_directories(assimp PRIVATE
                           ${CMAKE_CURRENT_SOURCE_DIR}
                           ${CMAKE_CURRENT_SOURCE_DIR}/include
                           ${CMAKE_CURRENT_SOURCE_DIR}/contrib
                           ${CMAKE_CURRENT_SOURCE_DIR}/contrib/irrXML
+                          ${CMAKE_CURRENT_SOURCE_DIR}/contrib/openddlparser/include
                           ${CMAKE_CURRENT_SOURCE_DIR}/contrib/ConvertUTF)
 
-target_link_libraries(vksample
+target_link_libraries(assimp
                       android
                       zlibstatic
                       log )

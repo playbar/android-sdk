@@ -72,6 +72,6 @@ public class JniActivity extends AppCompatActivity {
 
     static
     {
-        System.loadLibrary("vksample");
+        System.loadLibrary("assimp");
     }
 }
