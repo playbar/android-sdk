@@ -135,60 +135,60 @@ void GetPostProcessingStepInstanceList(std::vector< BaseProcess* >& out)
 #if (!defined ASSIMP_BUILD_NO_MAKELEFTHANDED_PROCESS)
     out.push_back( new MakeLeftHandedProcess());
 #endif
-//#if (!defined ASSIMP_BUILD_NO_FLIPUVS_PROCESS)
-//    out.push_back( new FlipUVsProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_FLIPWINDINGORDER_PROCESS)
-//    out.push_back( new FlipWindingOrderProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_REMOVEVC_PROCESS)
-//    out.push_back( new RemoveVCProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_REMOVE_REDUNDANTMATERIALS_PROCESS)
-//    out.push_back( new RemoveRedundantMatsProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_FINDINSTANCES_PROCESS)
-//    out.push_back( new FindInstancesProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_OPTIMIZEGRAPH_PROCESS)
-//    out.push_back( new OptimizeGraphProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_FINDDEGENERATES_PROCESS)
-//    out.push_back( new FindDegeneratesProcess());
-//#endif
-//#ifndef ASSIMP_BUILD_NO_GENUVCOORDS_PROCESS
-//    out.push_back( new ComputeUVMappingProcess());
-//#endif
-//#ifndef ASSIMP_BUILD_NO_TRANSFORMTEXCOORDS_PROCESS
-//    out.push_back( new TextureTransformStep());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_PRETRANSFORMVERTICES_PROCESS)
-//    out.push_back( new PretransformVertices());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_TRIANGULATE_PROCESS)
-//    out.push_back( new TriangulateProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_SORTBYPTYPE_PROCESS)
-//    out.push_back( new SortByPTypeProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_FINDINVALIDDATA_PROCESS)
-//    out.push_back( new FindInvalidDataProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_OPTIMIZEMESHES_PROCESS)
-//    out.push_back( new OptimizeMeshesProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_FIXINFACINGNORMALS_PROCESS)
-//    out.push_back( new FixInfacingNormalsProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_SPLITBYBONECOUNT_PROCESS)
-//    out.push_back( new SplitByBoneCountProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_SPLITLARGEMESHES_PROCESS)
-//    out.push_back( new SplitLargeMeshesProcess_Triangle());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_GENFACENORMALS_PROCESS)
-//    out.push_back( new GenFaceNormalsProcess());
-//#endif
+#if (!defined ASSIMP_BUILD_NO_FLIPUVS_PROCESS)
+    out.push_back( new FlipUVsProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_FLIPWINDINGORDER_PROCESS)
+    out.push_back( new FlipWindingOrderProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_REMOVEVC_PROCESS)
+    out.push_back( new RemoveVCProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_REMOVE_REDUNDANTMATERIALS_PROCESS)
+    out.push_back( new RemoveRedundantMatsProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_FINDINSTANCES_PROCESS)
+    out.push_back( new FindInstancesProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_OPTIMIZEGRAPH_PROCESS)
+    out.push_back( new OptimizeGraphProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_FINDDEGENERATES_PROCESS)
+    out.push_back( new FindDegeneratesProcess());
+#endif
+#ifndef ASSIMP_BUILD_NO_GENUVCOORDS_PROCESS
+    out.push_back( new ComputeUVMappingProcess());
+#endif
+#ifndef ASSIMP_BUILD_NO_TRANSFORMTEXCOORDS_PROCESS
+    out.push_back( new TextureTransformStep());
+#endif
+#if (!defined ASSIMP_BUILD_NO_PRETRANSFORMVERTICES_PROCESS)
+    out.push_back( new PretransformVertices());
+#endif
+#if (!defined ASSIMP_BUILD_NO_TRIANGULATE_PROCESS)
+    out.push_back( new TriangulateProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_SORTBYPTYPE_PROCESS)
+    out.push_back( new SortByPTypeProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_FINDINVALIDDATA_PROCESS)
+    out.push_back( new FindInvalidDataProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_OPTIMIZEMESHES_PROCESS)
+    out.push_back( new OptimizeMeshesProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_FIXINFACINGNORMALS_PROCESS)
+    out.push_back( new FixInfacingNormalsProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_SPLITBYBONECOUNT_PROCESS)
+    out.push_back( new SplitByBoneCountProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_SPLITLARGEMESHES_PROCESS)
+    out.push_back( new SplitLargeMeshesProcess_Triangle());
+#endif
+#if (!defined ASSIMP_BUILD_NO_GENFACENORMALS_PROCESS)
+    out.push_back( new GenFaceNormalsProcess());
+#endif
 //
 //    // .........................................................................
 //    // DON'T change the order of these five ..
@@ -198,32 +198,32 @@ void GetPostProcessingStepInstanceList(std::vector< BaseProcess* >& out)
 //    out.push_back( new ComputeSpatialSortProcess());
 //    // .........................................................................
 //
-//#if (!defined ASSIMP_BUILD_NO_GENVERTEXNORMALS_PROCESS)
-//    out.push_back( new GenVertexNormalsProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_CALCTANGENTS_PROCESS)
-//    out.push_back( new CalcTangentsProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_JOINVERTICES_PROCESS)
-//    out.push_back( new JoinVerticesProcess());
-//#endif
-//
-//    // .........................................................................
-//    out.push_back( new DestroySpatialSortProcess());
-//    // .........................................................................
-//
-//#if (!defined ASSIMP_BUILD_NO_SPLITLARGEMESHES_PROCESS)
-//    out.push_back( new SplitLargeMeshesProcess_Vertex());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_DEBONE_PROCESS)
-//    out.push_back( new DeboneProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_LIMITBONEWEIGHTS_PROCESS)
-//    out.push_back( new LimitBoneWeightsProcess());
-//#endif
-//#if (!defined ASSIMP_BUILD_NO_IMPROVECACHELOCALITY_PROCESS)
-//    out.push_back( new ImproveCacheLocalityProcess());
-//#endif
+#if (!defined ASSIMP_BUILD_NO_GENVERTEXNORMALS_PROCESS)
+    out.push_back( new GenVertexNormalsProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_CALCTANGENTS_PROCESS)
+    out.push_back( new CalcTangentsProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_JOINVERTICES_PROCESS)
+    out.push_back( new JoinVerticesProcess());
+#endif
+
+    // .........................................................................
+    out.push_back( new DestroySpatialSortProcess());
+    // .........................................................................
+
+#if (!defined ASSIMP_BUILD_NO_SPLITLARGEMESHES_PROCESS)
+    out.push_back( new SplitLargeMeshesProcess_Vertex());
+#endif
+#if (!defined ASSIMP_BUILD_NO_DEBONE_PROCESS)
+    out.push_back( new DeboneProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_LIMITBONEWEIGHTS_PROCESS)
+    out.push_back( new LimitBoneWeightsProcess());
+#endif
+#if (!defined ASSIMP_BUILD_NO_IMPROVECACHELOCALITY_PROCESS)
+    out.push_back( new ImproveCacheLocalityProcess());
+#endif
 }
 
 }

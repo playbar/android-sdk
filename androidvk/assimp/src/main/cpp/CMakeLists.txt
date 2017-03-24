@@ -114,6 +114,7 @@ add_library(assimp SHARED
             code/glTFImporter.cpp
             code/AssbinLoader.cpp
             code/XGLLoader.cpp
+            #code/BlenderLoader.cpp
             #code/IFCLoader.cpp
             code/FBXAnimation.cpp
             code/FBXBinaryTokenizer.cpp
@@ -146,6 +147,31 @@ add_library(assimp SHARED
             code/X3DImporter_Texturing.cpp
             code/ImporterRegistry.cpp  #
             code/PostStepRegistry.cpp  #
+            code/ConvertToLHProcess.cpp
+            code/RemoveVCProcess.cpp
+            code/RemoveRedundantMaterials.cpp
+            code/FindInstancesProcess.cpp
+            code/OptimizeGraph.cpp
+            code/FindDegenerates.cpp
+            code/ComputeUVMappingProcess.cpp
+            code/PretransformVertices.cpp
+            code/TriangulateProcess.cpp
+            code/TextureTransform.cpp
+            code/SortByPTypeProcess.cpp
+            code/FindInvalidDataProcess.cpp
+            code/OptimizeMeshes.cpp
+            code/FixNormalsStep.cpp
+            code/SplitByBoneCountProcess.cpp
+            code/SplitLargeMeshes.cpp
+            code/GenFaceNormalsProcess.cpp
+            code/GenVertexNormalsProcess.cpp
+            code/CalcTangentsProcess.cpp
+            code/JoinVerticesProcess.cpp
+            code/SplitLargeMeshes.cpp
+            code/DeboneProcess.cpp
+            code/LimitBoneWeightsProcess.cpp
+            code/ImproveCacheLocality.cpp
+            code/VertexTriangleAdjacency.cpp
             code/DefaultIOSystem.cpp
             code/MaterialSystem.cpp)
 
