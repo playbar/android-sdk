@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.example.android.touchexample;
+package com.bar.touchexample;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -21,6 +21,8 @@ import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+
+import com.bar.R;
 
 public class TouchExampleView extends View {
     private Drawable mIcon;
