@@ -30,7 +30,7 @@ add_library(vksample SHARED
             base/VulkanDebug.cpp
             base/vulkanexamplebase.cpp
             base/VulkanTools.cpp
-            bloom.cpp
+            src/bloom.cpp
             )
 
 target_include_directories(vksample PRIVATE
