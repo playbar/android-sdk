@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.contactmanager;
+package com.bar.contactmanager;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -30,6 +30,8 @@ import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
+
+import com.bar.R;
 
 public final class ContactManager extends Activity
 {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.contactmanager;
+package com.bar.contactmanager;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -40,6 +40,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.OnItemSelectedListener;
+
+import com.bar.R;
 
 import java.util.ArrayList;
 import java.util.Iterator;
