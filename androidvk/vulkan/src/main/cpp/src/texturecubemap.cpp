@@ -31,7 +31,7 @@
 class VulkanExample : public VulkanExampleBase
 {
 public:
-	bool displaySkybox = true;
+	bool displaySkybox = false;
 
 	vks::Texture cubeMap;
 

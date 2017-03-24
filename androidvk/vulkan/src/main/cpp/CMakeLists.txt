@@ -30,7 +30,7 @@ add_library(vksample SHARED
             base/VulkanDebug.cpp
             base/vulkanexamplebase.cpp
             base/VulkanTools.cpp
-            src/bloom.cpp
+            src/texturecubemap.cpp
             )
 
 target_include_directories(vksample PRIVATE
@@ -44,4 +44,4 @@ target_link_libraries(vksample
                       android
                       log
                       z
-                      assimp )
+                      assimp_lib )

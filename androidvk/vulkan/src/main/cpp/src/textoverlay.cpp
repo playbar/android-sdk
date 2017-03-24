@@ -28,7 +28,7 @@
 #include "VulkanModel.hpp"
 #include "VulkanTexture.hpp"
 
-#include "../external/stb/stb_font_consolas_24_latin1.inl"
+#include "stb/stb_font_consolas_24_latin1.inl"
 
 #define VERTEX_BUFFER_BIND_ID 0
 #define ENABLE_VALIDATION false
@@ -574,6 +574,8 @@ public:
 			case alignCenter:
 				x -= textWidth / 2.0f;
 				break;
+            case alignLeft:
+                break;
 		}
 
 		// Generate a uv mapped quad per char in the new text

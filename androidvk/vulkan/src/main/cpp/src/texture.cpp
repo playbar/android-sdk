@@ -132,6 +132,8 @@ public:
 			// Make sure any writes to the image have been finished
 			imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 			break;
+            default:
+                break;
 		}
 		
 		// Target layouts (new)
@@ -151,6 +153,8 @@ public:
 			// Shader read (sampler, input attachment)
 			imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 			break;
+            default:
+                break;
 		}
 
 		// Put barrier on top of pipeline
