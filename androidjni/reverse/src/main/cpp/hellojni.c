@@ -27,6 +27,7 @@
 
 #define LOG_TAG "test"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define ABI "armeabi-v7a"
@@ -94,13 +95,14 @@ void testProperties()
 }
 
 JNIEXPORT void JNICALL
-Java_com_droider_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
+Java_com_reverse_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 {
     int result = 0;
 //    system("pwd");
     result = system("mkdir /data/data/com.bar.hellojni/temp");
     if( -1 == result || 127 == result )
     {
+        LOGI("error");
         LOGE("error");
     }
 
@@ -112,7 +114,7 @@ Java_com_droider_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_droider_HelloJni_stringFromJNI( JNIEnv* env,
+Java_com_reverse_HelloJni_stringFromJNI( JNIEnv* env,
                                                   jobject thiz )
 {
 
@@ -166,9 +168,13 @@ Java_com_droider_HelloJni_stringFromJNI( JNIEnv* env,
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_droider_HelloJni_stringFromJNI_11(
+Java_com_reverse_HelloJni_stringFromJNI_11(
         JNIEnv* env, jobject thiz )
 {
+    int a = 1;
+    int b = 2;
+    int c = a + b;
+    LOGE("c:%d", c);
     return (*env)->NewStringUTF(env, "stringFromJNI_11");
 }
 

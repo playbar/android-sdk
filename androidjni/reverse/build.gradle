@@ -4,7 +4,7 @@ android {
     compileSdkVersion 19
     buildToolsVersion '25.0.0'
     defaultConfig {
-        applicationId 'com.droider'
+        applicationId 'com.reverse'
         minSdkVersion 19
         targetSdkVersion 19
 //        renderscriptTargetApi 19
@@ -15,6 +15,7 @@ android {
             cmake {
                 abiFilters 'armeabi-v7a'
                 arguments '-DANDROID_TOOLCHAIN=clang'
+
             }
         }
     }
@@ -24,11 +25,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-//    externalNativeBuild {
-//        cmake {
-//            path "src/main/cpp/CMakeLists.txt"
-//        }
-//    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
 
 }
 
