@@ -94,7 +94,7 @@ void testProperties()
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_hellojni_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
+Java_com_droider_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 {
     int result = 0;
 //    system("pwd");
@@ -112,7 +112,7 @@ Java_com_example_hellojni_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_example_hellojni_HelloJni_stringFromJNI( JNIEnv* env,
+Java_com_droider_HelloJni_stringFromJNI( JNIEnv* env,
                                                   jobject thiz )
 {
 
@@ -166,7 +166,7 @@ Java_com_example_hellojni_HelloJni_stringFromJNI( JNIEnv* env,
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_example_hellojni_HelloJni_stringFromJNI_11(
+Java_com_droider_HelloJni_stringFromJNI_11(
         JNIEnv* env, jobject thiz )
 {
     return (*env)->NewStringUTF(env, "stringFromJNI_11");
