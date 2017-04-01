@@ -29,6 +29,7 @@ add_library(vksample SHARED
             base/vulkanandroid.cpp
             base/VulkanDebug.cpp
             base/vulkanexamplebase.cpp
+            base/VulkanModel.cpp
             base/VulkanTexture.cpp
             base/VulkanTools.cpp
             src/bloom.cpp
