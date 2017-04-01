@@ -94,6 +94,11 @@ void testProperties()
     return;
 }
 
+void main()
+{
+    int d = 4;
+}
+
 int func(int a, int b, int c, int d)
 {
     a = 0xF200;

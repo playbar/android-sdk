@@ -28,6 +28,7 @@ add_library(vksample SHARED
             jniactivity.c
             base/vulkanandroid.cpp
             base/VulkanDebug.cpp
+            base/VulkanDevice.cpp
             base/vulkanexamplebase.cpp
             base/VulkanModel.cpp
             base/VulkanTexture.cpp
