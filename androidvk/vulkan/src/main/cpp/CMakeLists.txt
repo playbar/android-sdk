@@ -29,8 +29,9 @@ add_library(vksample SHARED
             base/vulkanandroid.cpp
             base/VulkanDebug.cpp
             base/vulkanexamplebase.cpp
+            base/VulkanTexture.cpp
             base/VulkanTools.cpp
-            src/computecullandlod.cpp
+            src/bloom.cpp
             )
 
 target_include_directories(vksample PRIVATE

@@ -94,23 +94,25 @@ void testProperties()
     return;
 }
 
+int func(int a, int b, int c, int d)
+{
+    a = 0xF200;
+    a = 0xF201;
+    b = 0;
+    b = 1;
+    b = 2;
+    b = 3;
+    b = 4;
+    b = 0x10;
+    return a + b + c + d;
+}
+
 JNIEXPORT void JNICALL
 Java_com_reverse_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 {
-    int result = 0;
-//    system("pwd");
-    result = system("mkdir /data/data/com.bar.hellojni/temp");
-    if( -1 == result || 127 == result )
-    {
-        LOGI("error");
-        LOGE("error");
-    }
-
-    pid_t pid = getpid();
-    uid_t uid = getuid();
-
-    char *username = getlogin();
-    LOGE("F:%s,%s", __FUNCTION__, username);
+    int i = 1, j = 2;
+    int res = func(i, j, 3, 4);
+//    LOGE("res:%d", res );
 }
 
 JNIEXPORT jstring JNICALL
@@ -171,10 +173,20 @@ JNIEXPORT jstring JNICALL
 Java_com_reverse_HelloJni_stringFromJNI_11(
         JNIEnv* env, jobject thiz )
 {
-    int a = 1;
-    int b = 2;
-    int c = a + b;
-    LOGE("c:%d", c);
+    int result = 0;
+//    system("pwd");
+    result = system("mkdir /data/data/com.bar.hellojni/temp");
+    if( -1 == result || 127 == result )
+    {
+        LOGI("error");
+        LOGE("error");
+    }
+
+    pid_t pid = getpid();
+    uid_t uid = getuid();
+
+    char *username = getlogin();
+    LOGE("F:%s,%s", __FUNCTION__, username);
     return (*env)->NewStringUTF(env, "stringFromJNI_11");
 }
 
