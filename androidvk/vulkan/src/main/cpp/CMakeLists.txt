@@ -33,7 +33,7 @@ add_library(vksample SHARED
             base/VulkanModel.cpp
             base/VulkanTexture.cpp
             base/VulkanTools.cpp
-            src/bloom.cpp
+            src/triangle.cpp
             )
 
 target_include_directories(vksample PRIVATE

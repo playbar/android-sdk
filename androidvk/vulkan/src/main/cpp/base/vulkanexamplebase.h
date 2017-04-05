@@ -174,7 +174,7 @@ public:
 	glm::vec3 cameraPos = glm::vec3();
 	glm::vec2 mousePos;
 
-	std::string title = "Vulkan Example";
+	std::string title = "VulkanExample";
 	std::string name = "vulkanExample";
 
 	struct 

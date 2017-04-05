@@ -112,10 +112,51 @@ int func(int a, int b, int c, int d)
     return a + b + c + d;
 }
 
+typedef struct
+{
+    char b;
+    short c;
+    int a;
+
+}StB;
+
+#pragma pack(1)
+unsigned char Buffer[1000]; // 待解析数据缓冲区
+#pragma unpack();
+
+void funcTest()
+{
+    int size= sizeof(StB);
+    unsigned char *pPos = Buffer;// 记录缓冲区起始地址，并用于解析缓冲区中的数据
+
+    float *pValueA = (float *)pPos;// 记录浮点数 A 的地址
+    pPos+= sizeof(float);// 跳过浮点数 A
+
+//    unsigned char cTag = *pPos++;// 跳过一个字节的标记位
+    pPos = pPos + 1;
+
+    float *pValueB = (float *)pPos;// 记录浮点数 B 的地址
+
+    float a = *pValueA;
+    float b = *pValueB;
+//    float b = *(float*)((char*)pValueB + 2);
+
+
+
+    *pValueA = 1.0f;
+
+    *pValueA = (a) *(*pValueB);
+
+//    (*pValueA) = (*pValueA) * (*pValueB); // 此处崩溃！！
+    (*pValueB) = (*pValueB) * (*pValueB);
+}
+
+
 JNIEXPORT void JNICALL
 Java_com_reverse_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 {
     int i = 1, j = 2;
+//    funcTest();
     int res = func(i, j, 3, 4);
 //    LOGE("res:%d", res );
 }
