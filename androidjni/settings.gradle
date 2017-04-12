@@ -1,3 +1,4 @@
 include ':app'
 include ':crack'
+include ':hook'
 include ':reverse'
