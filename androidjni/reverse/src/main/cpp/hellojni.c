@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/system_properties.h>
+#include <dlfcn.h>
 
 #define LOG_TAG "test"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -31,6 +32,11 @@
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define ABI "armeabi-v7a"
+
+void * m_hDLL;
+
+typedef uint64_t (*FP_GetTicks)(void);
+FP_GetTicks gpFunGetTicks;
 
 extern JavaVM *gs_jvm;
 
@@ -94,9 +100,15 @@ void testProperties()
     return;
 }
 
-void main()
+int is_file_exist(const char *file_path)
 {
-    int d = 4;
+    if(file_path == NULL )
+    {
+        return  -1;
+    }
+    if( access(file_path, F_OK) == 0 )
+        return 0;
+    return -1;
 }
 
 int func(int a, int b, int c, int d)
@@ -151,10 +163,28 @@ void funcTest()
     (*pValueB) = (*pValueB) * (*pValueB);
 }
 
+void loadLib()
+{
+    const char *filename = "/data/data/com.reverse/lib/libgperf.so";
+    LOGE("name:%s", filename);
+    is_file_exist(filename);
+    m_hDLL = dlopen(filename, RTLD_LAZY);
+    if( m_hDLL == NULL)
+    {
+        LOGE( "dlopen err:%s.\n",dlerror());
+    }
+    gpFunGetTicks = (FP_GetTicks)dlsym(m_hDLL, "GetTicks");
+    uint64_t tick = gpFunGetTicks();
+    LOGE("tick:%lld", tick);
+    if (m_hDLL)
+        dlclose(m_hDLL);
+    return;
+}
 
 JNIEXPORT void JNICALL
 Java_com_reverse_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 {
+    loadLib();
     int i = 1, j = 2;
 //    funcTest();
     int res = func(i, j, 3, 4);
@@ -182,7 +212,7 @@ Java_com_reverse_HelloJni_stringFromJNI( JNIEnv* env,
 
     int result = 0;
 //    system("pwd");
-    result = system("mkdir /data/data/com.bar.hellojni/temp");
+    result = system("mkdir /data/data/com.reverse/temp");
     if( -1 == result || 127 == result )
     {
         LOGE("error");
