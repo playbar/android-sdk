@@ -192,8 +192,7 @@ Java_com_reverse_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_reverse_HelloJni_stringFromJNI( JNIEnv* env,
-                                                  jobject thiz )
+Java_com_reverse_HelloJni_stringFromJNI( JNIEnv* env, jobject thiz )
 {
 
 //    testProperties();
@@ -246,8 +245,7 @@ Java_com_reverse_HelloJni_stringFromJNI( JNIEnv* env,
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_reverse_HelloJni_stringFromJNI_11(
-        JNIEnv* env, jobject thiz )
+Java_com_reverse_HelloJni_stringFromJNI_11(JNIEnv* env, jobject thiz )
 {
     int result = 0;
 //    system("pwd");
