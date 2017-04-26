@@ -182,7 +182,7 @@ void loadLib()
 }
 
 JNIEXPORT void JNICALL
-Java_com_reverse_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
+Java_com_inject_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 {
     loadLib();
     int i = 1, j = 2;
@@ -192,7 +192,7 @@ Java_com_reverse_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_reverse_HelloJni_stringFromJNI( JNIEnv* env, jobject thiz )
+Java_com_inject_HelloJni_stringFromJNI( JNIEnv* env, jobject thiz )
 {
 
 //    testProperties();
@@ -245,7 +245,7 @@ Java_com_reverse_HelloJni_stringFromJNI( JNIEnv* env, jobject thiz )
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_reverse_HelloJni_stringFromJNI_11(JNIEnv* env, jobject thiz )
+Java_com_inject_HelloJni_stringFromJNI_11(JNIEnv* env, jobject thiz )
 {
     int result = 0;
 //    system("pwd");

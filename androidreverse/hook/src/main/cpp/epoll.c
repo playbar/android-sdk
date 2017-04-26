@@ -178,7 +178,8 @@ void hook_directly() {
 	log("hook_directly end :0x%lx\n", (unsigned long)gettimeofday_old_directly);
 }
 
-int hook_entry(char * a){  
+int hook_entry(char * a)
+{
     log("Hook success,%d, pid = %d\n", 5, getpid())
     //hookSubstrate();
     hook_directly();

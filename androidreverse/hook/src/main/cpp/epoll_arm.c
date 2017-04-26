@@ -26,6 +26,6 @@ int gettimeofday_new_arm(struct timeval *tv, struct timezone *tz) {
 	return gettimeofday_new(tv, tz);
 }
 
-int clock_gettime_new_arm(clockid_t clk_id, struct timespec *tp) {
-	return clock_gettime_new(clk_id, tp);
-}
+//int clock_gettime_new_arm(clockid_t clk_id, struct timespec *tp) {
+//	return clock_gettime_new(clk_id, tp);
+//}

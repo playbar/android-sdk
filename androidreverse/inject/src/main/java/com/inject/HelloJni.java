@@ -1,5 +1,5 @@
 
-package com.reverse;
+package com.inject;
 
 import android.app.Activity;
 import android.os.Bundle;

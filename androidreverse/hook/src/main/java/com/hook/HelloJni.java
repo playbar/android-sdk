@@ -69,6 +69,6 @@ public class HelloJni extends Activity {
 
     static
     {
-        System.loadLibrary("reverse");
+        System.loadLibrary("hook");
     }
 }
