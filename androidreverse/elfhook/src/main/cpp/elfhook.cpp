@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 
 #include "elf_hooker.h"
+#include "elfhook.h"
 
 static void* (*__old_impl_dlopen)(const char* filename, int flag);
 
@@ -14,30 +15,27 @@ static int (*__old_impl_connect)(int sockfd,struct sockaddr * serv_addr,int addr
 
 static void* (*__old_impl_android_dlopen_ext)(const char* filename, int flags, const void* extinfo);
 
-extern "C" {
-
-    static void* __nativehook_impl_dlopen(const char* filename, int flag)
-    {
-        log_info("__nativehook_impl_dlopen -> (%s)\n", filename);
-        void* res = __old_impl_dlopen(filename, flag);
-        return res;
-    }
-
-    static int __nativehook_impl_connect(int sockfd,struct sockaddr * serv_addr,int addrlen)
-    {
-        log_info("__nativehook_impl_connect ->\n");
-        int res = __old_impl_connect(sockfd, serv_addr, addrlen);
-        return res;
-    }
-
-    static void* __nativehook_impl_android_dlopen_ext(const char* filename, int flags, const void* extinfo)
-    {
-        log_info("__nativehook_impl_android_dlopen_ext -> (%s)\n", filename);
-        void* res = __old_impl_android_dlopen_ext(filename, flags, extinfo);
-        return res;
-    }
-
+void* __nativehook_impl_dlopen(const char* filename, int flag)
+{
+    log_info("__nativehook_impl_dlopen -> (%s)\n", filename);
+    void* res = __old_impl_dlopen(filename, flag);
+    return res;
 }
+
+int __nativehook_impl_connect(int sockfd,struct sockaddr * serv_addr,int addrlen)
+{
+    log_info("__nativehook_impl_connect ->\n");
+    int res = __old_impl_connect(sockfd, serv_addr, addrlen);
+    return res;
+}
+
+void* __nativehook_impl_android_dlopen_ext(const char* filename, int flags, const void* extinfo)
+{
+    log_info("__nativehook_impl_android_dlopen_ext -> (%s)\n", filename);
+    void* res = __old_impl_android_dlopen_ext(filename, flags, extinfo);
+    return res;
+}
+
 
 static bool __prehook(const char* module_name, const char* func_name)
 {
@@ -82,18 +80,19 @@ static bool __is_attached = false;
 
 static JNIEnv* __getEnv(bool* attached);
 static void __releaseEnv(bool attached);
-static int __set_hook(JNIEnv *env, jobject thiz);
+//static int __set_hook(JNIEnv *env, jobject thiz);
 static int __test(JNIEnv *env, jobject thiz);
 static int __elfhooker_init(JavaVM* vm, JNIEnv* env);
 static void __elfhooker_deinit(void);
 
 static JNINativeMethod __methods[] =
 {
-    {"setHook","()I",(void *)__set_hook },
+//    {"setHook","()I",(void *)__set_hook },
 //    {"test","()I",(void *)__test },
 };
 
-static int __set_hook(JNIEnv *env, jobject thiz)
+//static int __set_hook(JNIEnv *env, jobject thiz)
+JNIEXPORT int JNICALL Java_com_wadahana_testhook_ElfHooker_setHook(JNIEnv* env, jobject thiz)
 {
     log_info("__set_hook() -->\r\n");
 //    __hooker.set_prehook_cb(__prehook);
@@ -115,7 +114,8 @@ static int __set_hook(JNIEnv *env, jobject thiz)
     return 0;
 }
 
-static int __test(JNIEnv *env, jobject thiz)
+//static int __test(JNIEnv *env, jobject thiz)
+JNIEXPORT int JNICALL Java_com_wadahana_testhook_ElfHooker_test(JNIEnv* env, jobject thiz)
 {
     log_info("__test() -->\r\n");
 //    __hooker.dump_proc_maps();
@@ -177,11 +177,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
         return -1;
     }
     assert(!__is_attached);
-    if (__elfhooker_init(vm, env) < 0)
-    {
-        log_error("__elfhooker_init fail\r\n");
-        return -1;
-    }
+//    if (__elfhooker_init(vm, env) < 0)
+//    {
+//        log_error("__elfhooker_init fail\r\n");
+//        return -1;
+//    }
     return JNI_VERSION_1_4;
 }
 

@@ -12,7 +12,7 @@ public class ElfHooker {
 
     static {
         try {
-            System.loadLibrary("ElfHook");
+            System.loadLibrary("elfhook");
             isLoadLibrary = true;
         } catch (UnsatisfiedLinkError e) {
             Log.e(TAG, "Nativie library not found! Please copy libElfHook.so into your project");

@@ -4,7 +4,7 @@ add_library(elfhook SHARED
             elf_common.cpp
             elf_hooker.cpp
             elf_module.cpp
-            main.cpp)
+            elfhook.cpp)
 
 target_link_libraries(elfhook
                       android

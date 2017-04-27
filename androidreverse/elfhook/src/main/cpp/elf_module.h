@@ -1,5 +1,5 @@
-#if !defined(__ELFHOOK_H__)
-#define __ELFHOOK_H__
+#if !defined(__ELF_MODULE_H__)
+#define __ELF_MODULE_H__
 
 #include <elf.h>
 #include <string>
