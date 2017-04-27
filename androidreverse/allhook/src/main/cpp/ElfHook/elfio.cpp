@@ -12,7 +12,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <cutils/log.h>
 
 #include "common.h"
 #include "elfio.h"

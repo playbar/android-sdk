@@ -1,4 +1,4 @@
-//include ':allhook'
+include ':allhook'
 include ':crack'
 include ':hook'
 include ':reverse'

@@ -16,15 +16,15 @@
 #define LOG_TAG "TTT"
 #endif
 
-//#ifdef DEBUG
-//#define LOGI(...) ALOGI(__VA_ARGS__)
-//#define LOGE(...) ALOGE(__VA_ARGS__)
-//#define LOGW(...) ALOGW(__VA_ARGS__)
-//#else
-//#define LOGI(...) while(0){}
-//#define LOGE(...) while(0){}
-//#define LOGW(...) while(0){}
-//#endif
+#ifdef DEBUG
+#define LOGI(...) ALOGI(__VA_ARGS__)
+#define LOGE(...) ALOGE(__VA_ARGS__)
+#define LOGW(...) ALOGW(__VA_ARGS__)
+#else
+#define LOGI(...) while(0){}
+#define LOGE(...) while(0){}
+#define LOGW(...) while(0){}
+#endif
 
 #define CHECK_VALID(V) 				\
 	if(V == NULL){					\

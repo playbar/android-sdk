@@ -218,9 +218,9 @@ public:
 		return method_;
 	}
 
-    mirror::Object* GetThisObject() const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    mirror::Object* GetThisObject() const ;//SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-    mirror::Object* GetThisObject(uint16_t num_ins) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+    mirror::Object* GetThisObject(uint16_t num_ins) const ;//SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
 	bool HasReferenceArray() const {
 #if defined(ART_USE_PORTABLE_COMPILER)
@@ -376,7 +376,7 @@ public:
 
 	const void* GetRawData(size_t component_size) const;
 
-	bool IsValidIndex(int32_t index) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+	bool IsValidIndex(int32_t index) const ;//SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
 private:
 	// The number of array elements.
@@ -392,7 +392,7 @@ public:
 
   T* GetData();
 
-  T Get(int32_t i) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  T Get(int32_t i) const ;//SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 };
 
 class MANAGED String: public Object {
@@ -613,7 +613,8 @@ public:
 		return GetFieldObject<String*>(OFFSET_OF_OBJECT_MEMBER(Class, name_), false);
 	}
 
-	Class* GetSuperClass() const SHARED_LOCKS_REQUIRED (Locks::mutator_lock_){
+	Class* GetSuperClass() const //SHARED_LOCKS_REQUIRED (Locks::mutator_lock_)
+    {
 		 return GetFieldObject<Class*>(OFFSET_OF_OBJECT_MEMBER(Class, super_class_), false);
 	}
 
@@ -621,7 +622,8 @@ public:
 		return GetFieldObject<ClassLoader*>(OFFSET_OF_OBJECT_MEMBER(Class, class_loader_), false);
 	}
 
-	DexCache* GetDexCache() const SHARED_LOCKS_REQUIRED (Locks::mutator_lock_){
+	DexCache* GetDexCache() const //SHARED_LOCKS_REQUIRED (Locks::mutator_lock_)
+    {
 		return GetFieldObject<DexCache*>(OFFSET_OF_OBJECT_MEMBER(Class, dex_cache_), false);
 	}
 

@@ -1,5 +1,4 @@
 #include <cutils/properties.h>
-#include <cutils/log.h>
 
 #include "common.h"
 #include "JavaMethodHook.h"

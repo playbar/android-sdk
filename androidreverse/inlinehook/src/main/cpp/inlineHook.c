@@ -16,6 +16,7 @@ created time: 2015-11-30
 // #include <asm/ptrace.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>
+#include <unistd.h>
 
 #include "relocate.h"
 #include "inlineHook.h"

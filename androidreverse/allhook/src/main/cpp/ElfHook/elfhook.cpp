@@ -12,7 +12,6 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/syscall.h>
-#include <cutils/log.h>
 
 #include "common.h"
 #include "elfutils.h"
