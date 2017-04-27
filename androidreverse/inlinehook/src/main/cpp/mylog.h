@@ -7,11 +7,6 @@
 
 #include <android/log.h>
 
-#define LOG_TAG "test"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-
 #define MY_LOG_LEVEL_VERBOSE    1
 #define MY_LOG_LEVEL_DEBUG      2
 #define MY_LOG_LEVEL_INFO       3
@@ -29,6 +24,12 @@
 #endif
 
 #define MY_LOG_NOOP (void)0
+
+#define LOG_TAG "test"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 #define MY_LOG_PRINT(level, fmt, ...) \
     __android_log_print(level, MY_LOG_TAG, fmt, __VA_ARGS__ )
