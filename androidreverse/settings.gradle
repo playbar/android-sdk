@@ -1,5 +1,6 @@
-include ':allhook'
+//include ':allhook'
 include ':crack'
+include ':elfhook'
 include ':hook'
 include ':reverse'
 include ':inject'
