@@ -95,7 +95,7 @@ void testProperties()
     return;
 }
 
-JNIEXPORT void JNICALL Java_com_hook_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
+JNIEXPORT void JNICALL Java_com_hook_project_HelloJni_nativeMsg(JNIEnv* env, jobject thiz)
 {
     int result = 0;
     result = hook_entry("test");
@@ -113,7 +113,7 @@ JNIEXPORT void JNICALL Java_com_hook_HelloJni_nativeMsg(JNIEnv* env, jobject thi
     LOGE("F:%s,%s", __FUNCTION__, username);
 }
 
-JNIEXPORT jstring JNICALL Java_com_hook_HelloJni_stringFromJNI( JNIEnv* env, jobject thiz )
+JNIEXPORT jstring JNICALL Java_com_hook_project_HelloJni_stringFromJNI( JNIEnv* env, jobject thiz )
 {
 
 //    testProperties();
@@ -165,8 +165,7 @@ JNIEXPORT jstring JNICALL Java_com_hook_HelloJni_stringFromJNI( JNIEnv* env, job
     return (*env)->NewStringUTF(env, "Hello from JNI !  Compiled with ABI " ABI ".");
 }
 
-JNIEXPORT jstring JNICALL
-Java_com_hook_HelloJni_stringFromJNI_11( JNIEnv* env, jobject thiz )
+JNIEXPORT jstring JNICALL Java_com_hook_project_HelloJni_stringFromJNI_11( JNIEnv* env, jobject thiz )
 {
     return (*env)->NewStringUTF(env, "stringFromJNI_11");
 }

@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.hook;
+package com.hook.project;
 
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
+
+import com.hook.R;
+import com.hook.project.Loggvc;
 
 
 public class HelloJni extends Activity {
