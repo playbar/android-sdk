@@ -78,13 +78,6 @@ static elf_hooker __hooker;
 static JavaVM* __java_vm = NULL;
 static bool __is_attached = false;
 
-static JNIEnv* __getEnv(bool* attached);
-static void __releaseEnv(bool attached);
-//static int __set_hook(JNIEnv *env, jobject thiz);
-static int __test(JNIEnv *env, jobject thiz);
-static int __elfhooker_init(JavaVM* vm, JNIEnv* env);
-static void __elfhooker_deinit(void);
-
 static JNINativeMethod __methods[] =
 {
 //    {"setHook","()I",(void *)__set_hook },
@@ -144,7 +137,7 @@ static int __elfhooker_register_native_methods(JNIEnv* env, const char* class_na
     return JNI_TRUE;
 }
 
-static int __elfhooker_init(JavaVM* vm, JNIEnv* env)
+int __elfhooker_init(JavaVM* vm, JNIEnv* env)
 {
     log_info("hookwrapper_init() -->\r\n");
     if (!__elfhooker_register_native_methods(env, __class_name,
@@ -158,7 +151,7 @@ static int __elfhooker_init(JavaVM* vm, JNIEnv* env)
   return 0;
 }
 
-static void __elfhooker_deinit(void)
+void __elfhooker_deinit(void)
 {
     log_info("hookwrapper_deinit()->\r\n");
     return;
@@ -195,7 +188,7 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved)
     return ;
 }
 
-static JNIEnv* __getEnv(bool* attached)
+JNIEnv* __getEnv(bool* attached)
 {
     JNIEnv* env = NULL;
     *attached = false;
@@ -216,7 +209,7 @@ static JNIEnv* __getEnv(bool* attached)
     return env;
 }
 
-static void __releaseEnv(bool attached)
+void __releaseEnv(bool attached)
 {
     if (attached)
         __java_vm->DetachCurrentThread();

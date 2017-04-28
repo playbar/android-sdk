@@ -37,7 +37,7 @@ add_library(onehook SHARED
         JavaHook/JavaMethodHook.cpp
         JavaHook/ArtMethodHook.cpp
         JavaHook/DalvikMethodHook.cpp
-        JavaHook/art_quick_proxy.S
+        JavaHook/art_quick_proxy.s
         ElfHook/elfhook.cpp
         ElfHook/elfio.cpp
         ElfHook/elfutils.cpp

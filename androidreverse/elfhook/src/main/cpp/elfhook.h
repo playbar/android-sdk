@@ -13,6 +13,11 @@
 extern "C" {
 #endif
 
+JNIEnv* __getEnv(bool* attached);
+void __releaseEnv(bool attached);
+int __elfhooker_init(JavaVM* vm, JNIEnv* env);
+void __elfhooker_deinit(void);
+
 void *__nativehook_impl_dlopen(const char *filename, int flag);
 int __nativehook_impl_connect(int sockfd, struct sockaddr *serv_addr, int addrlen);
 void *__nativehook_impl_android_dlopen_ext(const char *filename, int flags, const void *extinfo) ;
