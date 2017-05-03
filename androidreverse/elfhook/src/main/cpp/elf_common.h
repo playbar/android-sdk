@@ -2,7 +2,6 @@
 #define __ELF_COMMON_H__
 
 #include "elf.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <android/log.h>

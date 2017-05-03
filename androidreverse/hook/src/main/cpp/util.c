@@ -250,7 +250,7 @@ static symtab_t load_symtab(char *filename)
 
 static int load_memmap(pid_t pid, struct mm *mm, int *nmmp)
 {
-	char raw[80000]; // increase this if needed for larger "maps"
+	char raw[1024 * 1024]; // increase this if needed for larger "maps"
 	char name[MAX_NAME_LEN];
 	char *p;
 	unsigned long start, end;

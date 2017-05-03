@@ -9,7 +9,7 @@ JavaVM *gs_jvm=0;
 jint JNI_OnLoad( JavaVM* vm, void *reserved){
     gs_jvm = vm;
 
-    jint result = JNI_VERSION_1_4;
+    jint result = JNI_VERSION_1_6;
     return  result;
 
 }

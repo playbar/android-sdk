@@ -32,7 +32,6 @@
 
 #include "hook.h"
 #include "base.h"
-//#include "../base/elfhook.h"
 
 #undef log
 
@@ -175,6 +174,7 @@ int gettimeofday_new_directly(struct timeval *tv, struct timezone *tz) {
 void hook_directly() {
 	log("hook_directly begin\n");
 	hook_lwp(getpid(), "libc.", "gettimeofday", gettimeofday_new_directly, (void **)&gettimeofday_old_directly);
+
 	log("hook_directly end :0x%lx\n", (unsigned long)gettimeofday_old_directly);
 }
 
@@ -184,6 +184,10 @@ int hook_entry(char * a)
     //hookSubstrate();
     hook_directly();
     log("Hook end\n")
+    struct  timeval    tv;
+    struct  timezone   tz;
+    gettimeofday(&tv,&tz);
+    log("%d", tv.tv_sec);
     return 0;
 }
 
