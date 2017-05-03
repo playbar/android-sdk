@@ -5,7 +5,6 @@ import android.util.Log;
 
 import java.text.SimpleDateFormat;
 
-
 /**
  * 日志打印工具类
  * @author yanzw
