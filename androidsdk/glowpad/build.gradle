@@ -1,0 +1,24 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 19
+    buildToolsVersion = '25.0.0'
+
+    defaultConfig {
+        applicationId "com.example.glowpadexample"
+        minSdkVersion 19
+        targetSdkVersion 25
+    }
+
+    buildTypes {
+        release {
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+        }
+    }
+}
+
+dependencies {
+    compile files('libs/nineoldandroids-2.4.0.jar')
+//    compile project(':glowPadView')
+//    compile 'com.android.support:support-v4:18.0.0'
+}

@@ -107,7 +107,7 @@ int elfHook(const char *soname, const char *symbol, void *replace_func, void **o
 		}
 	}
 
-	fails:
+fails:
 	closeElfBySoname(handle);
 	return 0;
 }

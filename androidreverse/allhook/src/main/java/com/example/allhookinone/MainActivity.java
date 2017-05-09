@@ -97,7 +97,7 @@ public class MainActivity extends Activity {
 		Log.i("TTT", "after3: " + getString3(entity));
 		
 		// ELFHook测试
-		HookUtils.elfhook();
+//		HookUtils.elfhook();
 	}
 
 	@Override
