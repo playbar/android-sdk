@@ -4,7 +4,7 @@ android {
     compileSdkVersion 19
     buildToolsVersion '25.0.0'
     defaultConfig {
-        applicationId 'com.reverse'
+        applicationId 'com.mktest'
         minSdkVersion 19
         targetSdkVersion 19
 //        renderscriptTargetApi 19

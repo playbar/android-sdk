@@ -11,12 +11,8 @@ android {
 //        renderscriptSupportModeEnabled true
         versionCode 1
         versionName "1.0"
-        externalNativeBuild {
-            cmake {
-                abiFilters 'armeabi-v7a'
-                arguments '-DANDROID_TOOLCHAIN=clang',
-                        "-DANDROID_STL=gnustl_static"
-            }
+        ndk {
+            abiFilters 'armeabi-v7a'
         }
     }
     buildTypes {
@@ -26,8 +22,8 @@ android {
         }
     }
     externalNativeBuild {
-        cmake {
-            path "src/main/cpp/CMakeLists.txt"
+        ndkBuild {
+            path "src/main/jni/Android.mk"
         }
     }
 

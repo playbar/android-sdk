@@ -17,7 +17,7 @@ JNI_SRC_PATH := $(LOCAL_PATH)/../../../../native-plasma/app/src/main/cpp
 include $(CLEAR_VARS)
 
 LOCAL_MODULE    := mktest
-LOCAL_SRC_FILES := assembly.s, hellojni.c, load.c
+LOCAL_SRC_FILES := assembly.s hellojni.c load.c
 LOCAL_LDLIBS    := -lm -llog -landroid
 include $(BUILD_SHARED_LIBRARY)
 
