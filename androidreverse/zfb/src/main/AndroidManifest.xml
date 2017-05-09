@@ -97,7 +97,11 @@
             </intent-filter>
         </activity>
         <service android:enabled="true" android:exported="false" android:name="com.alipay.android.phone.wallet.inwallet.service.StandAloneService"/>
-        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize" android:launchMode="singleTop" android:name="com.eg.android.AlipayGphone.AlipayLogin" android:screenOrientation="portrait" android:theme="@style/tablauncher_theme" android:windowSoftInputMode="adjustResize">
+        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize"
+            android:launchMode="singleTop"
+            android:name="com.eg.android.AlipayGphone.AlipayLogin"
+            android:screenOrientation="portrait"
+            android:theme="@style/tablauncher_theme" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -109,7 +113,8 @@
                 <action android:name="com.huawei.android.quickaction.QuickActionService"/>
             </intent-filter>
         </service>
-        <activity android:configChanges="keyboardHidden|navigation|orientation" android:name="com.alipay.mobile.quinox.LauncherActivity" android:screenOrientation="portrait" android:theme="@style/alipaylogintheme" android:windowSoftInputMode="stateAlwaysHidden">
+        <activity android:configChanges="keyboardHidden|navigation|orientation"
+            android:name="com.alipay.mobile.quinox.LauncherActivity" android:screenOrientation="portrait" android:theme="@style/alipaylogintheme" android:windowSoftInputMode="stateAlwaysHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -452,19 +457,35 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <activity android:configChanges="orientation|screenSize" android:excludeFromRecents="true" android:hardwareAccelerated="false" android:launchMode="singleTop" android:name="com.alipay.android.app.flybird.ui.window.FlyBirdWindowActivity" android:screenOrientation="portrait" android:theme="@style/MspAppTheme" android:windowSoftInputMode="stateAlwaysHidden|adjustResize">
+        <activity android:configChanges="orientation|screenSize" android:excludeFromRecents="true"
+            android:hardwareAccelerated="false" android:launchMode="singleTop"
+            android:name="com.alipay.android.app.flybird.ui.window.FlyBirdWindowActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/MspAppTheme"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <activity android:configChanges="orientation|screenSize" android:excludeFromRecents="true" android:launchMode="singleTop" android:name="com.alipay.android.app.flybird.ui.window.FlybirdLocalViewActivity" android:screenOrientation="portrait" android:theme="@android:style/Theme.Light.NoTitleBar" android:windowSoftInputMode="stateAlwaysHidden|adjustResize">
+        <activity android:configChanges="orientation|screenSize"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:name="com.alipay.android.app.flybird.ui.window.FlybirdLocalViewActivity"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Light.NoTitleBar"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <activity android:configChanges="keyboardHidden|navigation|orientation" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:name="com.alipay.android.app.ui.quickpay.window.MiniWebActivity" android:screenOrientation="behind" android:theme="@style/MspAppTheme">
+        <activity android:configChanges="keyboardHidden|navigation|orientation"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:name="com.alipay.android.app.ui.quickpay.window.MiniWebActivity"
+            android:screenOrientation="behind" android:theme="@style/MspAppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -528,7 +549,12 @@
         <activity android:configChanges="keyboardHidden|navigation|orientation" android:name="com.alipay.mobile.payee.ui.PayeeQRPayFormActivity_" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize|stateHidden"/>
         <activity android:configChanges="keyboardHidden|navigation|orientation" android:name="com.alipay.mobile.payee.ui.PayeeQRSetMoneyActivity_" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize|stateVisible"/>
         <activity android:configChanges="keyboardHidden|navigation|orientation" android:launchMode="singleTask" android:name="com.alipay.mobile.xiupeople.ui.MainActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize|stateHidden"/>
-        <activity android:configChanges="keyboardHidden|navigation|orientation" android:exported="false" android:name="com.alipay.mobile.quinox.activity.StubActivity" android:screenOrientation="portrait" android:windowSoftInputMode="stateHidden">
+
+        <activity android:configChanges="keyboardHidden|navigation|orientation"
+            android:exported="false"
+            android:name="com.alipay.mobile.quinox.activity.StubActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="stateHidden">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <action android:name="android.intent.action.MAIN"/>
@@ -652,7 +678,14 @@
         <activity android:configChanges="keyboardHidden|navigation|orientation" android:name="com.alipay.mobile.socialcontactsdk.contact.ui.AddFriendDialogActivity_" android:screenOrientation="portrait" android:theme="@style/TransparentNoAnimationTheme" android:windowSoftInputMode="adjustPan|stateHidden"/>
         <activity android:configChanges="keyboardHidden|navigation|orientation" android:name="com.alipay.mobile.socialcontactsdk.contact.ui.TransparentActivity" android:screenOrientation="portrait" android:theme="@style/TransparentNoAnimationTheme"/>
         <activity android:configChanges="keyboardHidden|navigation|orientation" android:hardwareAccelerated="true" android:name="com.alipay.mobile.socialcontactsdk.contact.ui.NotFrequentlyContactsActivity_" android:screenOrientation="portrait" android:windowSoftInputMode="adjustPan"/>
-        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize" android:exported="false" android:hardwareAccelerated="true" android:name="com.alipay.mobile.nebulacore.ui.H5Activity" android:screenOrientation="portrait" android:theme="@style/tablauncher_theme" android:windowSoftInputMode="adjustPan">
+
+        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:name="com.alipay.mobile.nebulacore.ui.H5Activity"
+            android:screenOrientation="portrait"
+            android:theme="@style/tablauncher_theme"
+            android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -663,13 +696,33 @@
         <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize" android:exported="false" android:hardwareAccelerated="true" android:name="com.alipay.mobile.nebulacore.ui.H5NetworkCheckActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustPan"/>
         <activity android:configChanges="keyboardHidden|navigation|orientation" android:exported="false" android:name="com.alipay.mobile.nebulacore.dev.ui.H5DevSettingsActivity" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize|stateHidden"/>
         <activity android:configChanges="locale|fontScale|keyboard|keyboardHidden|mcc|mnc|navigation|orientation|touchscreen" android:name="com.alipay.mobile.nebulacore.wallet.H5DevAppActivity" android:screenOrientation="portrait" android:theme="@style/TransparentNoAnimationTheme" android:windowSoftInputMode="adjustResize|stateHidden"/>
-        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize" android:exported="false" android:hardwareAccelerated="true" android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity1" android:process=":lite1" android:screenOrientation="portrait" android:taskAffinity=":lite1" android:theme="@style/tablauncher_theme" android:windowDisablePreview="true" android:windowIsTranslucent="false" android:windowSoftInputMode="adjustPan">
+
+        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity1"
+            android:process=":lite1"
+            android:screenOrientation="portrait"
+            android:taskAffinity=":lite1"
+            android:theme="@style/tablauncher_theme"
+            android:windowDisablePreview="true"
+            android:windowIsTranslucent="false"
+            android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize" android:exported="false" android:hardwareAccelerated="true" android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity2" android:process=":lite2" android:screenOrientation="portrait" android:taskAffinity=":lite2" android:theme="@style/tablauncher_theme" android:windowDisablePreview="true" android:windowIsTranslucent="false" android:windowSoftInputMode="adjustPan">
+        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize"
+            android:exported="false" android:hardwareAccelerated="true"
+            android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity2"
+            android:process=":lite2"
+            android:screenOrientation="portrait"
+            android:taskAffinity=":lite2"
+            android:theme="@style/tablauncher_theme"
+            android:windowDisablePreview="true"
+            android:windowIsTranslucent="false"
+            android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -681,13 +734,22 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize" android:exported="false" android:hardwareAccelerated="true" android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity4" android:process=":lite4" android:screenOrientation="portrait" android:taskAffinity=":lite4" android:theme="@style/tablauncher_theme" android:windowDisablePreview="true" android:windowIsTranslucent="false" android:windowSoftInputMode="adjustPan">
+        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize"
+            android:exported="false" android:hardwareAccelerated="true"
+            android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity4" android:process=":lite4" android:screenOrientation="portrait" android:taskAffinity=":lite4" android:theme="@style/tablauncher_theme" android:windowDisablePreview="true" android:windowIsTranslucent="false" android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize" android:exported="false" android:hardwareAccelerated="true" android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity5" android:process=":lite5" android:screenOrientation="portrait" android:taskAffinity=":lite5" android:theme="@style/tablauncher_theme" android:windowDisablePreview="true" android:windowIsTranslucent="false" android:windowSoftInputMode="adjustPan">
+        <activity android:configChanges="keyboardHidden|navigation|orientation|screenSize"
+            android:exported="false" android:hardwareAccelerated="true"
+            android:name="com.alipay.mobile.nebulacore.ui.H5Activity$H5Activity5"
+            android:process=":lite5" android:screenOrientation="portrait"
+            android:taskAffinity=":lite5"
+            android:theme="@style/tablauncher_theme"
+            android:windowDisablePreview="true"
+            android:windowIsTranslucent="false" android:windowSoftInputMode="adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
