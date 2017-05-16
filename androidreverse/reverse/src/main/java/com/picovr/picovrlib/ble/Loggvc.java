@@ -1,4 +1,4 @@
-package com.reverse;
+package com.picovr.picovrlib.ble;
 
 
 import android.util.Log;
@@ -6,11 +6,7 @@ import android.util.Log;
 import java.text.SimpleDateFormat;
 
 
-/**
- * 日志打印工具类
- * @author yanzw
- * @date: 2015-1-16 上午11:04:57
- */
+
 public class Loggvc {
 
 	private static String TAG = "viewcore";

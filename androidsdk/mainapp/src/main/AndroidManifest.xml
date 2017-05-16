@@ -14,7 +14,7 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity
-            android:name=".colorpicker.MainActivity"
+            android:name=".eventbustest.MainActivity"
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -23,6 +23,7 @@
         </activity>
         <activity android:name=".gv.activity.FirstActivity"></activity>
         <activity android:name=".gv.activity.SecondActivity"></activity>
+        <activity android:name=".eventbustest.SecondActivity"></activity>
 
     </application>
 

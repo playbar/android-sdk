@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import com.picovr.picovrlib.ble.Loggvc;
+
 public class HelloJni extends Activity {
 
     @Override
