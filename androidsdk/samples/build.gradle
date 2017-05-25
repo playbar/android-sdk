@@ -13,7 +13,7 @@ android {
         }
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID_PLATFORM=android-9',
+                arguments '-DANDROID_PLATFORM=android-19',
                         '-DANDROID_TOOLCHAIN=clang', '-DANDROID_STL=gnustl_static'
             }
         }

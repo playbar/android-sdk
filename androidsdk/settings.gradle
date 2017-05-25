@@ -1,4 +1,6 @@
+include ':flipview'
 include ':nativeactivity'
 include ':samples'
 include ':mainapp'
 include ':glowpad'
+

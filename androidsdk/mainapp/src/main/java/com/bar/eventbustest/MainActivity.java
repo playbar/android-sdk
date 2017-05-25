@@ -11,6 +11,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.concurrent.TimeUnit;
+
 public class MainActivity extends Activity {
 
 	Button btn;
@@ -22,6 +24,13 @@ public class MainActivity extends Activity {
 		setContentView(R.layout.activity_main_eventbus);
 
 		EventBus.getDefault().register(this);
+
+		double x = 1.1;
+		double y = 2.2;
+		double z = 3.3;
+		String str = String.format("%+05f %+05f %+05f", x, y, z);
+		double time = (double) TimeUnit.NANOSECONDS.convert(1, TimeUnit.SECONDS);
+		Log.i("onCreate", str + "," + time );
 
 		btn = (Button) findViewById(R.id.btn_try);
 		tv = (TextView)findViewById(R.id.tv);
