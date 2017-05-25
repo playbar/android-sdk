@@ -1,7 +1,7 @@
-include ':flipview'
-include ':legacy'
-include ':nativeactivity'
-include ':samples'
-include ':mainapp'
-include ':glowpad'
+include ':cardlayout'
+//include ':legacy'
+//include ':nativeactivity'
+//include ':samples'
+//include ':mainapp'
+//include ':glowpad'
 
