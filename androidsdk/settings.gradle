@@ -1,4 +1,5 @@
 include ':flipview'
+include ':legacy'
 include ':nativeactivity'
 include ':samples'
 include ':mainapp'
