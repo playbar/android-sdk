@@ -1,5 +1,6 @@
 include ':cardlayout'
 include ':viewpage'
+include ':nineoldandroids'
 //include ':legacy'
 //include ':nativeactivity'
 //include ':samples'
