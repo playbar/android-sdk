@@ -1,0 +1,3 @@
+include ':blueToothDemo'
+include ':controller'
+include ':SimpleDemo'

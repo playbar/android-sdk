@@ -116,6 +116,7 @@ Java_com_droider_HelloJni_stringFromJNI( JNIEnv* env,
                                                   jobject thiz )
 {
 
+    LOGE(__FUNCTION__);
 //    testProperties();
 //    testcode6();
 

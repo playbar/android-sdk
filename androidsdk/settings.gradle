@@ -4,7 +4,7 @@ include ':creditsroll'
 //include ':nineoldandroids'
 //include ':legacy'
 //include ':nativeactivity'
-//include ':samples'
+include ':samples'
 //include ':mainapp'
 //include ':glowpad'
 
