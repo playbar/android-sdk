@@ -2,6 +2,7 @@ package edu.cs4730.controllersimpledemo;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -106,22 +107,24 @@ public class MainActivity extends AppCompatActivity {
 
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                 switch (event.getKeyCode()) {
-                    case KeyEvent.KEYCODE_BUTTON_X:
-                        last.setText("X Button");
-                        handled = true;
-                        break;
-                    case KeyEvent.KEYCODE_BUTTON_A:
-                        last.setText("A Button");
-                        handled = true;
-                        break;
-                    case KeyEvent.KEYCODE_BUTTON_Y:
-                        last.setText("Y Button");
-                        handled = true;
-                        break;
-                    case KeyEvent.KEYCODE_BUTTON_B:
-                        last.setText("B Button");
-                        handled = true;
-                        break;
+//                    case KeyEvent.KEYCODE_BUTTON_X:
+//                        last.setText("X Button");
+//                        handled = true;
+//                        break;
+//                    case KeyEvent.KEYCODE_BUTTON_A:
+//                        last.setText("A Button");
+//                        handled = true;
+//                        break;
+//                    case KeyEvent.KEYCODE_BUTTON_Y:
+//                        last.setText("Y Button");
+//                        handled = true;
+//                        break;
+//                    case KeyEvent.KEYCODE_BUTTON_B:
+//                        last.setText("B Button");
+//                        handled = true;
+//                        break;
+                    default:
+                        Log.e("default:", "event code:" + event.getKeyCode());
                 }
                 if (!handled)
                   logger.append("code is " + event.getKeyCode() + "\n");
