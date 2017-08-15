@@ -26,7 +26,7 @@
 #include <sys/system_properties.h>
 #include <dlfcn.h>
 #include "inlineHook.h"
-
+#include "hellojni.h"
 
 #define ABI "armeabi-v7a"
 
@@ -178,7 +178,9 @@ void loadLib()
     return;
 }
 
-int (*old_puts)(const char *) = NULL;
+//int (*old_puts)(const char *) = NULL;
+
+FP_old_puts old_puts = NULL;
 
 int new_puts(const char *string)
 {
