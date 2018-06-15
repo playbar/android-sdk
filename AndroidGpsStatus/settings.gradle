@@ -1,1 +1,4 @@
-include ':GpsStatusLibrary', ':app'
+include ':GpsStatusLibrary'
+include ':app'
+include ':gpstest'
+include ':mygps'
